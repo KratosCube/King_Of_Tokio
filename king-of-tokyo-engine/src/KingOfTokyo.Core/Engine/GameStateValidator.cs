@@ -499,6 +499,54 @@ public sealed class GameStateValidator
         }
     }
 
+    public void EnsureCanActivateMetamorph(GameState gameState, ActivateMetamorphCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(gameState);
+        ArgumentNullException.ThrowIfNull(command);
+
+        if (gameState.Status != GameStatus.Running)
+        {
+            throw new InvalidOperationException("Cannot activate Metamorph when game is not running.");
+        }
+
+        if (gameState.CurrentTurn is null)
+        {
+            throw new InvalidOperationException("Cannot activate Metamorph without an active turn.");
+        }
+
+        if (gameState.PendingDecision is not null)
+        {
+            throw new InvalidOperationException("Cannot activate Metamorph while another decision is pending.");
+        }
+
+        if (gameState.CurrentTurn.Phase != TurnPhase.Purchase)
+        {
+            throw new InvalidOperationException("Metamorph can only be used during the purchase phase.");
+        }
+
+        var currentPlayer = gameState.GetCurrentPlayer();
+
+        if (command.ActorPlayerId.HasValue && command.ActorPlayerId.Value != currentPlayer.PlayerId)
+        {
+            throw new InvalidOperationException("Actor does not match the current player.");
+        }
+
+        if (!currentPlayer.HasKeepCard(Services.KeepCardRulesService.MetamorphCardId))
+        {
+            throw new InvalidOperationException("Player cannot use Metamorph right now.");
+        }
+
+        if (command.CardIdToDiscard == Services.KeepCardRulesService.MetamorphCardId)
+        {
+            throw new InvalidOperationException("Metamorph cannot discard itself for this activation.");
+        }
+
+        if (!currentPlayer.HasKeepCard(command.CardIdToDiscard))
+        {
+            throw new InvalidOperationException("Player does not own selected keep card.");
+        }
+    }
+
     public void EnsureCanPeekTopDeckCard(GameState gameState, PeekTopDeckCardCommand command)
     {
         ArgumentNullException.ThrowIfNull(gameState);
