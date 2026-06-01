@@ -194,6 +194,11 @@ public sealed class MarketPurchaseService
             events.Add(new TokyoEnteredEvent(player.PlayerId, enteredSlot));
         }
 
+        if (boughtCard.CardId == KnownCardIds.Frenzy)
+        {
+            gameState.ScheduleExtraTurn(player.PlayerId);
+        }
+
         if (effect.DamageAllOthers > 0)
         {
             ApplyCardEffectDamageToTargets(
