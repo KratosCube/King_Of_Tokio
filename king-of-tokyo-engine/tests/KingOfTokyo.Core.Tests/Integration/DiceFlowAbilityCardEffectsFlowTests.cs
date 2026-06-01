@@ -6,6 +6,7 @@ using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Engine;
+using KingOfTokyo.Core.Events;
 using KingOfTokyo.Core.Rules.Dice;
 using KingOfTokyo.Core.Services;
 using Xunit;
@@ -126,6 +127,86 @@ public sealed class DiceFlowAbilityCardEffectsFlowTests
 
         Assert.False(result.Success);
         Assert.Equal(DieFace.Two, gameState.CurrentTurn.DicePool.Dice[3].CurrentFace);
+    }
+
+    [Fact]
+    public void ActivateMetamorph_Should_DiscardOwnedKeepCard_AndGainEnergyEqualToCost()
+    {
+        var gameState = CreateGameState(4);
+        var player = gameState.GetCurrentPlayer();
+
+        player.AddKeepCard(new MarketCardState(
+            KnownCardIds.Metamorph,
+            "Metamorph",
+            "At the end of your turn, you may discard one of your keep cards to gain energy equal to its cost.",
+            3,
+            MarketCardType.Keep));
+        player.AddKeepCard(new MarketCardState(
+            KnownCardIds.ExtraHead,
+            "Extra Head",
+            "You have 1 extra die.",
+            7,
+            MarketCardType.Keep));
+
+        var engine = CreateEngine(
+            DieFace.One, DieFace.Two, DieFace.Three,
+            DieFace.Heart, DieFace.Heart, DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(player.PlayerId));
+        engine.Execute(gameState, new FinalizeDiceCommand(player.PlayerId));
+
+        var result = engine.Execute(gameState, new ActivateMetamorphCommand(KnownCardIds.ExtraHead, player.PlayerId));
+
+        Assert.True(result.Success);
+        Assert.False(player.HasKeepCard(KnownCardIds.ExtraHead));
+        Assert.True(player.HasKeepCard(KnownCardIds.Metamorph));
+        Assert.Equal(8, player.Energy);
+        Assert.Single(gameState.Market.DiscardPile);
+        Assert.Equal(KnownCardIds.ExtraHead, gameState.Market.DiscardPile[0].CardId);
+        Assert.Contains(result.NewEvents, e => e is KeepCardDiscardedEvent discarded &&
+                                               discarded.PlayerId == player.PlayerId &&
+                                               discarded.CardId == KnownCardIds.ExtraHead);
+    }
+
+    [Fact]
+    public void ActivateMetamorph_Should_ApplyEvenBiggerLossEffect_WhenDiscardingEvenBigger()
+    {
+        var gameState = CreateGameState(4);
+        var player = gameState.GetCurrentPlayer();
+
+        player.AddKeepCard(new MarketCardState(
+            KnownCardIds.Metamorph,
+            "Metamorph",
+            "At the end of your turn, you may discard one of your keep cards to gain energy equal to its cost.",
+            3,
+            MarketCardType.Keep));
+        player.AddKeepCard(new MarketCardState(
+            KnownCardIds.EvenBigger,
+            "Even Bigger",
+            "Your maximum health is increased by 2.",
+            8,
+            MarketCardType.Keep));
+        player.IncreaseMaxHealth(2);
+        player.Heal(2);
+
+        var engine = CreateEngine(
+            DieFace.One, DieFace.Two, DieFace.Three,
+            DieFace.Heart, DieFace.Heart, DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(player.PlayerId));
+        engine.Execute(gameState, new FinalizeDiceCommand(player.PlayerId));
+
+        var result = engine.Execute(gameState, new ActivateMetamorphCommand(KnownCardIds.EvenBigger, player.PlayerId));
+
+        Assert.True(result.Success);
+        Assert.False(player.HasKeepCard(KnownCardIds.EvenBigger));
+        Assert.Equal(10, player.MaxHealth);
+        Assert.Equal(10, player.Health);
+        Assert.Equal(9, player.Energy);
     }
 
     [Fact]
