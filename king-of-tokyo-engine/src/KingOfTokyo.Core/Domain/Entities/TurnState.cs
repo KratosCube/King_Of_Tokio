@@ -14,6 +14,8 @@ public sealed class TurnState
     public int RollCountUsed { get; private set; }
     public int MaxRolls { get; private set; }
     public int DiceCount { get; }
+    public int DiceCountModifier { get; }
+    public bool IsExtraTurn { get; }
     public DicePoolState DicePool { get; }
     public bool DiceResolved { get; private set; }
     public bool PurchasePhaseFinished { get; private set; }
@@ -21,7 +23,12 @@ public sealed class TurnState
 
     public bool HasPendingTokyoLeaveDecisions => _pendingTokyoLeaveDecisions.Count > 0;
 
-    public TurnState(int currentPlayerId, int diceCount = 6, int maxRolls = 3)
+    public TurnState(
+        int currentPlayerId,
+        int diceCount = 6,
+        int maxRolls = 3,
+        bool isExtraTurn = false,
+        int diceCountModifier = 0)
     {
         if (currentPlayerId < 0)
         {
@@ -40,6 +47,8 @@ public sealed class TurnState
 
         CurrentPlayerId = currentPlayerId;
         DiceCount = diceCount;
+        DiceCountModifier = diceCountModifier;
+        IsExtraTurn = isExtraTurn;
         MaxRolls = maxRolls;
         DicePool = new DicePoolState(diceCount);
         Flags = new TurnFlags();
