@@ -26,7 +26,7 @@ public sealed class RepresentativeGameFlowTests
             // Player 0: attacks into empty Tokyo, gains 3 energy, then buys Heal.
             DieFace.Attack, DieFace.Energy, DieFace.Energy,
             DieFace.Energy, DieFace.One, DieFace.Two,
-            // Player 1: scores 2s, attacks player 0 in Tokyo, and takes Tokyo after player 0 leaves.
+            // Player 1: scores 2 VP from three 2s, attacks player 0 in Tokyo, and takes Tokyo after player 0 leaves.
             DieFace.Attack, DieFace.Attack, DieFace.Two,
             DieFace.Two, DieFace.Two, DieFace.Energy,
             // Player 2: attacks player 1 in Tokyo; player 1 stays.
@@ -68,7 +68,7 @@ public sealed class RepresentativeGameFlowTests
         Assert.Equal(DecisionType.LeaveTokyo, player1Finalize.PendingDecision!.DecisionType);
         Assert.Equal(player0.PlayerId, player1Finalize.PendingDecision.PlayerId);
         Assert.Equal(8, player0.Health);
-        Assert.Equal(3, player1.VictoryPoints);
+        Assert.Equal(2, player1.VictoryPoints);
         Assert.Equal(1, player1.Energy);
 
         var player0LeavesTokyo = ExecuteSuccessful(engine, gameState, new ChooseLeaveTokyoCommand(true, player0.PlayerId));
@@ -76,7 +76,7 @@ public sealed class RepresentativeGameFlowTests
         Assert.Equal(TokyoSlot.None, player0.TokyoSlot);
         Assert.Equal(TokyoSlot.City, player1.TokyoSlot);
         Assert.Equal(player1.PlayerId, gameState.Tokyo.CityOccupantId);
-        Assert.Equal(4, player1.VictoryPoints);
+        Assert.Equal(3, player1.VictoryPoints);
         Assert.Equal(TurnPhase.Purchase, gameState.CurrentTurn!.Phase);
         Assert.Contains(player0LeavesTokyo.NewEvents, e => e is TokyoLeftEvent left && left.PlayerId == player0.PlayerId);
         Assert.Contains(player0LeavesTokyo.NewEvents, e => e is TokyoEnteredEvent entered && entered.PlayerId == player1.PlayerId);
@@ -119,7 +119,7 @@ public sealed class RepresentativeGameFlowTests
 
         ExecuteSuccessful(engine, gameState, new BeginTurnCommand(player1.PlayerId));
 
-        Assert.Equal(6, player1.VictoryPoints);
+        Assert.Equal(5, player1.VictoryPoints);
         Assert.True(gameState.CurrentTurn!.Flags.StartedTurnInTokyo);
         Assert.Equal(GameStatus.Running, gameState.Status);
         Assert.Null(gameState.WinnerInfo);
