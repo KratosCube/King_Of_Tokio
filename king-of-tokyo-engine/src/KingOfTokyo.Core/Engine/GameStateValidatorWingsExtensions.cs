@@ -3,6 +3,7 @@ using KingOfTokyo.Core.Decisions;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
+using KingOfTokyo.Core.Events;
 using KingOfTokyo.Core.Services;
 
 namespace KingOfTokyo.Core.Engine;
@@ -61,7 +62,7 @@ public static class GameStateValidatorWingsExtensions
             throw new InvalidOperationException("Only the pending Tokyo defender can activate Wings right now.");
         }
 
-        if (gameState.CurrentTurn.GetDamageTakenThisTurn(player.PlayerId) <= 0)
+        if (GetNetDamageTakenThisTurn(gameState, player.PlayerId) <= 0)
         {
             throw new InvalidOperationException("Player has not taken damage during this turn.");
         }
@@ -70,5 +71,28 @@ public static class GameStateValidatorWingsExtensions
         {
             throw new InvalidOperationException("Player has no damage left to cancel.");
         }
+    }
+
+    internal static int GetNetDamageTakenThisTurn(GameState gameState, int playerId)
+    {
+        var currentTurnPlayerId = gameState.CurrentTurn?.CurrentPlayerId;
+        var eventsThisTurn = currentTurnPlayerId.HasValue
+            ? gameState.EventLog
+                .Reverse()
+                .TakeWhile(gameEvent => gameEvent is not TurnStartedEvent started || started.PlayerId != currentTurnPlayerId.Value)
+                .Reverse()
+            : gameState.EventLog;
+
+        var damageTaken = eventsThisTurn
+            .OfType<DamageDealtEvent>()
+            .Where(gameEvent => gameEvent.TargetPlayerId == playerId)
+            .Sum(gameEvent => gameEvent.Amount);
+
+        var damageCanceled = eventsThisTurn
+            .OfType<DamageCanceledEvent>()
+            .Where(gameEvent => gameEvent.PlayerId == playerId)
+            .Sum(gameEvent => gameEvent.Amount);
+
+        return Math.Max(0, damageTaken - damageCanceled);
     }
 }
