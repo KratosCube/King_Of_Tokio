@@ -434,10 +434,12 @@ public sealed class FinalizeDiceService
         {
             DecisionType = DecisionType.LeaveTokyo,
             PlayerId = context.DefenderPlayerId,
-            Payload = new LeaveTokyoDecisionData(
-                context.AttackerPlayerId,
-                context.DefenderPlayerId,
-                context.DamageTaken)
+            Payload = new LeaveTokyoDecisionData
+            {
+                AttackerPlayerId = context.AttackerPlayerId,
+                DefenderPlayerId = context.DefenderPlayerId,
+                DamageTaken = context.DamageTaken
+            }
         };
     }
 
