@@ -8,6 +8,7 @@ public sealed class KeepCardRulesService
 {
     public const int BaseDiceCount = 6;
     public const int MinimumDiceCount = 1;
+    public const int WingsCost = 2;
     public const string MetamorphCardId = KnownCardIds.Metamorph;
     public const string PlotTwistCardId = KnownCardIds.PlotTwist;
 
@@ -88,6 +89,12 @@ public sealed class KeepCardRulesService
     {
         ArgumentNullException.ThrowIfNull(player);
         return player.HasKeepCard(KnownCardIds.MadeInALab);
+    }
+
+    public bool CanUseWings(PlayerState player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        return player.HasKeepCard(KnownCardIds.Wings) && player.Energy >= WingsCost;
     }
 
     public bool HasNovaBreath(PlayerState player)
