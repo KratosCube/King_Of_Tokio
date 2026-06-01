@@ -24,6 +24,13 @@ public sealed class DamageApplier
         var healthBefore = target.Health;
         target.TakeDamage(finalDamage);
 
-        return healthBefore - target.Health;
+        var actualDamage = healthBefore - target.Health;
+        var victoryPoints = _keepCardRulesService.GetVictoryPointsWhenTakingDamage(target, actualDamage);
+        if (victoryPoints > 0)
+        {
+            target.GainVictoryPoints(victoryPoints);
+        }
+
+        return actualDamage;
     }
 }
