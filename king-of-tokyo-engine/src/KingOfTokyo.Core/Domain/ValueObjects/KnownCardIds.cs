@@ -57,6 +57,7 @@ public static class KnownCardIds
     public const string HerdCuller = "card-herd-culler";
     public const string MadeInALab = "card-made-in-a-lab";
     public const string Metamorph = "card-metamorph";
+    public const string PlotTwist = "card-plot-twist";
     public const string ExtraHead = "card-extra-head";
     public const string Telepath = "card-telepath";
     public const string Stretchy = "card-stretchy";
