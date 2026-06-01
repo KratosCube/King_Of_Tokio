@@ -42,6 +42,38 @@ public sealed class DiceFlowTests
     }
 
     [Fact]
+    public void BeginTurn_Should_ReduceDiceCountByShrinkTokens()
+    {
+        var gameState = CreateGameState(4);
+        var currentPlayer = gameState.GetPlayerById(0);
+        currentPlayer.Status.AddShrinkTokens(2);
+        var engine = CreateEngine();
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        var result = engine.Execute(gameState, new BeginTurnCommand(0));
+
+        Assert.True(result.Success);
+        Assert.Equal(4, gameState.CurrentTurn!.DiceCount);
+        Assert.Equal(4, gameState.CurrentTurn.DicePool.Dice.Count);
+    }
+
+    [Fact]
+    public void BeginTurn_Should_NeverReduceDiceCountBelowOne()
+    {
+        var gameState = CreateGameState(4);
+        var currentPlayer = gameState.GetPlayerById(0);
+        currentPlayer.Status.AddShrinkTokens(20);
+        var engine = CreateEngine();
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        var result = engine.Execute(gameState, new BeginTurnCommand(0));
+
+        Assert.True(result.Success);
+        Assert.Equal(1, gameState.CurrentTurn!.DiceCount);
+        Assert.Single(gameState.CurrentTurn.DicePool.Dice);
+    }
+
+    [Fact]
     public void RerollDice_Should_OnlyChangeSelectedDice_AndIncrementRollCount()
     {
         var gameState = CreateGameState(4);
