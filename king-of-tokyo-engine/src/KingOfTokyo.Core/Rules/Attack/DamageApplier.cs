@@ -19,6 +19,11 @@ public sealed class DamageApplier
 
     public int ApplyDamage(PlayerState target, DamagePacket packet)
     {
+        return ApplyDamage(target, packet, currentTurn: null);
+    }
+
+    public int ApplyDamage(PlayerState target, DamagePacket packet, TurnState? currentTurn)
+    {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(packet);
 
@@ -28,6 +33,11 @@ public sealed class DamageApplier
         target.TakeDamage(preventionResult.FinalAmount);
 
         var actualDamage = healthBefore - target.Health;
+        if (actualDamage > 0)
+        {
+            currentTurn?.RecordDamageTaken(target.PlayerId, actualDamage);
+        }
+
         var victoryPoints = _keepCardRulesService.GetVictoryPointsWhenTakingDamage(target, actualDamage);
         if (victoryPoints > 0)
         {
