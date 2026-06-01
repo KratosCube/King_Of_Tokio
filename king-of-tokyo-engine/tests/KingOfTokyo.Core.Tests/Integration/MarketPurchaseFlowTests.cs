@@ -46,6 +46,87 @@ public sealed class MarketPurchaseFlowTests
     }
 
     [Fact]
+    public void BuyFaceUpCard_Should_UseMonsterBatteriesStoredEnergy_WhenPlayerEnergyIsInsufficient()
+    {
+        var testCard = new MarketCardState(
+            "card-test-cost-5",
+            "Cost 5 Card",
+            "Test card.",
+            5,
+            MarketCardType.Keep);
+        var gameState = CreateGameState(4);
+        var marketSetupService = new MarketSetupService(new[]
+        {
+            testCard,
+            new MarketCardState(KnownCardIds.Heal, "Heal", "Heal 2 damage.", 3, MarketCardType.Discard, new CardPurchaseEffect { Heal = 2 }),
+            new MarketCardState(KnownCardIds.ApartmentBuilding, "Apartment Building", "+3 victory points.", 5, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 3 })
+        });
+        var engine = CreateEngineWithMarket(marketSetupService,
+            DieFace.Energy, DieFace.Energy, DieFace.Energy,
+            DieFace.One, DieFace.Two, DieFace.Three);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(0));
+        engine.Execute(gameState, new RollDiceCommand(0));
+        engine.Execute(gameState, new FinalizeDiceCommand(0));
+
+        var currentPlayer = gameState.GetCurrentPlayer();
+        var batteries = CreateMonsterBatteries(storedEnergy: 4);
+        currentPlayer.AddKeepCard(batteries);
+
+        var result = engine.Execute(gameState, new BuyFaceUpCardCommand(0, currentPlayer.PlayerId));
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(0, currentPlayer.Energy);
+        Assert.Equal(2, batteries.StoredEnergy);
+        Assert.Contains(testCard, currentPlayer.KeepCards);
+        Assert.Contains(batteries, currentPlayer.KeepCards);
+        Assert.DoesNotContain(gameState.Market.DiscardPile, card => card.CardId == KnownCardIds.MonsterBatteries);
+    }
+
+    [Fact]
+    public void BuyFaceUpCard_Should_DiscardMonsterBatteries_WhenPurchaseSpendsLastStoredEnergy()
+    {
+        var testCard = new MarketCardState(
+            "card-test-cost-5",
+            "Cost 5 Card",
+            "Test card.",
+            5,
+            MarketCardType.Keep);
+        var gameState = CreateGameState(4);
+        var marketSetupService = new MarketSetupService(new[]
+        {
+            testCard,
+            new MarketCardState(KnownCardIds.Heal, "Heal", "Heal 2 damage.", 3, MarketCardType.Discard, new CardPurchaseEffect { Heal = 2 }),
+            new MarketCardState(KnownCardIds.ApartmentBuilding, "Apartment Building", "+3 victory points.", 5, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 3 })
+        });
+        var engine = CreateEngineWithMarket(marketSetupService,
+            DieFace.Energy, DieFace.Energy, DieFace.Energy,
+            DieFace.One, DieFace.Two, DieFace.Three);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(0));
+        engine.Execute(gameState, new RollDiceCommand(0));
+        engine.Execute(gameState, new FinalizeDiceCommand(0));
+
+        var currentPlayer = gameState.GetCurrentPlayer();
+        currentPlayer.AddKeepCard(CreateMonsterBatteries(storedEnergy: 2));
+
+        var result = engine.Execute(gameState, new BuyFaceUpCardCommand(0, currentPlayer.PlayerId));
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(0, currentPlayer.Energy);
+        Assert.Contains(testCard, currentPlayer.KeepCards);
+        Assert.DoesNotContain(currentPlayer.KeepCards, card => card.CardId == KnownCardIds.MonsterBatteries);
+        Assert.Contains(gameState.Market.DiscardPile, card =>
+            card.CardId == KnownCardIds.MonsterBatteries &&
+            card.StoredEnergy == 0);
+        Assert.Contains(result.NewEvents, e => e is KeepCardDiscardedEvent discarded &&
+                                               discarded.PlayerId == currentPlayer.PlayerId &&
+                                               discarded.CardId == KnownCardIds.MonsterBatteries);
+    }
+
+    [Fact]
     public void BuyFaceUpCard_Should_ApplyHealDiscardEffect_AndDiscardTheCard()
     {
         var gameState = CreateGameState(4);
@@ -178,6 +259,17 @@ public sealed class MarketPurchaseFlowTests
         return new GameEngine(
             diceRollService: new DiceRollService(new SequenceRandomSource(sequence)),
             marketSetupService: marketSetupService);
+    }
+
+    private static MarketCardState CreateMonsterBatteries(int storedEnergy)
+    {
+        return new MarketCardState(
+            KnownCardIds.MonsterBatteries,
+            "Monster Batteries",
+            "Starts with 6 stored energy. At the end of each turn, lose 2 stored energy. Discard when empty.",
+            5,
+            MarketCardType.Keep,
+            storedEnergy: storedEnergy);
     }
 
     private sealed class SequenceRandomSource : IRandomSource
