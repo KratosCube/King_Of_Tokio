@@ -31,9 +31,12 @@ public sealed class CommandResult
         IReadOnlyList<GameEventBase>? newEvents = null,
         PendingDecision? pendingDecision = null)
     {
+        var events = newEvents ?? Array.Empty<GameEventBase>();
+        gameState.RecordSuccessfulCommand(events);
+
         return new CommandResult(
             gameState,
-            newEvents ?? Array.Empty<GameEventBase>(),
+            events,
             pendingDecision,
             true,
             null);
