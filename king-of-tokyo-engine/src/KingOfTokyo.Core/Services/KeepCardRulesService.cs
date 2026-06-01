@@ -118,6 +118,11 @@ public sealed class KeepCardRulesService
             bonusDamage += 1;
         }
 
+        if (player.HasKeepCard(KnownCardIds.AcidAttack))
+        {
+            bonusDamage += 1;
+        }
+
         if (player.TokyoSlot != TokyoSlot.None &&
             player.HasKeepCard(KnownCardIds.Urbavore))
         {
