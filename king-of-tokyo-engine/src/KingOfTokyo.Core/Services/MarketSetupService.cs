@@ -64,6 +64,7 @@ public sealed class MarketSetupService
             new(KnownCardIds.GasRefinery, "Gas Refinery", "+2 victory points and deal 3 damage to all other monsters.", 6, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 2, DamageAllOthers = 3 }),
             new(KnownCardIds.Skyscraper, "Skyscraper", "+4 victory points.", 6, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 4 }),
             new(KnownCardIds.VastStorm, "Vast Storm", "+2 victory points. All other monsters lose 1 health for every 2 energy they have.", 6, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 2, DamageOthersPerTwoEnergy = 1 }),
+            new(KnownCardIds.HerdCuller, "Herd Culler", "Once per turn, you may change one die to 1.", 3, MarketCardType.Keep),
             new(KnownCardIds.MadeInALab, "Made in a Lab", "During your purchase phase, you may look at the top card of the deck and buy it.", 2, MarketCardType.Keep),
             new(KnownCardIds.ExtraHead, "Extra Head", "You have 1 extra die.", 7, MarketCardType.Keep),
             new(KnownCardIds.Telepath, "Telepath", "Spend 1 energy to gain 1 extra reroll.", 4, MarketCardType.Keep),
