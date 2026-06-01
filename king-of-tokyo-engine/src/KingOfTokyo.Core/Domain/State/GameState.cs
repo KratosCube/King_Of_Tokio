@@ -10,6 +10,7 @@ public sealed class GameState
 {
     private readonly List<PlayerState> _players;
     private readonly List<GameEventBase> _eventLog = new();
+    private readonly Queue<int> _scheduledTurnPlayerIds = new();
 
     public Guid GameId { get; }
     public long Version { get; private set; }
@@ -23,6 +24,7 @@ public sealed class GameState
     public WinnerInfo? WinnerInfo { get; private set; }
     public PendingDecision? PendingDecision { get; private set; }
     public IReadOnlyList<GameEventBase> EventLog => _eventLog;
+    public IReadOnlyList<int> ScheduledTurnPlayerIds => _scheduledTurnPlayerIds.ToArray();
 
     public GameState(IEnumerable<PlayerState> players, GameOptions options, Guid? gameId = null)
     {
@@ -97,11 +99,34 @@ public sealed class GameState
         }
     }
 
+    public void ScheduleExtraTurn(int playerId)
+    {
+        var player = GetPlayerById(playerId);
+        if (!player.IsAlive)
+        {
+            throw new InvalidOperationException("Cannot schedule an extra turn for a dead player.");
+        }
+
+        _scheduledTurnPlayerIds.Enqueue(playerId);
+    }
+
     public void AdvanceToNextAlivePlayer()
     {
         if (_players.All(p => !p.IsAlive))
         {
             throw new InvalidOperationException("Cannot advance turn when all players are dead.");
+        }
+
+        while (_scheduledTurnPlayerIds.Count > 0)
+        {
+            var scheduledPlayerId = _scheduledTurnPlayerIds.Dequeue();
+            var scheduledPlayerIndex = _players.FindIndex(player => player.PlayerId == scheduledPlayerId);
+
+            if (scheduledPlayerIndex >= 0 && _players[scheduledPlayerIndex].IsAlive)
+            {
+                CurrentPlayerIndex = scheduledPlayerIndex;
+                return;
+            }
         }
 
         var startIndex = CurrentPlayerIndex;
