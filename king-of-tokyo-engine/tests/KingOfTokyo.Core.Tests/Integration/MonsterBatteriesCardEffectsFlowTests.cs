@@ -22,6 +22,7 @@ public sealed class MonsterBatteriesCardEffectsFlowTests
 
         engine.Execute(gameState, new InitializeGameCommand());
         engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
+        MoveTurnToPurchasePhase(gameState);
 
         var result = engine.Execute(gameState, new EndTurnCommand(player.PlayerId));
 
@@ -41,6 +42,7 @@ public sealed class MonsterBatteriesCardEffectsFlowTests
 
         engine.Execute(gameState, new InitializeGameCommand());
         engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
+        MoveTurnToPurchasePhase(gameState);
 
         var result = engine.Execute(gameState, new EndTurnCommand(player.PlayerId));
 
@@ -68,6 +70,7 @@ public sealed class MonsterBatteriesCardEffectsFlowTests
 
         engine.Execute(gameState, new InitializeGameCommand());
         engine.Execute(gameState, new BeginTurnCommand(currentPlayer.PlayerId));
+        MoveTurnToPurchasePhase(gameState);
 
         var result = engine.Execute(gameState, new EndTurnCommand(currentPlayer.PlayerId));
 
@@ -83,6 +86,15 @@ public sealed class MonsterBatteriesCardEffectsFlowTests
             .ToArray();
 
         return new GameState(players, new GameOptions(playerCount));
+    }
+
+    private static void MoveTurnToPurchasePhase(GameState gameState)
+    {
+        var currentTurn = gameState.CurrentTurn
+            ?? throw new InvalidOperationException("Expected an active turn.");
+
+        currentTurn.MarkDiceResolved();
+        currentTurn.SetPhase(TurnPhase.Purchase);
     }
 
     private static MarketCardState CreateMonsterBatteries(int storedEnergy)
