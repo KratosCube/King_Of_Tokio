@@ -116,6 +116,37 @@ public sealed class TurnState
         _damageTakenThisTurnByPlayer.Remove(playerId);
     }
 
+    public void SetPendingTokyoLeaveDamageTaken(int defenderPlayerId, int damageTaken)
+    {
+        if (defenderPlayerId < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(defenderPlayerId));
+        }
+
+        if (damageTaken < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(damageTaken));
+        }
+
+        if (_pendingTokyoLeaveDecisions.Count == 0)
+        {
+            return;
+        }
+
+        var updatedContexts = _pendingTokyoLeaveDecisions
+            .Select(context => context.DefenderPlayerId == defenderPlayerId
+                ? context with { DamageTaken = damageTaken }
+                : context)
+            .ToArray();
+
+        _pendingTokyoLeaveDecisions.Clear();
+
+        foreach (var context in updatedContexts)
+        {
+            _pendingTokyoLeaveDecisions.Enqueue(context);
+        }
+    }
+
     public void EnqueueTokyoLeaveDecisions(IEnumerable<TokyoLeaveDecisionContext> contexts)
     {
         ArgumentNullException.ThrowIfNull(contexts);
