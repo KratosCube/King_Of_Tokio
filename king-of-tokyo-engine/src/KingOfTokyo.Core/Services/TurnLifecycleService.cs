@@ -10,14 +10,17 @@ namespace KingOfTokyo.Core.Services;
 public sealed class TurnLifecycleService
 {
     private readonly VictoryResolver _victoryResolver;
+    private readonly EliminationService _eliminationService;
     private readonly KeepCardRulesService _keepCardRulesService;
 
     public TurnLifecycleService(
         VictoryResolver? victoryResolver = null,
-        KeepCardRulesService? keepCardRulesService = null)
+        KeepCardRulesService? keepCardRulesService = null,
+        EliminationService? eliminationService = null)
     {
         _victoryResolver = victoryResolver ?? new VictoryResolver();
         _keepCardRulesService = keepCardRulesService ?? new KeepCardRulesService();
+        _eliminationService = eliminationService ?? new EliminationService();
     }
 
     public EngineStepResult EndTurn(GameState gameState)
@@ -30,60 +33,92 @@ public sealed class TurnLifecycleService
         var currentPlayer = gameState.GetCurrentPlayer();
         var newEvents = new List<GameEventBase>();
 
-        var hasFewestVictoryPoints = gameState.GetAlivePlayers()
-            .Min(player => player.VictoryPoints) == currentPlayer.VictoryPoints;
-
-        var solarPoweredEnergy = _keepCardRulesService.GetEndTurnEnergyGainWhenEmpty(currentPlayer);
-        if (solarPoweredEnergy > 0)
+        var poisonDamage = currentPlayer.Status.PoisonTokens;
+        if (poisonDamage > 0)
         {
-            currentPlayer.GainEnergy(solarPoweredEnergy);
+            var healthBefore = currentPlayer.Health;
+            currentPlayer.TakeDamage(poisonDamage);
+            var actualDamage = healthBefore - currentPlayer.Health;
 
-            newEvents.Add(new EnergyGainedEvent(
-                currentPlayer.PlayerId,
-                solarPoweredEnergy,
-                "Keep card: Solar Powered."));
+            if (actualDamage > 0)
+            {
+                newEvents.Add(new DamageDealtEvent(
+                    currentPlayer.PlayerId,
+                    currentPlayer.PlayerId,
+                    actualDamage,
+                    DamageKind.StatusEffect));
+            }
+
+            if (!currentPlayer.IsAlive && _eliminationService.TryEliminate(gameState, currentPlayer))
+            {
+                currentTurn.Flags.EliminatedSomeone = true;
+
+                newEvents.Add(new PlayerEliminatedEvent(
+                    currentPlayer.PlayerId,
+                    currentPlayer.PlayerId,
+                    "Poison tokens."));
+
+                AwardEaterOfTheDeadPoints(gameState, newEvents);
+            }
         }
 
-        var energyHoarderPoints = _keepCardRulesService.GetEndTurnVictoryPointsFromStoredEnergy(currentPlayer);
-        if (energyHoarderPoints > 0)
+        var hasFewestVictoryPoints = gameState.GetAlivePlayers().Count > 0 &&
+            gameState.GetAlivePlayers().Min(player => player.VictoryPoints) == currentPlayer.VictoryPoints;
+
+        if (currentPlayer.IsAlive)
         {
-            currentPlayer.GainVictoryPoints(energyHoarderPoints);
-            currentTurn.Flags.ScoredVictoryPoints = true;
+            var solarPoweredEnergy = _keepCardRulesService.GetEndTurnEnergyGainWhenEmpty(currentPlayer);
+            if (solarPoweredEnergy > 0)
+            {
+                currentPlayer.GainEnergy(solarPoweredEnergy);
 
-            newEvents.Add(new VictoryPointsGainedEvent(
-                currentPlayer.PlayerId,
-                energyHoarderPoints,
-                "Keep card: Energy Hoarder."));
-        }
+                newEvents.Add(new EnergyGainedEvent(
+                    currentPlayer.PlayerId,
+                    solarPoweredEnergy,
+                    "Keep card: Solar Powered."));
+            }
 
-        var underdogPoints = _keepCardRulesService.GetEndTurnUnderdogVictoryPoints(
-            currentPlayer,
-            hasFewestVictoryPoints);
+            var energyHoarderPoints = _keepCardRulesService.GetEndTurnVictoryPointsFromStoredEnergy(currentPlayer);
+            if (energyHoarderPoints > 0)
+            {
+                currentPlayer.GainVictoryPoints(energyHoarderPoints);
+                currentTurn.Flags.ScoredVictoryPoints = true;
 
-        if (underdogPoints > 0)
-        {
-            currentPlayer.GainVictoryPoints(underdogPoints);
-            currentTurn.Flags.ScoredVictoryPoints = true;
+                newEvents.Add(new VictoryPointsGainedEvent(
+                    currentPlayer.PlayerId,
+                    energyHoarderPoints,
+                    "Keep card: Energy Hoarder."));
+            }
 
-            newEvents.Add(new VictoryPointsGainedEvent(
-                currentPlayer.PlayerId,
-                underdogPoints,
-                "Keep card: Rooting for the Underdog."));
-        }
+            var underdogPoints = _keepCardRulesService.GetEndTurnUnderdogVictoryPoints(
+                currentPlayer,
+                hasFewestVictoryPoints);
 
-        var herbivoreBonus = _keepCardRulesService.GetEndTurnVictoryPoints(
-            currentPlayer,
-            currentTurn.Flags.DealtDamage);
+            if (underdogPoints > 0)
+            {
+                currentPlayer.GainVictoryPoints(underdogPoints);
+                currentTurn.Flags.ScoredVictoryPoints = true;
 
-        if (herbivoreBonus > 0)
-        {
-            currentPlayer.GainVictoryPoints(herbivoreBonus);
-            currentTurn.Flags.ScoredVictoryPoints = true;
+                newEvents.Add(new VictoryPointsGainedEvent(
+                    currentPlayer.PlayerId,
+                    underdogPoints,
+                    "Keep card: Rooting for the Underdog."));
+            }
 
-            newEvents.Add(new VictoryPointsGainedEvent(
-                currentPlayer.PlayerId,
-                herbivoreBonus,
-                "Keep card: Herbivore."));
+            var herbivoreBonus = _keepCardRulesService.GetEndTurnVictoryPoints(
+                currentPlayer,
+                currentTurn.Flags.DealtDamage);
+
+            if (herbivoreBonus > 0)
+            {
+                currentPlayer.GainVictoryPoints(herbivoreBonus);
+                currentTurn.Flags.ScoredVictoryPoints = true;
+
+                newEvents.Add(new VictoryPointsGainedEvent(
+                    currentPlayer.PlayerId,
+                    herbivoreBonus,
+                    "Keep card: Herbivore."));
+            }
         }
 
         currentTurn.MarkPurchasePhaseFinished();
@@ -114,5 +149,24 @@ public sealed class TurnLifecycleService
     {
         ArgumentNullException.ThrowIfNull(gameState);
         gameState.AdvanceToNextAlivePlayer();
+    }
+
+    private void AwardEaterOfTheDeadPoints(GameState gameState, List<GameEventBase> newEvents)
+    {
+        foreach (var player in gameState.GetAlivePlayers())
+        {
+            var bonusVictoryPoints = _keepCardRulesService.GetVictoryPointsWhenMonsterEliminated(player);
+            if (bonusVictoryPoints <= 0)
+            {
+                continue;
+            }
+
+            player.GainVictoryPoints(bonusVictoryPoints);
+
+            newEvents.Add(new VictoryPointsGainedEvent(
+                player.PlayerId,
+                bonusVictoryPoints,
+                "Keep card: Eater of the Dead."));
+        }
     }
 }
