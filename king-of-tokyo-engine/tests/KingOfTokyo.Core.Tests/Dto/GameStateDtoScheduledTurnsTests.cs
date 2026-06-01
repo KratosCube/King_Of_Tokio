@@ -1,5 +1,6 @@
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.State;
+using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Dto;
 using Xunit;
 
