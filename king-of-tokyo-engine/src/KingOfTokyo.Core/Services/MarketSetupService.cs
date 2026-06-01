@@ -213,6 +213,13 @@ public sealed class MarketSetupService
                 MarketCardType.Keep),
 
             new(
+                KnownCardIds.NovaBreath,
+                "Nova Breath",
+                "Your attacks damage all other monsters.",
+                7,
+                MarketCardType.Keep),
+
+            new(
                 KnownCardIds.Burrowing,
                 "Burrowing",
                 "When attacking Tokyo, deal 1 extra damage. When leaving Tokyo, deal 1 damage to the monster taking your place.",
