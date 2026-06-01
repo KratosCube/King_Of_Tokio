@@ -29,6 +29,8 @@ public static class KnownCardIds
 
     public const string CompleteDestruction = "card-complete-destruction";
     public const string PoisonQuills = "card-poison-quills";
+    public const string PoisonSpit = "card-poison-spit";
+    public const string ShrinkRay = "card-shrink-ray";
     public const string Burrowing = "card-burrowing";
 
     public const string ArmorPlating = "card-armor-plating";
