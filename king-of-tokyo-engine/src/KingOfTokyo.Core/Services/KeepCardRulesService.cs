@@ -76,6 +76,12 @@ public sealed class KeepCardRulesService
                player.Energy >= 2;
     }
 
+    public bool CanUseHerdCuller(PlayerState player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        return player.HasKeepCard(KnownCardIds.HerdCuller);
+    }
+
     public bool CanUseMadeInALab(PlayerState player)
     {
         ArgumentNullException.ThrowIfNull(player);
