@@ -1,3 +1,4 @@
+using System.Reflection;
 using KingOfTokyo.Core.Commands;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.State;
@@ -18,9 +19,16 @@ public sealed class MarketInitializationFlowTests
         var result = engine.Execute(gameState, new InitializeGameCommand());
 
         Assert.True(result.Success);
-        Assert.Equal(3, gameState.Market.FaceUpCards.Count(card => card is not null));
-        Assert.Equal(36, gameState.Market.DrawPileCount);
+        Assert.Equal(MarketState.FaceUpSlotCount, gameState.Market.FaceUpCards.Count(card => card is not null));
+        Assert.Equal(GetKnownCardCount() - MarketState.FaceUpSlotCount, gameState.Market.DrawPileCount);
         Assert.Equal(0, gameState.Market.DiscardPileCount);
+    }
+
+    private static int GetKnownCardCount()
+    {
+        return typeof(KnownCardIds)
+            .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
+            .Count(field => field.IsLiteral && !field.IsInitOnly && field.FieldType == typeof(string));
     }
 
     private static GameState CreateGameState(int playerCount)
