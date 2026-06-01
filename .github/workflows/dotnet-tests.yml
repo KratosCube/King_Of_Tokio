@@ -12,8 +12,18 @@ jobs:
     runs-on: [self-hosted, Windows, X64]
 
     steps:
-      - name: Checkout repository
+      - name: Checkout latest repository state
         uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 1
+
+      - name: Show checked out commit
+        shell: pwsh
+        run: |
+          git status
+          git rev-parse HEAD
+          git log -1 --oneline
 
       - name: Show machine info
         shell: pwsh
