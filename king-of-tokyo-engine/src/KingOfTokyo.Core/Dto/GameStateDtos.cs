@@ -82,5 +82,5 @@ public sealed record PendingDecisionDto(
     object? Payload);
 
 public sealed record WinnerInfoDto(
-    int WinnerPlayerId,
-    string Reason);
+    int? WinnerPlayerId,
+    string? Reason);
