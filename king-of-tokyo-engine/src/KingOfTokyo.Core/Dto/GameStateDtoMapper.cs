@@ -59,7 +59,14 @@ public static class GameStateDtoMapper
 
     private static CardDto ToDto(MarketCardState card)
     {
-        return new CardDto(card.CardId, card.Name, card.Description, card.Cost, card.CardType);
+        return new CardDto(
+            card.CardId,
+            card.Name,
+            card.Description,
+            card.Cost,
+            card.CardType,
+            card.Counters,
+            card.StoredEnergy);
     }
 
     private static TurnDto ToDto(TurnState turn)
