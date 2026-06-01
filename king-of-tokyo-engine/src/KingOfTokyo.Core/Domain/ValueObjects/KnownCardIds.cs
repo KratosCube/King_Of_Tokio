@@ -37,6 +37,7 @@ public static class KnownCardIds
 
     public const string ArmorPlating = "card-armor-plating";
     public const string EvenBigger = "card-even-bigger";
+    public const string WereOnlyMakingItStronger = "card-were-only-making-it-stronger";
     public const string NuclearPowerPlant = "card-nuclear-power-plant";
     public const string DropFromHighAltitude = "card-drop-from-high-altitude";
 
