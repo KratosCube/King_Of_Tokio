@@ -76,7 +76,8 @@ public sealed class MarketSetupService
             new(KnownCardIds.Telepath, "Telepath", "Spend 1 energy to gain 1 extra reroll.", 4, MarketCardType.Keep),
             new(KnownCardIds.Stretchy, "Stretchy", "Spend 2 energy to change one of your dice to any result.", 3, MarketCardType.Keep),
             new(KnownCardIds.SmokeCloud, "Smoke Cloud", "Starts with 3 charges. Spend 1 charge to gain 1 extra reroll. Discard after all charges are used.", 4, MarketCardType.Keep, counters: 3),
-            new(KnownCardIds.MonsterBatteries, "Monster Batteries", "Starts with 6 stored energy. At the end of each turn, lose 2 stored energy. Discard when empty.", 5, MarketCardType.Keep, storedEnergy: 6)
+            new(KnownCardIds.MonsterBatteries, "Monster Batteries", "Starts with 6 stored energy. At the end of each turn, lose 2 stored energy. Discard when empty.", 5, MarketCardType.Keep, storedEnergy: 6),
+            new(KnownCardIds.FreezeTime, "Freeze Time", "After a turn in which you score three 1s, take one extra turn with one fewer die.", 5, MarketCardType.Keep)
         };
     }
 }
