@@ -15,15 +15,13 @@ public static class GameStateDtoMapper
             gameState.Version,
             gameState.Status,
             gameState.CurrentPlayerIndex,
+            gameState.WinnerInfo?.WinnerPlayerId,
+            gameState.WinnerInfo?.Reason,
             gameState.Players.Select(ToDto).ToArray(),
             ToDto(gameState.Tokyo),
             ToDto(gameState.Market),
             gameState.CurrentTurn is null ? null : ToDto(gameState.CurrentTurn),
-            gameState.PendingDecision is null ? null : ToDto(gameState.PendingDecision),
-            gameState.WinnerInfo is null ? null : new WinnerInfoDto(
-                gameState.WinnerInfo.WinnerPlayerId,
-                gameState.WinnerInfo.Reason),
-            gameState.EventLog.Count);
+            gameState.PendingDecision is null ? null : ToDto(gameState.PendingDecision));
     }
 
     private static PlayerDto ToDto(PlayerState player)
@@ -36,8 +34,8 @@ public static class GameStateDtoMapper
             player.VictoryPoints,
             player.Energy,
             player.TokyoSlot,
-            ToDto(player.Status),
             player.IsAlive,
+            ToDto(player.Status),
             player.KeepCards.Select(ToDto).ToArray());
     }
 
@@ -74,8 +72,8 @@ public static class GameStateDtoMapper
             turn.DiceCount,
             turn.DiceResolved,
             turn.PurchasePhaseFinished,
-            ToDto(turn.Flags),
-            turn.DicePool.Dice.Select(ToDto).ToArray());
+            turn.DicePool.Dice.Select(ToDto).ToArray(),
+            ToDto(turn.Flags));
     }
 
     private static DieDto ToDto(DieState die)
