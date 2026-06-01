@@ -1,44 +1,35 @@
 name: .NET engine tests
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
-    paths:
-      - 'king-of-tokyo-engine/**'
-      - '.github/workflows/dotnet-tests.yml'
   pull_request:
-    branches:
-      - main
-    paths:
-      - 'king-of-tokyo-engine/**'
-      - '.github/workflows/dotnet-tests.yml'
 
 jobs:
   test:
-    name: Build and test engine
-    runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: king-of-tokyo-engine
+    runs-on: [self-hosted, Windows, X64]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup .NET SDKs
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
+      - name: Show machine info
+        shell: pwsh
+        run: |
+          hostname
+          dotnet --info
+          git --version
 
-      - name: Restore dependencies
-        run: dotnet restore KingOfTokyo.Engine.slnx
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore king-of-tokyo-engine\KingOfTokyo.Engine.slnx
 
       - name: Build
-        run: dotnet build KingOfTokyo.Engine.slnx --configuration Release --no-restore
+        shell: pwsh
+        run: dotnet build king-of-tokyo-engine\KingOfTokyo.Engine.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test KingOfTokyo.Engine.slnx --configuration Release --no-build --verbosity normal
+        shell: pwsh
+        run: dotnet test king-of-tokyo-engine\KingOfTokyo.Engine.slnx --configuration Release --no-build --logger "console;verbosity=detailed"
