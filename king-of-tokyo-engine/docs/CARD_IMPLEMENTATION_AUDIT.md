@@ -2,10 +2,13 @@
 
 This document tracks how far the headless engine is from supporting the full card set before building the online Blazor UI.
 
+Last verified locally by user after DTO mapper hardening: `dotnet test KingOfTokyo.Engine.slnx` => 140 tests succeeded.
+
 Source of truth for this audit:
 
 - Current engine card ids in `KnownCardIds.cs`
 - Current default market deck in `MarketSetupService.cs`
+- Current card/effect integration tests under `tests/KingOfTokyo.Core.Tests`
 - Uploaded card reference PDF used during planning
 
 The original card text is intentionally summarized here. The goal is implementation planning, not copying final public-facing card copy.
@@ -19,97 +22,117 @@ The original card text is intentionally summarized here. The goal is implementat
 | Missing | Not yet represented in `KnownCardIds` / default deck. |
 | Needs engine concept | Requires a new generic engine mechanism before the card can be implemented cleanly. |
 
+## Current implementation snapshot
+
+The codebase now has stable foundations for the online UI boundary:
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| Default deck consistency | Implemented | Tests verify that every `KnownCardIds` entry appears in the default deck and that the deck does not contain unknown ids. |
+| Game event log | Implemented | `GameState` tracks `Version` and `EventLog`; successful commands increment version and record new events. |
+| Server-facing DTO projection | Implemented | `GameStateDtoMapper` maps game id, version, players, Tokyo, market, turn state, dice, flags, and pending decisions. |
+| DTO mapper coverage | Implemented | Mapper tests cover setup state, running turn, pending reroll decision payload, keep cards, status tokens, Tokyo slots, market cards/counts, dice, and flags. |
+| Player status tokens | Partial | Poison/shrink token state exists; attack-token application and heart-based token removal exist. Poison end-of-turn damage still needs implementation. |
+| Owned keep-card lifecycle | Partial | Player-owned keep cards can be added/removed/discarded; Plot Twist and Metamorph use this. Generic lifecycle hooks/transfers/counters are still missing. |
+
 ## Currently represented in code
 
-The current codebase already represents these cards in `KnownCardIds` and/or `MarketSetupService`:
+The current codebase represents these cards in `KnownCardIds` and `MarketSetupService`:
 
 | Card | Status | Notes |
 | --- | --- | --- |
-| Giant Brain | Implemented | Extra reroll through keep-card rule. |
-| Heal | Implemented | Simple discard healing. |
-| Apartment Building | Implemented | Simple discard VP gain. |
-| Spiked Tail | Implemented | Extra attack damage. |
-| Corner Store | Implemented | Simple discard VP gain. |
-| Energize | Implemented | Simple discard energy gain. |
+| Acid Attack | Partial | Implemented as +1 attack damage when attack dice are rolled. Original wording also implies extra damage even when not attacking; confirm/extend timing. |
 | Alien Metabolism | Implemented | Purchase discount. |
-| Commuter Train | Implemented | Simple discard VP gain. |
-| Gourmet | Implemented | Bonus VP when scoring dice. |
-| Herbivore | Implemented | End-turn VP when no damage dealt. |
-| Regeneration | Implemented | Bonus healing. |
-| Friend of Children | Implemented | Bonus energy gain. |
-| Urbavore | Implemented | Tokyo start-turn VP and Tokyo damage bonus. |
-| Rapid Healing | Implemented | Activated keep-card healing. |
-| Solar Powered | Implemented | End-turn energy if empty. |
-| Energy Hoarder | Implemented | End-turn VP from stored energy. |
-| Rooting for the Underdog | Implemented | End-turn VP if tied/fewest VP. Needs rule confirmation for tie behavior. |
 | Alpha Monster | Implemented | VP when attacking. |
-| Dedicated News Team | Implemented | VP when buying cards. |
-| Eater of the Dead | Implemented | VP when a monster is eliminated. |
-| Complete Destruction | Implemented | Bonus VP when scoring includes 1, 2, and 3. |
-| Poison Quills | Implemented | Damage when scoring 1s. Confirm exact scored-face requirement. |
-| Burrowing | Implemented | Extra damage when attacking Tokyo and damage when leaving Tokyo. |
+| Apartment Building | Implemented | Simple discard VP gain. |
 | Armor Plating | Implemented | Damage reduction. |
-| Even Bigger | Partial | Gain effect exists. Missing clean support for losing/removing the card and applying the negative effect. |
-| Nuclear Power Plant | Implemented | VP + healing. |
-| Fire Blast | Implemented | Damage to all other monsters. |
-| High Altitude Bombing | Implemented | Damage to everyone. |
+| Burrowing | Implemented | Extra damage when attacking Tokyo and damage when leaving Tokyo. |
+| Commuter Train | Implemented | Simple discard VP gain. |
+| Complete Destruction | Implemented | Bonus VP when scoring includes 1, 2, and 3. |
+| Corner Store | Implemented | Simple discard VP gain. |
+| Dedicated News Team | Implemented | VP when buying cards. |
+| Drop from High Altitude | Partial | VP + enter Tokyo effect exists. Needs exact rule confirmation for forcing Tokyo control when occupied, especially with Bay. |
+| Eater of the Dead | Implemented | VP when a monster is eliminated. |
+| Energize | Implemented | Simple discard energy gain. |
+| Energy Hoarder | Implemented | End-turn VP from stored energy. |
+| Even Bigger | Partial | Gain effect exists; loss effect is applied through Metamorph discard path. Still needs generic `OnCardLost` lifecycle for all future removal paths. |
 | Evacuation Orders | Implemented | Damage to all other monsters. |
-| National Guard | Implemented | VP + self damage. |
-| Tanks | Implemented | VP + self damage. |
-| Jet Fighters | Implemented | VP + self damage. |
-| Gas Refinery | Implemented | VP + damage to all other monsters. |
-| Skyscraper | Implemented | Simple discard VP gain. |
-| Vast Storm | Implemented | VP + damage based on opponents' energy. |
-| Made in a Lab | Implemented | Peek and optionally buy top deck card. |
 | Extra Head | Implemented | Extra die. |
-| Telepath | Implemented | Activated extra reroll. |
+| Fire Blast | Implemented | Damage to all other monsters. |
+| Friend of Children | Implemented | Bonus energy gain. |
+| Gas Refinery | Implemented | VP + damage to all other monsters. |
+| Giant Brain | Implemented | Extra reroll through keep-card rule. |
+| Gourmet | Implemented | Bonus VP when scoring dice. |
+| Heal | Implemented | Simple discard healing. |
+| Herbivore | Implemented | End-turn VP when no damage dealt. |
+| Herd Culler | Implemented | Activated once-per-turn die change to `One`. |
+| High Altitude Bombing | Implemented | Damage to everyone. |
+| Jet Fighters | Implemented | VP + self damage. |
+| Jets | Partial | Leave-Tokyo damage recovery is represented. Needs edge-case check for prevention timing versus lethal damage. |
+| Made in a Lab | Implemented | Peek and optionally buy top deck card through pending decision. |
+| Metamorph | Implemented | Activated in purchase phase; discards an owned keep card and grants energy equal to cost. |
+| National Guard | Implemented | VP + self damage. |
+| Nova Breath | Implemented | Attack damages all other monsters regardless of Tokyo position. |
+| Nuclear Power Plant | Implemented | VP + healing. |
+| Plot Twist | Implemented | One-use die result change, then discards itself. |
+| Poison Quills | Implemented | Damage when scoring 1s. |
+| Poison Spit | Partial | Adds poison tokens to damaged attack targets. Still needs poison end-of-turn damage and more timing edge cases. |
+| Rapid Healing | Implemented | Activated keep-card healing. |
+| Regeneration | Implemented | Bonus healing. |
+| Rooting for the Underdog | Implemented | End-turn VP if tied/fewest VP; keep tie behavior covered/confirmed. |
+| Shrink Ray | Partial | Adds shrink tokens to damaged attack targets; shrink tokens reduce dice count and hearts can remove tokens. Needs more lifecycle/timing coverage. |
+| Skyscraper | Implemented | Simple discard VP gain. |
+| Solar Powered | Implemented | End-turn energy if empty. |
+| Spiked Tail | Implemented | Extra attack damage. |
 | Stretchy | Implemented | Activated die face change. |
+| Tanks | Implemented | VP + self damage. |
+| Telepath | Implemented | Activated extra reroll. |
+| Urbavore | Implemented | Tokyo start-turn VP and Tokyo damage bonus. |
+| Vast Storm | Implemented | VP + damage based on opponents' energy. |
+| We're Only Making It Stronger | Implemented | VP when losing 2+ health. |
 
 ## Missing or incomplete cards from the uploaded card reference
 
 | Card | Status | Main engine need |
 | --- | --- | --- |
 | Opportunist | Missing / Needs engine concept | Reaction to newly revealed market card; out-of-turn purchase window. |
-| Acid Attack | Missing | Add +1 damage each turn, including non-attack damage depending on exact timing. |
-| Background Dweller | Missing | Always reroll specific face/result; needs dice modification hook. |
-| Jets | Missing | Prevent damage when leaving Tokyo. |
-| We're Only Making It Stronger | Missing | Gain VP when losing 2+ health. Needs damage-after hook. |
-| Poison Spit | Missing / Needs engine concept | Poison tokens, end-of-turn poison damage, healing-symbol removal instead of healing. |
-| Freeze Time | Missing / Needs engine concept | Extra turn with one fewer die after scoring 1s. |
-| Herd Culler | Missing | Once per turn set a die to 1. Similar to Stretchy but constrained/free. |
-| Monster Batteries | Missing / Needs engine concept | Store energy on card and drain 2 energy per turn, then discard. |
-| It Has a Child | Missing / Needs engine concept | Death replacement: discard cards, lose energy, reset to 10 health. |
-| Fire Breathing | Missing / Needs engine concept | Neighbor damage when dealing damage; needs seating/adjacency model. |
-| Mimic | Missing / Needs engine concept | Copy another keep card; retarget by spending energy. |
-| Drop from High Altitude | Missing | VP + take Tokyo if not already controlled. |
-| Wings | Missing | Spend energy to cancel damage during a turn. Needs prevention window. |
-| Metamorph | Missing / Needs engine concept | Sell/discard own keep cards for energy at end turn. Needs owned-card removal. |
-| Parasitic Tentacles | Missing / Needs engine concept | Buy cards from other players. Needs ownership transfer and payment to another player. |
+| Background Dweller | Missing | Always reroll a specific result; needs dice modification hook or card-specific reroll rule. |
 | Camouflage | Missing / Needs engine concept | Roll per incoming damage point to prevent damage. Needs prevention hook and random roll. |
-| Smoke Cloud | Missing / Needs engine concept | Charge counter card, spend charges for extra rerolls, auto-discard. |
+| Fire Breathing | Missing / Needs engine concept | Neighbor damage when dealing damage; needs seating/adjacency model. |
+| Freeze Time | Missing / Needs engine concept | Extra turn with one fewer die after scoring 1s. |
 | Frenzy | Missing / Needs engine concept | Immediate extra turn after purchase. |
 | Healing Ray | Missing / Needs engine concept | Heal other monsters using healing dice and transfer energy/payment. |
-| Plot Twist | Missing | One-use die result change, then discard. Needs one-shot keep/discard command. |
-| Nova Breath | Missing | Attacks damage all other monsters regardless of Tokyo position. |
-| Omnivore | Missing / Needs engine concept | Special scoring with pairs; dice can still be used in other combos. |
-| Shrink Ray | Missing / Needs engine concept | Shrink tokens, fewer dice, healing-symbol removal instead of healing. |
+| It Has a Child | Missing / Needs engine concept | Death replacement: discard cards, lose energy, reset to 10 health. |
+| Mimic | Missing / Needs engine concept | Copy another keep card; retarget by spending energy. |
+| Monster Batteries | Missing / Needs engine concept | Store energy on card and drain 2 energy per turn, then discard. |
+| Omnivore | Missing / Needs engine concept | Special scoring with pairs; dice can still be used in other combinations. |
+| Parasitic Tentacles | Missing / Needs engine concept | Buy cards from other players. Needs ownership transfer and payment to another player. |
 | Psychic Probe | Missing / Needs engine concept | Reroll one die during another player's turn; discard on heart result. |
+| Smoke Cloud | Missing / Needs engine concept | Charge counter card, spend charges for extra rerolls, auto-discard. |
+| Wings | Missing / Needs engine concept | Spend energy to cancel damage during a turn. Needs prevention window. |
 
 ## Recommended engine concepts to add next
 
-### 1. Event log and game version
+### 1. Harden event log and game version for online sync
 
-Add persistent event tracking so the online server can replay, debug, and resync clients.
+The basic `GameState.Version` and `EventLog` are already present. Next hardening steps:
 
-Suggested fields:
+- Add focused tests proving failed commands do not increment version or append events.
+- Add tests proving successful commands increment version exactly once.
+- Confirm all successful command paths publish and record the same `NewEvents` list.
+- Decide whether event log should be bounded/snapshot-friendly before online persistence.
 
-```csharp
-public Guid GameId { get; }
-public long Version { get; private set; }
-public IReadOnlyList<GameEventBase> EventLog => _eventLog;
-```
+### 2. Extend server-facing DTOs only when new state is added
 
-### 2. Card effect pipeline
+The DTO projection layer exists and has mapper coverage. Keep it synchronized whenever new online-visible state is added, especially:
+
+- event log summaries or event cursors,
+- card counters/charges,
+- copied-card state for Mimic,
+- pending reaction windows for out-of-turn cards,
+- poison/shrink lifecycle data if UI needs more than token counts.
+
+### 3. Card effect pipeline
 
 Replace the growing `KeepCardRulesService` conditional list over time with effect hooks:
 
@@ -125,23 +148,11 @@ public interface ICardEffectHandler
 }
 ```
 
-Keep simple discard cards as data-only `CardPurchaseEffect`. Move complex keep cards into handlers.
+Keep simple discard cards as data-only `CardPurchaseEffect`. Move complex keep cards into handlers gradually.
 
-### 3. Player status effects
+### 4. Owned-card lifecycle and card-local state
 
-Needed for Poison Spit and Shrink Ray:
-
-```csharp
-public sealed class PlayerStatusState
-{
-    public int PoisonTokens { get; private set; }
-    public int ShrinkTokens { get; private set; }
-}
-```
-
-### 4. Owned-card lifecycle
-
-Needed for Even Bigger loss effect, Metamorph, Mimic, Smoke Cloud, Plot Twist, Monster Batteries.
+Needed for Even Bigger, Metamorph follow-ups, Mimic, Smoke Cloud, Plot Twist-style one-shot cards, Monster Batteries, and Parasitic Tentacles.
 
 Required operations:
 
@@ -149,40 +160,43 @@ Required operations:
 - Remove keep card
 - Discard keep card
 - Transfer keep card
-- Attach counters/tokens to a card
-- Run `OnCardLost` / `OnCardDiscarded` effects
+- Attach counters/tokens/energy to a card
+- Run `OnCardLost` / `OnCardDiscarded` effects from every removal path
 
-### 5. Out-of-turn reactions
+### 5. Damage prevention/replacement windows
+
+Needed for Wings, Camouflage, Jets edge cases, Armor Plating generalization, and It Has a Child.
+
+Recommended shape:
+
+- Build a `DamageContext` before applying health changes.
+- Let prevention/replacement effects modify or cancel damage.
+- Only then apply damage and emit events.
+- Keep Tokyo-leave decisions based on final applied attack damage.
+
+### 6. Out-of-turn reactions
 
 Needed for Opportunist and Psychic Probe.
 
 This should probably reuse `PendingDecision`, but support multiple eligible players and timeouts once online.
 
-### 6. Server-facing DTOs
+### 7. Seating/adjacency model
 
-Before Blazor UI, create DTOs that hide mutable domain objects:
+Needed for Fire Breathing.
 
-```csharp
-public sealed record GameStateDto(
-    Guid GameId,
-    long Version,
-    GameStatus Status,
-    IReadOnlyList<PlayerDto> Players,
-    TokyoDto Tokyo,
-    MarketDto Market,
-    TurnDto? CurrentTurn,
-    PendingDecisionDto? PendingDecision);
-```
+A minimal model can be player order based, but tests should cover eliminated players and wrap-around neighbors.
 
 ## Proposed implementation order
 
-1. Add event log + game version.
-2. Add DTO projection layer.
-3. Add card implementation tests that compare expected card ids against the deck.
-4. Add owned-card removal/lifecycle support.
-5. Add player status effects: poison and shrink.
-6. Add effect pipeline while keeping current `KeepCardRulesService` as an adapter.
-7. Implement missing simple cards: Acid Attack, Jets, Drop from High Altitude, Nova Breath.
-8. Implement token cards: Poison Spit, Shrink Ray.
-9. Implement complex reaction cards: Opportunist, Psychic Probe, Mimic.
-10. Start SignalR server and Blazor client only after the headless engine can complete representative games.
+1. Add focused GameState event log + versioning tests.
+2. Add a longer end-to-end flow test for a representative game path.
+3. Implement poison end-of-turn damage for Poison Spit.
+4. Add a damage prevention/replacement mechanism.
+5. Implement Wings and Camouflage on top of the prevention mechanism.
+6. Add card-local counters/energy storage.
+7. Implement Smoke Cloud and Monster Batteries.
+8. Add extra-turn scheduling support.
+9. Implement Freeze Time and Frenzy.
+10. Add out-of-turn reaction support for Opportunist and Psychic Probe.
+11. Add seating/adjacency support and implement Fire Breathing.
+12. Start SignalR server and Blazor client only after the headless engine can complete representative games.
