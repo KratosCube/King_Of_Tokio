@@ -123,7 +123,9 @@ public sealed class FinalizeDiceService
                 bonusEnergy > 0 ? "Dice energy + Friend of Children." : "Dice energy."));
         }
 
-        var healedAmount = _healingResolver.ResolveHealing(currentPlayer, summary);
+        var heartsRemainingForHealing = RemoveStatusTokensWithHearts(currentPlayer, summary.HeartCount, newEvents);
+        var healingSummary = summary with { HeartCount = heartsRemainingForHealing };
+        var healedAmount = _healingResolver.ResolveHealing(currentPlayer, healingSummary);
         var regenerationBonus = _keepCardRulesService.GetBonusHealing(currentPlayer, healedAmount);
         var totalHealing = healedAmount + regenerationBonus;
 
@@ -263,6 +265,44 @@ public sealed class FinalizeDiceService
         gameState.ClearPendingDecision();
 
         return new EngineStepResult(newEvents);
+    }
+
+    private static int RemoveStatusTokensWithHearts(
+        PlayerState player,
+        int heartCount,
+        List<GameEventBase> newEvents)
+    {
+        if (heartCount <= 0)
+        {
+            return 0;
+        }
+
+        var heartsRemaining = heartCount;
+        var poisonTokensRemoved = Math.Min(player.Status.PoisonTokens, heartsRemaining);
+        if (poisonTokensRemoved > 0)
+        {
+            player.Status.RemovePoisonTokens(poisonTokensRemoved);
+            heartsRemaining -= poisonTokensRemoved;
+        }
+
+        var shrinkTokensRemoved = Math.Min(player.Status.ShrinkTokens, heartsRemaining);
+        if (shrinkTokensRemoved > 0)
+        {
+            player.Status.RemoveShrinkTokens(shrinkTokensRemoved);
+            heartsRemaining -= shrinkTokensRemoved;
+        }
+
+        var heartsSpent = poisonTokensRemoved + shrinkTokensRemoved;
+        if (heartsSpent > 0)
+        {
+            newEvents.Add(new StatusTokensRemovedEvent(
+                player.PlayerId,
+                poisonTokensRemoved,
+                shrinkTokensRemoved,
+                heartsSpent));
+        }
+
+        return heartsRemaining;
     }
 
     private void ApplyPoisonQuillsDamage(
