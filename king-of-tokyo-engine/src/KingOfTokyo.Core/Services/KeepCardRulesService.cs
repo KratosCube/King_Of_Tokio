@@ -192,6 +192,30 @@ public sealed class KeepCardRulesService
         return oneCount >= 3 ? 2 : 0;
     }
 
+    public int GetPoisonTokensToApply(PlayerState player, int attackCount)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+
+        if (attackCount <= 0 || !player.HasKeepCard(KnownCardIds.PoisonSpit))
+        {
+            return 0;
+        }
+
+        return 1;
+    }
+
+    public int GetShrinkTokensToApply(PlayerState player, int attackCount)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+
+        if (attackCount <= 0 || !player.HasKeepCard(KnownCardIds.ShrinkRay))
+        {
+            return 0;
+        }
+
+        return 1;
+    }
+
     public bool HasBurrowing(PlayerState player)
     {
         ArgumentNullException.ThrowIfNull(player);
