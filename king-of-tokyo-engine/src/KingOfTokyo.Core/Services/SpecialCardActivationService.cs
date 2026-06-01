@@ -75,6 +75,38 @@ public sealed class SpecialCardActivationService
         return new EngineStepResult(Array.Empty<GameEventBase>(), pendingDecision);
     }
 
+    public EngineStepResult ActivateSmokeCloud(GameState gameState)
+    {
+        ArgumentNullException.ThrowIfNull(gameState);
+
+        var currentTurn = gameState.CurrentTurn
+            ?? throw new InvalidOperationException("Cannot activate Smoke Cloud without an active turn.");
+
+        var player = gameState.GetCurrentPlayer();
+        var smokeCloud = player.KeepCards.FirstOrDefault(card => card.CardId == KnownCardIds.SmokeCloud && card.Counters > 0)
+            ?? throw new InvalidOperationException("Player cannot use Smoke Cloud right now.");
+
+        smokeCloud.SpendCounters(1);
+        currentTurn.AddExtraRolls(1);
+
+        var events = new List<GameEventBase>();
+        if (smokeCloud.Counters == 0)
+        {
+            var discardedCard = player.RemoveKeepCard(KnownCardIds.SmokeCloud);
+            gameState.Market.Discard(discardedCard);
+            events.Add(new KeepCardDiscardedEvent(
+                player.PlayerId,
+                discardedCard.CardId,
+                discardedCard.Name,
+                "Keep card: Smoke Cloud."));
+        }
+
+        var pendingDecision = CreateRerollDecisionIfAvailable(currentTurn);
+        gameState.SetPendingDecision(pendingDecision);
+
+        return new EngineStepResult(events, pendingDecision);
+    }
+
     public EngineStepResult ActivateWings(GameState gameState, int playerId)
     {
         ArgumentNullException.ThrowIfNull(gameState);
