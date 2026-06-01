@@ -1,3 +1,4 @@
+using KingOfTokyo.Core.Abstractions;
 using KingOfTokyo.Core.Decisions;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
@@ -8,7 +9,10 @@ namespace KingOfTokyo.Core.Domain.State;
 public sealed class GameState
 {
     private readonly List<PlayerState> _players;
+    private readonly List<GameEventBase> _eventLog = new();
 
+    public Guid GameId { get; }
+    public long Version { get; private set; }
     public GameStatus Status { get; private set; }
     public GameOptions Options { get; }
     public IReadOnlyList<PlayerState> Players => _players;
@@ -18,8 +22,9 @@ public sealed class GameState
     public int CurrentPlayerIndex { get; private set; }
     public WinnerInfo? WinnerInfo { get; private set; }
     public PendingDecision? PendingDecision { get; private set; }
+    public IReadOnlyList<GameEventBase> EventLog => _eventLog;
 
-    public GameState(IEnumerable<PlayerState> players, GameOptions options)
+    public GameState(IEnumerable<PlayerState> players, GameOptions options, Guid? gameId = null)
     {
         ArgumentNullException.ThrowIfNull(players);
         ArgumentNullException.ThrowIfNull(options);
@@ -36,6 +41,8 @@ public sealed class GameState
             throw new InvalidOperationException("Player ids must be unique.");
         }
 
+        GameId = gameId ?? Guid.NewGuid();
+        Version = 0;
         Status = GameStatus.Setup;
         Options = options;
         Tokyo = new TokyoState(options.UseBay);
@@ -114,6 +121,18 @@ public sealed class GameState
     public void ClearPendingDecision()
     {
         PendingDecision = null;
+    }
+
+    public void RecordSuccessfulCommand(IEnumerable<GameEventBase>? eventsToRecord)
+    {
+        Version++;
+
+        if (eventsToRecord is null)
+        {
+            return;
+        }
+
+        _eventLog.AddRange(eventsToRecord);
     }
 
     public void FinishGame(WinnerInfo winnerInfo)
