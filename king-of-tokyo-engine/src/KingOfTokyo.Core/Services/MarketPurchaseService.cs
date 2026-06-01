@@ -17,17 +17,20 @@ public sealed class MarketPurchaseService
     private readonly DamageApplier _damageApplier;
     private readonly EliminationService _eliminationService;
     private readonly TokyoResolver _tokyoResolver;
+    private readonly EnergyPaymentService _energyPaymentService;
 
     public MarketPurchaseService(
         KeepCardRulesService? keepCardRulesService = null,
         DamageApplier? damageApplier = null,
         EliminationService? eliminationService = null,
-        TokyoResolver? tokyoResolver = null)
+        TokyoResolver? tokyoResolver = null,
+        EnergyPaymentService? energyPaymentService = null)
     {
         _keepCardRulesService = keepCardRulesService ?? new KeepCardRulesService();
         _damageApplier = damageApplier ?? new DamageApplier();
         _eliminationService = eliminationService ?? new EliminationService();
         _tokyoResolver = tokyoResolver ?? new TokyoResolver();
+        _energyPaymentService = energyPaymentService ?? new EnergyPaymentService();
     }
 
     public EngineStepResult BuyFaceUpCard(GameState gameState, int slotIndex, int effectiveCost)
@@ -45,11 +48,16 @@ public sealed class MarketPurchaseService
             throw new InvalidOperationException("Selected market slot is empty.");
         }
 
-        player.SpendEnergy(effectiveCost);
+        var paymentEvents = _energyPaymentService.SpendEnergy(
+            gameState,
+            player,
+            effectiveCost,
+            "Keep card: Monster Batteries.");
 
         var boughtCard = gameState.Market.RemoveFaceUpCardAt(slotIndex);
 
         var events = FinalizePurchasedCard(gameState, currentTurn, player, boughtCard, effectiveCost);
+        events.InsertRange(0, paymentEvents);
 
         currentTurn.Flags.BoughtCard = true;
 
@@ -66,16 +74,21 @@ public sealed class MarketPurchaseService
         var player = gameState.GetCurrentPlayer();
         var boughtCard = gameState.Market.RemoveTopDrawCard();
 
-        player.SpendEnergy(effectiveCost);
+        var paymentEvents = _energyPaymentService.SpendEnergy(
+            gameState,
+            player,
+            effectiveCost,
+            "Keep card: Monster Batteries.");
 
         var events = FinalizePurchasedCard(gameState, currentTurn, player, boughtCard, effectiveCost);
+        events.InsertRange(0, paymentEvents);
 
         currentTurn.Flags.BoughtCard = true;
 
         return new EngineStepResult(events);
     }
 
-    private IReadOnlyList<GameEventBase> FinalizePurchasedCard(
+    private List<GameEventBase> FinalizePurchasedCard(
         GameState gameState,
         TurnState currentTurn,
         PlayerState player,
