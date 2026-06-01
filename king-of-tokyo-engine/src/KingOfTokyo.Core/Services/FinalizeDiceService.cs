@@ -190,6 +190,8 @@ public sealed class FinalizeDiceService
             var target = gameState.GetPlayerById(packet.TargetPlayerId);
             var wasInTokyoBeforeDamage = target.TokyoSlot != TokyoSlot.None;
 
+            ApplyAttackStatusTokens(currentPlayer, target, summary.AttackCount, newEvents);
+
             var actualDamage = _damageApplier.ApplyDamage(target, packet);
 
             if (actualDamage <= 0)
@@ -265,6 +267,37 @@ public sealed class FinalizeDiceService
         gameState.ClearPendingDecision();
 
         return new EngineStepResult(newEvents);
+    }
+
+    private void ApplyAttackStatusTokens(
+        PlayerState currentPlayer,
+        PlayerState target,
+        int attackCount,
+        List<GameEventBase> newEvents)
+    {
+        var poisonTokens = _keepCardRulesService.GetPoisonTokensToApply(currentPlayer, attackCount);
+        var shrinkTokens = _keepCardRulesService.GetShrinkTokensToApply(currentPlayer, attackCount);
+
+        if (poisonTokens <= 0 && shrinkTokens <= 0)
+        {
+            return;
+        }
+
+        if (poisonTokens > 0)
+        {
+            target.Status.AddPoisonTokens(poisonTokens);
+        }
+
+        if (shrinkTokens > 0)
+        {
+            target.Status.AddShrinkTokens(shrinkTokens);
+        }
+
+        newEvents.Add(new StatusTokensAddedEvent(
+            currentPlayer.PlayerId,
+            target.PlayerId,
+            poisonTokens,
+            shrinkTokens));
     }
 
     private static int RemoveStatusTokensWithHearts(
