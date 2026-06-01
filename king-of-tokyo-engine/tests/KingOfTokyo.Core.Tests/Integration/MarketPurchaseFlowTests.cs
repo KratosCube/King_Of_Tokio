@@ -7,6 +7,7 @@ using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Engine;
 using KingOfTokyo.Core.Events;
 using KingOfTokyo.Core.Rules.Dice;
+using KingOfTokyo.Core.Services;
 using Xunit;
 
 namespace KingOfTokyo.Core.Tests.Integration;
@@ -108,6 +109,55 @@ public sealed class MarketPurchaseFlowTests
                                                gained.Amount == 3);
     }
 
+    [Fact]
+    public void BuyFaceUpCard_Should_ApplyDropFromHighAltitudeEffect_AndEnterTokyo()
+    {
+        var dropCard = new MarketCardState(
+            KnownCardIds.DropFromHighAltitude,
+            "Drop from High Altitude",
+            "+2 victory points and enter Tokyo if a slot is available.",
+            5,
+            MarketCardType.Discard,
+            new CardPurchaseEffect
+            {
+                GainVictoryPoints = 2,
+                EnterTokyo = true
+            });
+
+        var gameState = CreateGameState(4);
+        var marketSetupService = new MarketSetupService(new[]
+        {
+            dropCard,
+            new MarketCardState(KnownCardIds.Heal, "Heal", "Heal 2 damage.", 3, MarketCardType.Discard, new CardPurchaseEffect { Heal = 2 }),
+            new MarketCardState(KnownCardIds.ApartmentBuilding, "Apartment Building", "+3 victory points.", 5, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 3 })
+        });
+        var engine = CreateEngineWithMarket(marketSetupService,
+            DieFace.Energy, DieFace.Energy, DieFace.Energy,
+            DieFace.Energy, DieFace.Energy, DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(0));
+        engine.Execute(gameState, new RollDiceCommand(0));
+        engine.Execute(gameState, new FinalizeDiceCommand(0));
+
+        var currentPlayer = gameState.GetCurrentPlayer();
+
+        var result = engine.Execute(gameState, new BuyFaceUpCardCommand(0, 0));
+
+        Assert.True(result.Success);
+        Assert.Equal(2, currentPlayer.VictoryPoints);
+        Assert.Equal(TokyoSlot.City, currentPlayer.TokyoSlot);
+        Assert.Equal(currentPlayer.PlayerId, gameState.Tokyo.CityOccupantId);
+        Assert.Contains(result.NewEvents, e => e is TokyoEnteredEvent entered &&
+                                               entered.PlayerId == currentPlayer.PlayerId &&
+                                               entered.Slot == TokyoSlot.City);
+        Assert.Contains(result.NewEvents, e => e is VictoryPointsGainedEvent gained &&
+                                               gained.PlayerId == currentPlayer.PlayerId &&
+                                               gained.Amount == 2);
+        Assert.Single(gameState.Market.DiscardPile);
+        Assert.Equal(KnownCardIds.DropFromHighAltitude, gameState.Market.DiscardPile[0].CardId);
+    }
+
     private static GameState CreateGameState(int playerCount)
     {
         var players = Enumerable.Range(0, playerCount)
@@ -121,6 +171,13 @@ public sealed class MarketPurchaseFlowTests
     {
         return new GameEngine(
             diceRollService: new DiceRollService(new SequenceRandomSource(sequence)));
+    }
+
+    private static GameEngine CreateEngineWithMarket(MarketSetupService marketSetupService, params DieFace[] sequence)
+    {
+        return new GameEngine(
+            diceRollService: new DiceRollService(new SequenceRandomSource(sequence)),
+            marketSetupService: marketSetupService);
     }
 
     private sealed class SequenceRandomSource : IRandomSource
