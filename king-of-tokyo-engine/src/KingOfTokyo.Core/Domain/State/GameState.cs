@@ -10,7 +10,8 @@ public sealed class GameState
 {
     private readonly List<PlayerState> _players;
     private readonly List<GameEventBase> _eventLog = new();
-    private readonly Queue<int> _scheduledTurnPlayerIds = new();
+    private readonly Queue<ScheduledTurnState> _scheduledTurns = new();
+    private ScheduledTurnState? _nextScheduledTurn;
 
     public Guid GameId { get; }
     public long Version { get; private set; }
@@ -24,7 +25,9 @@ public sealed class GameState
     public WinnerInfo? WinnerInfo { get; private set; }
     public PendingDecision? PendingDecision { get; private set; }
     public IReadOnlyList<GameEventBase> EventLog => _eventLog;
-    public IReadOnlyList<int> ScheduledTurnPlayerIds => _scheduledTurnPlayerIds.ToArray();
+    public IReadOnlyList<int> ScheduledTurnPlayerIds => _scheduledTurns.Select(turn => turn.PlayerId).ToArray();
+    public IReadOnlyList<ScheduledTurnState> ScheduledTurns => _scheduledTurns.ToArray();
+    public int NextTurnDiceCountModifier => _nextScheduledTurn?.DiceCountModifier ?? 0;
 
     public GameState(IEnumerable<PlayerState> players, GameOptions options, Guid? gameId = null)
     {
@@ -80,7 +83,11 @@ public sealed class GameState
         PendingDecision = null;
     }
 
-    public void StartTurnForCurrentPlayer(int diceCount = 6, int maxRolls = 3)
+    public void StartTurnForCurrentPlayer(
+        int diceCount = 6,
+        int maxRolls = 3,
+        bool isExtraTurn = false,
+        int diceCountModifier = 0)
     {
         var player = GetCurrentPlayer();
 
@@ -89,7 +96,7 @@ public sealed class GameState
             throw new InvalidOperationException("Cannot start turn for a dead player.");
         }
 
-        CurrentTurn = new TurnState(player.PlayerId, diceCount, maxRolls);
+        CurrentTurn = new TurnState(player.PlayerId, diceCount, maxRolls, isExtraTurn, diceCountModifier);
         CurrentTurn.SetPhase(TurnPhase.TurnStart);
         PendingDecision = null;
 
@@ -99,7 +106,7 @@ public sealed class GameState
         }
     }
 
-    public void ScheduleExtraTurn(int playerId)
+    public void ScheduleExtraTurn(int playerId, int diceCountModifier = 0)
     {
         var player = GetPlayerById(playerId);
         if (!player.IsAlive)
@@ -107,7 +114,24 @@ public sealed class GameState
             throw new InvalidOperationException("Cannot schedule an extra turn for a dead player.");
         }
 
-        _scheduledTurnPlayerIds.Enqueue(playerId);
+        _scheduledTurns.Enqueue(new ScheduledTurnState(playerId, diceCountModifier));
+    }
+
+    public ScheduledTurnState? ConsumeNextScheduledTurnForCurrentPlayer()
+    {
+        if (_nextScheduledTurn is null)
+        {
+            return null;
+        }
+
+        if (_nextScheduledTurn.PlayerId != GetCurrentPlayer().PlayerId)
+        {
+            throw new InvalidOperationException("Scheduled turn does not belong to the current player.");
+        }
+
+        var scheduledTurn = _nextScheduledTurn;
+        _nextScheduledTurn = null;
+        return scheduledTurn;
     }
 
     public void AdvanceToNextAlivePlayer()
@@ -117,14 +141,17 @@ public sealed class GameState
             throw new InvalidOperationException("Cannot advance turn when all players are dead.");
         }
 
-        while (_scheduledTurnPlayerIds.Count > 0)
+        _nextScheduledTurn = null;
+
+        while (_scheduledTurns.Count > 0)
         {
-            var scheduledPlayerId = _scheduledTurnPlayerIds.Dequeue();
-            var scheduledPlayerIndex = _players.FindIndex(player => player.PlayerId == scheduledPlayerId);
+            var scheduledTurn = _scheduledTurns.Dequeue();
+            var scheduledPlayerIndex = _players.FindIndex(player => player.PlayerId == scheduledTurn.PlayerId);
 
             if (scheduledPlayerIndex >= 0 && _players[scheduledPlayerIndex].IsAlive)
             {
                 CurrentPlayerIndex = scheduledPlayerIndex;
+                _nextScheduledTurn = scheduledTurn;
                 return;
             }
         }
@@ -174,3 +201,7 @@ public sealed class GameState
         }
     }
 }
+
+public sealed record ScheduledTurnState(
+    int PlayerId,
+    int DiceCountModifier = 0);
