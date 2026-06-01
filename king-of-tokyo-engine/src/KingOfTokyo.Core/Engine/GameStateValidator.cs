@@ -333,7 +333,8 @@ public sealed class GameStateValidator
             throw new InvalidOperationException("Selected market slot is empty.");
         }
 
-        if (currentPlayer.Energy < effectiveCost)
+        var energyPaymentService = new Services.EnergyPaymentService();
+        if (energyPaymentService.GetAvailableEnergy(currentPlayer) < effectiveCost)
         {
             throw new InvalidOperationException("Player does not have enough energy to buy this card.");
         }
@@ -371,7 +372,8 @@ public sealed class GameStateValidator
             throw new InvalidOperationException("Actor does not match the current player.");
         }
 
-        if (currentPlayer.Energy < Services.MarketRefreshService.RefreshCost)
+        var energyPaymentService = new Services.EnergyPaymentService();
+        if (energyPaymentService.GetAvailableEnergy(currentPlayer) < Services.MarketRefreshService.RefreshCost)
         {
             throw new InvalidOperationException("Player does not have enough energy to refresh the market.");
         }
@@ -619,7 +621,8 @@ public sealed class GameStateValidator
             throw new InvalidOperationException("Actor does not match the current player.");
         }
 
-        if (currentPlayer.Energy < effectiveCost)
+        var energyPaymentService = new Services.EnergyPaymentService();
+        if (energyPaymentService.GetAvailableEnergy(currentPlayer) < effectiveCost)
         {
             throw new InvalidOperationException("Player does not have enough energy to buy the peeked card.");
         }
