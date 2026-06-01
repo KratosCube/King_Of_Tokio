@@ -96,6 +96,8 @@ public sealed class SpecialCardActivationService
         currentTurn.ClearDamageTakenThisTurn(player.PlayerId);
         currentTurn.SetPendingTokyoLeaveDamageTaken(player.PlayerId, 0);
 
+        var pendingDecision = UpdatePendingTokyoLeaveDamageTaken(gameState, player.PlayerId);
+
         var events = new GameEventBase[]
         {
             new DamageCanceledEvent(
@@ -104,7 +106,7 @@ public sealed class SpecialCardActivationService
                 "Keep card: Wings.")
         };
 
-        return new EngineStepResult(events, gameState.PendingDecision);
+        return new EngineStepResult(events, pendingDecision);
     }
 
     public EngineStepResult ActivatePlotTwist(GameState gameState, int dieIndex, DieFace targetFace)
@@ -226,6 +228,31 @@ public sealed class SpecialCardActivationService
         gameState.ClearPendingDecision();
 
         return EngineStepResult.Empty;
+    }
+
+    private static PendingDecision? UpdatePendingTokyoLeaveDamageTaken(GameState gameState, int playerId)
+    {
+        if (gameState.PendingDecision is null ||
+            gameState.PendingDecision.DecisionType != DecisionType.LeaveTokyo ||
+            gameState.PendingDecision.PlayerId != playerId)
+        {
+            return gameState.PendingDecision;
+        }
+
+        if (gameState.PendingDecision.Payload is not LeaveTokyoDecisionData payload)
+        {
+            return gameState.PendingDecision;
+        }
+
+        var pendingDecision = new PendingDecision
+        {
+            DecisionType = DecisionType.LeaveTokyo,
+            PlayerId = playerId,
+            Payload = payload with { DamageTaken = 0 }
+        };
+
+        gameState.SetPendingDecision(pendingDecision);
+        return pendingDecision;
     }
 
     private static void ApplyKeepCardLostEffect(PlayerState player, MarketCardState card)
