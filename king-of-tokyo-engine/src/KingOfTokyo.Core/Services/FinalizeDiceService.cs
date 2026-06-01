@@ -80,6 +80,8 @@ public sealed class FinalizeDiceService
                 "Dice scoring."));
         }
 
+        ScheduleFreezeTimeExtraTurnIfEligible(gameState, currentPlayer, summary, victoryPoints);
+
         var gourmetBonus = _keepCardRulesService.GetBonusScoringVictoryPoints(currentPlayer, victoryPoints);
         if (gourmetBonus > 0)
         {
@@ -269,6 +271,25 @@ public sealed class FinalizeDiceService
         return new EngineStepResult(newEvents);
     }
 
+    private static void ScheduleFreezeTimeExtraTurnIfEligible(
+        GameState gameState,
+        PlayerState currentPlayer,
+        DiceResolutionSummary summary,
+        int scoredVictoryPointsFromNumbers)
+    {
+        if (scoredVictoryPointsFromNumbers <= 0 || summary.OneCount < 3)
+        {
+            return;
+        }
+
+        if (!currentPlayer.HasKeepCard(KnownCardIds.FreezeTime))
+        {
+            return;
+        }
+
+        gameState.ScheduleExtraTurn(currentPlayer.PlayerId, diceCountModifier: -1);
+    }
+
     private void ApplyAttackStatusTokens(
         PlayerState currentPlayer,
         PlayerState target,
@@ -395,13 +416,29 @@ public sealed class FinalizeDiceService
 
     private static IReadOnlyList<PlayerState> ResolvePositionalTargets(GameState gameState, PlayerState sourcePlayer)
     {
-        return sourcePlayer.TokyoSlot == TokyoSlot.None
-            ? gameState.Players
-                .Where(p => p.IsAlive && p.PlayerId != sourcePlayer.PlayerId && p.TokyoSlot != TokyoSlot.None)
-                .ToArray()
-            : gameState.Players
-                .Where(p => p.IsAlive && p.PlayerId != sourcePlayer.PlayerId && p.TokyoSlot == TokyoSlot.None)
+        if (sourcePlayer.TokyoSlot == TokyoSlot.None)
+        {
+            return gameState.Players
+                .Where(player => player.IsAlive && player.TokyoSlot != TokyoSlot.None)
                 .ToArray();
+        }
+
+        return gameState.Players
+            .Where(player => player.IsAlive && player.PlayerId != sourcePlayer.PlayerId && player.TokyoSlot == TokyoSlot.None)
+            .ToArray();
+    }
+
+    private static PendingDecision CreateTokyoLeavePendingDecision(TokyoLeaveDecisionContext context)
+    {
+        return new PendingDecision
+        {
+            DecisionType = DecisionType.LeaveTokyo,
+            PlayerId = context.DefenderPlayerId,
+            Payload = new LeaveTokyoDecisionData(
+                context.AttackerPlayerId,
+                context.DefenderPlayerId,
+                context.DamageTaken)
+        };
     }
 
     private void AwardEaterOfTheDeadPoints(GameState gameState, List<GameEventBase> newEvents)
@@ -421,20 +458,5 @@ public sealed class FinalizeDiceService
                 bonusVictoryPoints,
                 "Keep card: Eater of the Dead."));
         }
-    }
-
-    private static PendingDecision CreateTokyoLeavePendingDecision(TokyoLeaveDecisionContext context)
-    {
-        return new PendingDecision
-        {
-            DecisionType = DecisionType.LeaveTokyo,
-            PlayerId = context.DefenderPlayerId,
-            Payload = new LeaveTokyoDecisionData
-            {
-                AttackerPlayerId = context.AttackerPlayerId,
-                DefenderPlayerId = context.DefenderPlayerId,
-                DamageTaken = context.DamageTaken
-            }
-        };
     }
 }
