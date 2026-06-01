@@ -13,6 +13,7 @@ public sealed class PlayerState
     public int VictoryPoints { get; private set; }
     public int Energy { get; private set; }
     public TokyoSlot TokyoSlot { get; private set; }
+    public PlayerStatusState Status { get; } = new();
     public bool IsAlive => Health > 0;
     public IReadOnlyList<MarketCardState> KeepCards => _keepCards;
 
