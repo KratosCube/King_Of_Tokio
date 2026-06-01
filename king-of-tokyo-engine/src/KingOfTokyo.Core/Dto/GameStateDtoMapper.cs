@@ -104,7 +104,8 @@ public static class GameStateDtoMapper
             flags.StartedTurnInTokyo,
             flags.ScoredVictoryPoints,
             flags.EliminatedSomeone,
-            flags.BoughtCard);
+            flags.BoughtCard,
+            flags.HerdCullerUsed);
     }
 
     private static PendingDecisionDto ToDto(PendingDecision pendingDecision)
