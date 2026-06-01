@@ -3,7 +3,9 @@ using KingOfTokyo.Core.Decisions;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
+using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Engine;
+using KingOfTokyo.Core.Events;
 
 namespace KingOfTokyo.Core.Services;
 
@@ -73,6 +75,33 @@ public sealed class SpecialCardActivationService
         return new EngineStepResult(Array.Empty<GameEventBase>(), pendingDecision);
     }
 
+    public EngineStepResult ActivateMetamorph(GameState gameState, string cardIdToDiscard)
+    {
+        ArgumentNullException.ThrowIfNull(gameState);
+
+        var player = gameState.GetCurrentPlayer();
+        var card = player.RemoveKeepCard(cardIdToDiscard);
+
+        ApplyKeepCardLostEffect(player, card);
+        player.GainEnergy(card.Cost);
+        gameState.Market.Discard(card);
+
+        var events = new GameEventBase[]
+        {
+            new KeepCardDiscardedEvent(
+                player.PlayerId,
+                card.CardId,
+                card.Name,
+                "Keep card: Metamorph."),
+            new EnergyGainedEvent(
+                player.PlayerId,
+                card.Cost,
+                "Keep card: Metamorph.")
+        };
+
+        return new EngineStepResult(events);
+    }
+
     public EngineStepResult PeekTopDeckCard(GameState gameState)
     {
         ArgumentNullException.ThrowIfNull(gameState);
@@ -108,6 +137,14 @@ public sealed class SpecialCardActivationService
         gameState.ClearPendingDecision();
 
         return EngineStepResult.Empty;
+    }
+
+    private static void ApplyKeepCardLostEffect(PlayerState player, MarketCardState card)
+    {
+        if (card.CardId == KnownCardIds.EvenBigger)
+        {
+            player.DecreaseMaxHealth(2);
+        }
     }
 
     private static PendingDecision? CreateRerollDecisionIfAvailable(TurnState currentTurn)
