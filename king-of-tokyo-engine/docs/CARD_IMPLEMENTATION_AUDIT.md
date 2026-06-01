@@ -2,14 +2,14 @@
 
 This document tracks how far the headless engine is from supporting the full card set before building the online Blazor UI.
 
-Last verified locally by user after DTO mapper hardening: `dotnet test KingOfTokyo.Engine.slnx` => 140 tests succeeded.
+Last verified locally by user after representative game flow fix: `dotnet test KingOfTokyo.Engine.slnx` => 144 tests succeeded.
 
 Source of truth for this audit:
 
 - Current engine card ids in `KnownCardIds.cs`
 - Current default market deck in `MarketSetupService.cs`
 - Current card/effect integration tests under `tests/KingOfTokyo.Core.Tests`
-- Uploaded card reference PDF used during planning
+- Uploaded card reference PDF/rules used during planning
 
 The original card text is intentionally summarized here. The goal is implementation planning, not copying final public-facing card copy.
 
@@ -29,10 +29,11 @@ The codebase now has stable foundations for the online UI boundary:
 | Area | Status | Notes |
 | --- | --- | --- |
 | Default deck consistency | Implemented | Tests verify that every `KnownCardIds` entry appears in the default deck and that the deck does not contain unknown ids. |
-| Game event log | Implemented | `GameState` tracks `Version` and `EventLog`; successful commands increment version and record new events. |
+| Game event log | Implemented | `GameState` tracks `Version` and `EventLog`; tests cover successful commands, failed commands, exact version increments, event ordering, and returned/logged event identity. |
 | Server-facing DTO projection | Implemented | `GameStateDtoMapper` maps game id, version, players, Tokyo, market, turn state, dice, flags, and pending decisions. |
 | DTO mapper coverage | Implemented | Mapper tests cover setup state, running turn, pending reroll decision payload, keep cards, status tokens, Tokyo slots, market cards/counts, dice, and flags. |
-| Player status tokens | Partial | Poison/shrink token state exists; attack-token application and heart-based token removal exist. Poison end-of-turn damage still needs implementation. |
+| Representative game flow | Implemented | Integration test covers multiple turns, Tokyo entry/leave/stay decisions, card purchase, healing, scoring, start-in-Tokyo VP, versioning, and event log consistency. |
+| Player status tokens | Implemented | Poison/shrink token state exists; attack-token application, heart-based token removal, shrink dice reduction, and poison end-of-turn damage are covered. More edge cases can still be added as regression tests. |
 | Owned keep-card lifecycle | Partial | Player-owned keep cards can be added/removed/discarded; Plot Twist and Metamorph use this. Generic lifecycle hooks/transfers/counters are still missing. |
 
 ## Currently represented in code
@@ -76,11 +77,11 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Nuclear Power Plant | Implemented | VP + healing. |
 | Plot Twist | Implemented | One-use die result change, then discards itself. |
 | Poison Quills | Implemented | Damage when scoring 1s. |
-| Poison Spit | Partial | Adds poison tokens to damaged attack targets. Still needs poison end-of-turn damage and more timing edge cases. |
+| Poison Spit | Implemented | Adds poison tokens to damaged attack targets; poison end-of-turn damage and heart-based removal are implemented/tested. |
 | Rapid Healing | Implemented | Activated keep-card healing. |
 | Regeneration | Implemented | Bonus healing. |
 | Rooting for the Underdog | Implemented | End-turn VP if tied/fewest VP; keep tie behavior covered/confirmed. |
-| Shrink Ray | Partial | Adds shrink tokens to damaged attack targets; shrink tokens reduce dice count and hearts can remove tokens. Needs more lifecycle/timing coverage. |
+| Shrink Ray | Implemented | Adds shrink tokens to damaged attack targets; shrink tokens reduce dice count and hearts can remove tokens. |
 | Skyscraper | Implemented | Simple discard VP gain. |
 | Solar Powered | Implemented | End-turn energy if empty. |
 | Spiked Tail | Implemented | Extra attack damage. |
@@ -111,59 +112,29 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Smoke Cloud | Missing / Needs engine concept | Charge counter card, spend charges for extra rerolls, auto-discard. |
 | Wings | Missing / Needs engine concept | Spend energy to cancel damage during a turn. Needs prevention window. |
 
+## Remaining pure-engine work before UI
+
+### Must-have before online UI
+
+- Finish the missing/incomplete card mechanics that affect public game state.
+- Add generic damage prevention/replacement support for Wings, Camouflage, Jets edge cases, Armor Plating generalization, and It Has a Child.
+- Add card-local state for charged/stored/copying cards: Smoke Cloud, Monster Batteries, Mimic.
+- Add extra-turn scheduling for Freeze Time and Frenzy.
+- Add out-of-turn reaction windows for Opportunist and Psychic Probe.
+- Add seating/adjacency model for Fire Breathing.
+- Add end-to-end tests around elimination, victory timing, and a longer representative full-game path.
+- Keep DTO/event-log coverage synchronized whenever new state is introduced.
+
+### Nice-to-have before UI
+
+- Refactor card effects out of the growing `KeepCardRulesService` into effect handlers.
+- Add snapshot/event cursor DTOs for online resync.
+- Add more regression tests for Bay edge cases and simultaneous eliminations.
+- Decide whether event log should be bounded/snapshot-friendly before persistence.
+
 ## Recommended engine concepts to add next
 
-### 1. Harden event log and game version for online sync
-
-The basic `GameState.Version` and `EventLog` are already present. Next hardening steps:
-
-- Add focused tests proving failed commands do not increment version or append events.
-- Add tests proving successful commands increment version exactly once.
-- Confirm all successful command paths publish and record the same `NewEvents` list.
-- Decide whether event log should be bounded/snapshot-friendly before online persistence.
-
-### 2. Extend server-facing DTOs only when new state is added
-
-The DTO projection layer exists and has mapper coverage. Keep it synchronized whenever new online-visible state is added, especially:
-
-- event log summaries or event cursors,
-- card counters/charges,
-- copied-card state for Mimic,
-- pending reaction windows for out-of-turn cards,
-- poison/shrink lifecycle data if UI needs more than token counts.
-
-### 3. Card effect pipeline
-
-Replace the growing `KeepCardRulesService` conditional list over time with effect hooks:
-
-```csharp
-public interface ICardEffectHandler
-{
-    void OnStartTurn(CardEffectContext context) { }
-    void OnBeforeDamage(CardEffectContext context, DamageContext damage) { }
-    void OnAfterDamage(CardEffectContext context, DamageContext damage) { }
-    void OnDiceFinalized(CardEffectContext context, DiceResolutionSummary summary) { }
-    void OnCardRevealed(CardEffectContext context, MarketCardState card) { }
-    void OnEndTurn(CardEffectContext context) { }
-}
-```
-
-Keep simple discard cards as data-only `CardPurchaseEffect`. Move complex keep cards into handlers gradually.
-
-### 4. Owned-card lifecycle and card-local state
-
-Needed for Even Bigger, Metamorph follow-ups, Mimic, Smoke Cloud, Plot Twist-style one-shot cards, Monster Batteries, and Parasitic Tentacles.
-
-Required operations:
-
-- Add keep card
-- Remove keep card
-- Discard keep card
-- Transfer keep card
-- Attach counters/tokens/energy to a card
-- Run `OnCardLost` / `OnCardDiscarded` effects from every removal path
-
-### 5. Damage prevention/replacement windows
+### 1. Damage prevention/replacement windows
 
 Needed for Wings, Camouflage, Jets edge cases, Armor Plating generalization, and It Has a Child.
 
@@ -174,13 +145,43 @@ Recommended shape:
 - Only then apply damage and emit events.
 - Keep Tokyo-leave decisions based on final applied attack damage.
 
-### 6. Out-of-turn reactions
+### 2. Card-local state
+
+Needed for Mimic, Smoke Cloud, Monster Batteries, and future richer keep cards.
+
+Required capabilities:
+
+- attach counters/tokens/energy to a card,
+- expose those values through DTOs,
+- spend/decrement those values through commands,
+- auto-discard when exhausted,
+- keep event log entries for card-local state changes.
+
+### 3. Owned-card lifecycle
+
+Needed for Even Bigger, Metamorph follow-ups, Mimic, Smoke Cloud, Plot Twist-style one-shot cards, Monster Batteries, and Parasitic Tentacles.
+
+Required operations:
+
+- Add keep card
+- Remove keep card
+- Discard keep card
+- Transfer keep card
+- Run `OnCardLost` / `OnCardDiscarded` effects from every removal path
+
+### 4. Extra-turn scheduling
+
+Needed for Freeze Time and Frenzy.
+
+This should avoid mutating `CurrentPlayerIndex` ad hoc and instead give the turn coordinator an explicit queue/override for the next actor.
+
+### 5. Out-of-turn reactions
 
 Needed for Opportunist and Psychic Probe.
 
 This should probably reuse `PendingDecision`, but support multiple eligible players and timeouts once online.
 
-### 7. Seating/adjacency model
+### 6. Seating/adjacency model
 
 Needed for Fire Breathing.
 
@@ -188,15 +189,16 @@ A minimal model can be player order based, but tests should cover eliminated pla
 
 ## Proposed implementation order
 
-1. Add focused GameState event log + versioning tests.
-2. Add a longer end-to-end flow test for a representative game path.
-3. Implement poison end-of-turn damage for Poison Spit.
-4. Add a damage prevention/replacement mechanism.
-5. Implement Wings and Camouflage on top of the prevention mechanism.
-6. Add card-local counters/energy storage.
-7. Implement Smoke Cloud and Monster Batteries.
-8. Add extra-turn scheduling support.
-9. Implement Freeze Time and Frenzy.
-10. Add out-of-turn reaction support for Opportunist and Psychic Probe.
+1. Add a minimal damage prevention/replacement mechanism.
+2. Implement Wings on top of the prevention mechanism.
+3. Implement Camouflage on top of the prevention mechanism.
+4. Add card-local counters/energy storage.
+5. Implement Smoke Cloud.
+6. Implement Monster Batteries.
+7. Add extra-turn scheduling support.
+8. Implement Freeze Time and Frenzy.
+9. Add out-of-turn reaction support.
+10. Implement Opportunist and Psychic Probe.
 11. Add seating/adjacency support and implement Fire Breathing.
-12. Start SignalR server and Blazor client only after the headless engine can complete representative games.
+12. Implement/verify remaining card-transfer/copy cards: Mimic, Parasitic Tentacles, Healing Ray, It Has a Child, Omnivore, Background Dweller.
+13. Start SignalR server and Blazor client only after the headless engine can complete representative games.
