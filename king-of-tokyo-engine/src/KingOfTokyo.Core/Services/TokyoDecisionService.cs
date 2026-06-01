@@ -49,6 +49,22 @@ public sealed class TokyoDecisionService
             var previousSlot = defender.TokyoSlot;
             var defenderHasBurrowing = _keepCardRulesService.HasBurrowing(defender);
 
+            var jetsHealing = _keepCardRulesService.GetHealingWhenLeavingTokyo(defender, context.DamageTaken);
+            if (jetsHealing > 0)
+            {
+                var healthBefore = defender.Health;
+                defender.Heal(jetsHealing);
+                var actualHealing = defender.Health - healthBefore;
+
+                if (actualHealing > 0)
+                {
+                    newEvents.Add(new PlayerHealedEvent(
+                        defender.PlayerId,
+                        actualHealing,
+                        "Keep card: Jets."));
+                }
+            }
+
             _tokyoResolver.LeaveTokyo(gameState, defender);
             newEvents.Add(new TokyoLeftEvent(defender.PlayerId, previousSlot));
 
