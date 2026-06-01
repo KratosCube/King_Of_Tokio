@@ -48,7 +48,9 @@ public sealed record CardDto(
     string Name,
     string Description,
     int Cost,
-    MarketCardType CardType);
+    MarketCardType CardType,
+    int Counters = 0,
+    int StoredEnergy = 0);
 
 public sealed record TurnDto(
     int CurrentPlayerId,
