@@ -6,6 +6,17 @@ namespace KingOfTokyo.Core.Services;
 
 public sealed class KeepCardRulesService
 {
+    public const int BaseDiceCount = 6;
+    public const int MinimumDiceCount = 1;
+
+    public int GetEffectiveDiceCount(PlayerState player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+
+        var diceCount = BaseDiceCount + GetExtraDiceCount(player) - player.Status.ShrinkTokens;
+        return Math.Max(MinimumDiceCount, diceCount);
+    }
+
     public int GetExtraDiceCount(PlayerState player)
     {
         ArgumentNullException.ThrowIfNull(player);
