@@ -91,6 +91,20 @@ public sealed class GameStateDtoMapperTests
         Assert.Equal(KnownCardIds.ExtraHead, dto.Players[0].KeepCards[0].CardId);
     }
 
+    [Fact]
+    public void ToDto_Should_MapPlayerStatusTokens()
+    {
+        var gameState = CreateGameState(4);
+        var player = gameState.GetPlayerById(0);
+        player.Status.AddPoisonTokens(2);
+        player.Status.AddShrinkTokens(1);
+
+        var dto = gameState.ToDto();
+
+        Assert.Equal(2, dto.Players[0].Status.PoisonTokens);
+        Assert.Equal(1, dto.Players[0].Status.ShrinkTokens);
+    }
+
     private static GameState CreateGameState(int playerCount, Guid? gameId = null)
     {
         var players = Enumerable.Range(0, playerCount)
