@@ -9,6 +9,7 @@ public sealed class KeepCardRulesService
     public const int BaseDiceCount = 6;
     public const int MinimumDiceCount = 1;
     public const string MetamorphCardId = KnownCardIds.Metamorph;
+    public const string PlotTwistCardId = KnownCardIds.PlotTwist;
 
     public int GetEffectiveDiceCount(PlayerState player)
     {
