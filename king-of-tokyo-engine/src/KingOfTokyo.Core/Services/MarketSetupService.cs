@@ -52,6 +52,7 @@ public sealed class MarketSetupService
             new(KnownCardIds.NovaBreath, "Nova Breath", "Your attacks damage all other monsters.", 7, MarketCardType.Keep),
             new(KnownCardIds.Burrowing, "Burrowing", "When attacking Tokyo, deal 1 extra damage. When leaving Tokyo, deal 1 damage to the monster taking your place.", 5, MarketCardType.Keep),
             new(KnownCardIds.Jets, "Jets", "When you leave Tokyo after taking damage, heal that damage.", 5, MarketCardType.Keep),
+            new(KnownCardIds.Wings, "Wings", "Spend 2 energy to cancel damage you took this turn.", 6, MarketCardType.Keep),
             new(KnownCardIds.ArmorPlating, "Armor Plating", "Ignore 1 damage.", 4, MarketCardType.Keep),
             new(KnownCardIds.EvenBigger, "Even Bigger", "Your maximum health is increased by 2. When you gain this card, heal 2. When you lose this card, lose 2 health.", 8, MarketCardType.Keep, new CardPurchaseEffect { IncreaseMaxHealth = 2, Heal = 2 }),
             new(KnownCardIds.WereOnlyMakingItStronger, "We're Only Making It Stronger", "When you lose 2 or more health, gain 1 victory point.", 3, MarketCardType.Keep),
