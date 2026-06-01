@@ -1,6 +1,7 @@
 using KingOfTokyo.Core.Abstractions;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
+using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Engine;
 using KingOfTokyo.Core.Events;
 using KingOfTokyo.Core.Rules.Victory;
@@ -119,6 +120,8 @@ public sealed class TurnLifecycleService
                     herbivoreBonus,
                     "Keep card: Herbivore."));
             }
+
+            DrainMonsterBatteries(gameState, newEvents);
         }
 
         currentTurn.MarkPurchasePhaseFinished();
@@ -149,6 +152,33 @@ public sealed class TurnLifecycleService
     {
         ArgumentNullException.ThrowIfNull(gameState);
         gameState.AdvanceToNextAlivePlayer();
+    }
+
+    private static void DrainMonsterBatteries(GameState gameState, List<GameEventBase> newEvents)
+    {
+        foreach (var player in gameState.GetAlivePlayers().ToArray())
+        {
+            foreach (var battery in player.KeepCards
+                         .Where(card => card.CardId == KnownCardIds.MonsterBatteries && card.StoredEnergy > 0)
+                         .ToArray())
+            {
+                battery.SpendStoredEnergy(Math.Min(2, battery.StoredEnergy));
+
+                if (battery.StoredEnergy > 0)
+                {
+                    continue;
+                }
+
+                var discardedCard = player.RemoveKeepCard(KnownCardIds.MonsterBatteries);
+                gameState.Market.Discard(discardedCard);
+
+                newEvents.Add(new KeepCardDiscardedEvent(
+                    player.PlayerId,
+                    discardedCard.CardId,
+                    discardedCard.Name,
+                    "Keep card: Monster Batteries."));
+            }
+        }
     }
 
     private void AwardEaterOfTheDeadPoints(GameState gameState, List<GameEventBase> newEvents)
