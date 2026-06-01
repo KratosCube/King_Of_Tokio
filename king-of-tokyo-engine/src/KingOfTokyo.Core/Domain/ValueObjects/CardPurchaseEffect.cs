@@ -11,6 +11,7 @@ public sealed record CardPurchaseEffect
     public int DamageAllOthers { get; init; }
     public int DamageAllIncludingSelf { get; init; }
     public int DamageSelf { get; init; }
+    public bool EnterTokyo { get; init; }
 
     // Každý jiný hráč utrpí N zranění za každé 2 energy, které má.
     public int DamageOthersPerTwoEnergy { get; init; }
