@@ -95,6 +95,30 @@ public sealed class GameStateDtoMapperTests
 
         Assert.Single(dto.Players[0].KeepCards);
         Assert.Equal(KnownCardIds.ExtraHead, dto.Players[0].KeepCards[0].CardId);
+        Assert.Equal(0, dto.Players[0].KeepCards[0].Counters);
+        Assert.Equal(0, dto.Players[0].KeepCards[0].StoredEnergy);
+    }
+
+    [Fact]
+    public void ToDto_Should_MapPlayerKeepCardLocalState()
+    {
+        var gameState = CreateGameState(4);
+        var player = gameState.GetPlayerById(0);
+        player.AddKeepCard(new MarketCardState(
+            "card-stateful",
+            "Stateful Card",
+            "Uses counters and stored energy.",
+            4,
+            MarketCardType.Keep,
+            counters: 2,
+            storedEnergy: 5));
+
+        var dto = gameState.ToDto();
+
+        var cardDto = Assert.Single(dto.Players[0].KeepCards);
+        Assert.Equal("card-stateful", cardDto.CardId);
+        Assert.Equal(2, cardDto.Counters);
+        Assert.Equal(5, cardDto.StoredEnergy);
     }
 
     [Fact]
@@ -167,6 +191,31 @@ public sealed class GameStateDtoMapperTests
         Assert.Equal(new CardDto("test-card-1", "Test Card 1", "Description for Test Card 1.", 3, MarketCardType.Keep), dto.Market.FaceUpCards[0]);
         Assert.Equal(new CardDto("test-card-2", "Test Card 2", "Description for Test Card 2.", 4, MarketCardType.Discard), dto.Market.FaceUpCards[1]);
         Assert.Null(dto.Market.FaceUpCards[2]);
+    }
+
+    [Fact]
+    public void ToDto_Should_MapMarketCardLocalState()
+    {
+        var gameState = CreateGameState(4);
+        gameState.Market.Initialize(new[]
+        {
+            new MarketCardState(
+                "card-stateful-market",
+                "Stateful Market Card",
+                "Uses counters and stored energy.",
+                4,
+                MarketCardType.Keep,
+                counters: 3,
+                storedEnergy: 6)
+        });
+
+        var dto = gameState.ToDto();
+
+        var cardDto = Assert.Single(dto.Market.FaceUpCards.Where(card => card is not null));
+        Assert.NotNull(cardDto);
+        Assert.Equal("card-stateful-market", cardDto!.CardId);
+        Assert.Equal(3, cardDto.Counters);
+        Assert.Equal(6, cardDto.StoredEnergy);
     }
 
     [Fact]
