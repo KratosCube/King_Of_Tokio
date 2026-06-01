@@ -154,6 +154,42 @@ public sealed class MoreAttackRelatedKeepCardEffectsFlowTests
     }
 
     [Fact]
+    public void FinalizeDice_Should_DamageAllOtherMonsters_WhenPlayerHasNovaBreath()
+    {
+        var gameState = CreateGameState(4);
+        var attacker = gameState.GetPlayerById(0);
+        var tokyoDefender = gameState.GetPlayerById(1);
+        var outsideDefender = gameState.GetPlayerById(2);
+        var otherOutsideDefender = gameState.GetPlayerById(3);
+
+        attacker.AddKeepCard(new MarketCardState(
+            KnownCardIds.NovaBreath,
+            "Nova Breath",
+            "Your attacks damage all other monsters.",
+            7,
+            MarketCardType.Keep));
+
+        tokyoDefender.SetTokyoSlot(TokyoSlot.City);
+        gameState.Tokyo.SetCityOccupant(tokyoDefender.PlayerId);
+
+        var engine = CreateEngine(
+            DieFace.Attack, DieFace.Heart, DieFace.One,
+            DieFace.Two, DieFace.Three, DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(attacker.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(attacker.PlayerId));
+
+        var result = engine.Execute(gameState, new FinalizeDiceCommand(attacker.PlayerId));
+
+        Assert.True(result.Success);
+        Assert.Equal(9, tokyoDefender.Health);
+        Assert.Equal(9, outsideDefender.Health);
+        Assert.Equal(9, otherOutsideDefender.Health);
+        Assert.Equal(3, result.NewEvents.OfType<DamageDealtEvent>().Count(e => e.DamageKind == DamageKind.Attack));
+    }
+
+    [Fact]
     public void FinalizeDice_Should_DealOneExtraAttackDamageIntoTokyo_WhenPlayerHasBurrowing()
     {
         var gameState = CreateGameState(3);
