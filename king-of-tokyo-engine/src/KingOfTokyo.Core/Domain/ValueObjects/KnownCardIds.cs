@@ -63,4 +63,5 @@ public static class KnownCardIds
     public const string ExtraHead = "card-extra-head";
     public const string Telepath = "card-telepath";
     public const string Stretchy = "card-stretchy";
+    public const string SmokeCloud = "card-smoke-cloud";
 }
