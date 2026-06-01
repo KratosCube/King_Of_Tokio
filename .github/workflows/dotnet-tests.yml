@@ -19,27 +19,27 @@ jobs:
           fetch-depth: 1
 
       - name: Show checked out commit
-        shell: pwsh
+        shell: powershell
         run: |
           git status
           git rev-parse HEAD
           git log -1 --oneline
 
       - name: Show machine info
-        shell: pwsh
+        shell: powershell
         run: |
           hostname
           dotnet --info
           git --version
 
       - name: Restore
-        shell: pwsh
+        shell: powershell
         run: dotnet restore king-of-tokyo-engine\KingOfTokyo.Engine.slnx
 
       - name: Build
-        shell: pwsh
+        shell: powershell
         run: dotnet build king-of-tokyo-engine\KingOfTokyo.Engine.slnx --configuration Release --no-restore
 
       - name: Test
-        shell: pwsh
+        shell: powershell
         run: dotnet test king-of-tokyo-engine\KingOfTokyo.Engine.slnx --configuration Release --no-build --logger "console;verbosity=detailed"
