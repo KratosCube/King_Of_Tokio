@@ -101,7 +101,7 @@ public sealed class GameEngine : IGameEngine
         _validator.EnsureCanBeginTurn(gameState, command);
 
         var currentPlayer = gameState.GetCurrentPlayer();
-        var diceCount = 6 + _keepCardRulesService.GetExtraDiceCount(currentPlayer);
+        var diceCount = _keepCardRulesService.GetEffectiveDiceCount(currentPlayer);
         var maxRolls = 3 + _keepCardRulesService.GetExtraRerolls(currentPlayer);
 
         gameState.StartTurnForCurrentPlayer(diceCount: diceCount, maxRolls: maxRolls);
