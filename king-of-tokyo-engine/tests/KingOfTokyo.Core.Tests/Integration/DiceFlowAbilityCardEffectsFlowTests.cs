@@ -130,6 +130,39 @@ public sealed class DiceFlowAbilityCardEffectsFlowTests
     }
 
     [Fact]
+    public void ActivatePlotTwist_Should_ChangeSelectedDieFace_AndDiscardItself()
+    {
+        var gameState = CreateGameState(4);
+        var player = gameState.GetCurrentPlayer();
+
+        player.AddKeepCard(new MarketCardState(
+            KnownCardIds.PlotTwist,
+            "Plot Twist",
+            "Change one of your dice to any result, then discard this card.",
+            3,
+            MarketCardType.Keep));
+
+        var engine = CreateEngine(
+            DieFace.Energy, DieFace.Energy, DieFace.One,
+            DieFace.Two, DieFace.Heart, DieFace.Three);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(player.PlayerId));
+
+        var result = engine.Execute(gameState, new ActivatePlotTwistCommand(2, DieFace.Attack, player.PlayerId));
+
+        Assert.True(result.Success);
+        Assert.Equal(DieFace.Attack, gameState.CurrentTurn!.DicePool.Dice[2].CurrentFace);
+        Assert.False(player.HasKeepCard(KnownCardIds.PlotTwist));
+        Assert.Single(gameState.Market.DiscardPile);
+        Assert.Equal(KnownCardIds.PlotTwist, gameState.Market.DiscardPile[0].CardId);
+        Assert.Contains(result.NewEvents, e => e is KeepCardDiscardedEvent discarded &&
+                                               discarded.PlayerId == player.PlayerId &&
+                                               discarded.CardId == KnownCardIds.PlotTwist);
+    }
+
+    [Fact]
     public void ActivateMetamorph_Should_DiscardOwnedKeepCard_AndGainEnergyEqualToCost()
     {
         var gameState = CreateGameState(4);
