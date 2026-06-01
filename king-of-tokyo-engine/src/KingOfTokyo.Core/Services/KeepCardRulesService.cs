@@ -82,6 +82,12 @@ public sealed class KeepCardRulesService
         return player.HasKeepCard(KnownCardIds.MadeInALab);
     }
 
+    public bool HasNovaBreath(PlayerState player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        return player.HasKeepCard(KnownCardIds.NovaBreath);
+    }
+
     public int GetIgnoredDamage(PlayerState player, DamageKind damageKind)
     {
         ArgumentNullException.ThrowIfNull(player);
