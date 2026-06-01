@@ -79,10 +79,36 @@ public sealed class SpecialCardActivationService
     {
         ArgumentNullException.ThrowIfNull(gameState);
 
+        if (gameState.Status != GameStatus.Running)
+        {
+            throw new InvalidOperationException("Cannot activate Plot Twist when game is not running.");
+        }
+
         var currentTurn = gameState.CurrentTurn
             ?? throw new InvalidOperationException("Cannot activate Plot Twist without an active turn.");
 
+        if (currentTurn.Phase != TurnPhase.Rolling || currentTurn.DiceResolved)
+        {
+            throw new InvalidOperationException("Plot Twist can only be used during the rolling phase before dice are finalized.");
+        }
+
+        if (currentTurn.RollCountUsed <= 0)
+        {
+            throw new InvalidOperationException("Plot Twist can only be used after at least one roll.");
+        }
+
+        if (gameState.PendingDecision is not null &&
+            gameState.PendingDecision.DecisionType != DecisionType.SelectDiceToReroll)
+        {
+            throw new InvalidOperationException("Cannot activate Plot Twist while another decision is pending.");
+        }
+
         var player = gameState.GetCurrentPlayer();
+        if (!player.HasKeepCard(KnownCardIds.PlotTwist))
+        {
+            throw new InvalidOperationException("Player cannot use Plot Twist right now.");
+        }
+
         var die = currentTurn.DicePool.Dice.FirstOrDefault(d => d.Index == dieIndex)
             ?? throw new InvalidOperationException("Selected die does not exist.");
 
