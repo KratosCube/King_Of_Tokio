@@ -15,6 +15,7 @@ public static class GameStateDtoMapper
             gameState.Version,
             gameState.Status,
             gameState.CurrentPlayerIndex,
+            gameState.ScheduledTurnPlayerIds,
             gameState.WinnerInfo?.WinnerPlayerId,
             gameState.WinnerInfo?.Reason,
             gameState.Players.Select(ToDto).ToArray(),
