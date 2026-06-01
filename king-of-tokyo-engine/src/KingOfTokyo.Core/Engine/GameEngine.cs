@@ -73,6 +73,7 @@ public sealed class GameEngine : IGameEngine
                 ActivateTelepathCommand activateTelepathCommand => ExecuteActivateTelepath(gameState, activateTelepathCommand),
                 ActivateStretchyCommand activateStretchyCommand => ExecuteActivateStretchy(gameState, activateStretchyCommand),
                 ActivateHerdCullerCommand activateHerdCullerCommand => ExecuteActivateHerdCuller(gameState, activateHerdCullerCommand),
+                ActivateMetamorphCommand activateMetamorphCommand => ExecuteActivateMetamorph(gameState, activateMetamorphCommand),
                 PeekTopDeckCardCommand peekTopDeckCardCommand => ExecutePeekTopDeckCard(gameState, peekTopDeckCardCommand),
                 BuyPeekedTopDeckCardCommand buyPeekedTopDeckCardCommand => ExecuteBuyPeekedTopDeckCard(gameState, buyPeekedTopDeckCardCommand),
                 DeclinePeekedTopDeckCardCommand declinePeekedTopDeckCardCommand => ExecuteDeclinePeekedTopDeckCard(gameState, declinePeekedTopDeckCardCommand),
@@ -214,6 +215,14 @@ public sealed class GameEngine : IGameEngine
     {
         _validator.EnsureCanActivateHerdCuller(gameState, command);
         var stepResult = _specialCardActivationService.ActivateHerdCuller(gameState, command.DieIndex);
+        return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
+    }
+
+    private CommandResult ExecuteActivateMetamorph(GameState gameState, ActivateMetamorphCommand command)
+    {
+        _validator.EnsureCanActivateMetamorph(gameState, command);
+        var stepResult = _specialCardActivationService.ActivateMetamorph(gameState, command.CardIdToDiscard);
+        PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
 
