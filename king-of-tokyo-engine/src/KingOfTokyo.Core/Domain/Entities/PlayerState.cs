@@ -109,10 +109,38 @@ public sealed class PlayerState
         Health = Math.Min(Health, MaxHealth);
     }
 
+    public void DecreaseMaxHealth(int amount)
+    {
+        if (amount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(amount));
+        }
+
+        MaxHealth = Math.Max(1, MaxHealth - amount);
+        Health = Math.Min(Health, MaxHealth);
+    }
+
     public void AddKeepCard(MarketCardState card)
     {
         ArgumentNullException.ThrowIfNull(card);
         _keepCards.Add(card);
+    }
+
+    public MarketCardState RemoveKeepCard(string cardId)
+    {
+        if (string.IsNullOrWhiteSpace(cardId))
+        {
+            throw new ArgumentException("Card id must not be empty.", nameof(cardId));
+        }
+
+        var card = _keepCards.FirstOrDefault(c => c.CardId == cardId);
+        if (card is null)
+        {
+            throw new InvalidOperationException("Player does not own this keep card.");
+        }
+
+        _keepCards.Remove(card);
+        return card;
     }
 
     public bool HasKeepCard(string cardId)
