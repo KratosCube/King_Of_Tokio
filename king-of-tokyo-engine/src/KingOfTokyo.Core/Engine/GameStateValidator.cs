@@ -27,8 +27,7 @@ public sealed class GameStateValidator
             throw new InvalidOperationException("Cannot begin turn when game is not running.");
         }
 
-        if (gameState.CurrentTurn is not null &&
-            gameState.CurrentTurn.Phase != TurnPhase.Finished)
+        if (gameState.CurrentTurn is not null && gameState.CurrentTurn.Phase != TurnPhase.Finished)
         {
             throw new InvalidOperationException("Cannot begin a new turn while another turn is still active.");
         }
@@ -290,7 +289,8 @@ public sealed class GameStateValidator
             throw new InvalidOperationException("Can only advance after the current turn is finished.");
         }
     }
-            public void EnsureCanBuyFaceUpCard(GameState gameState, BuyFaceUpCardCommand command, int effectiveCost)
+
+    public void EnsureCanBuyFaceUpCard(GameState gameState, BuyFaceUpCardCommand command, int effectiveCost)
     {
         ArgumentNullException.ThrowIfNull(gameState);
         ArgumentNullException.ThrowIfNull(command);
@@ -338,7 +338,8 @@ public sealed class GameStateValidator
             throw new InvalidOperationException("Player does not have enough energy to buy this card.");
         }
     }
-        public void EnsureCanRefreshMarket(GameState gameState, RefreshMarketCommand command)
+
+    public void EnsureCanRefreshMarket(GameState gameState, RefreshMarketCommand command)
     {
         ArgumentNullException.ThrowIfNull(gameState);
         ArgumentNullException.ThrowIfNull(command);
@@ -380,7 +381,8 @@ public sealed class GameStateValidator
             throw new InvalidOperationException("Cannot refresh an empty market.");
         }
     }
-        public void EnsureCanActivateRapidHealing(GameState gameState, ActivateRapidHealingCommand command)
+
+    public void EnsureCanActivateRapidHealing(GameState gameState, ActivateRapidHealingCommand command)
     {
         ArgumentNullException.ThrowIfNull(gameState);
         ArgumentNullException.ThrowIfNull(command);
@@ -419,7 +421,8 @@ public sealed class GameStateValidator
             throw new InvalidOperationException("Player cannot use Rapid Healing right now.");
         }
     }
-        public void EnsureCanActivateTelepath(GameState gameState, ActivateTelepathCommand command)
+
+    public void EnsureCanActivateTelepath(GameState gameState, ActivateTelepathCommand command)
     {
         ArgumentNullException.ThrowIfNull(gameState);
         ArgumentNullException.ThrowIfNull(command);
@@ -464,43 +467,35 @@ public sealed class GameStateValidator
         ArgumentNullException.ThrowIfNull(gameState);
         ArgumentNullException.ThrowIfNull(command);
 
-        if (gameState.Status != GameStatus.Running)
-        {
-            throw new InvalidOperationException("Cannot activate Stretchy when game is not running.");
-        }
-
-        if (gameState.CurrentTurn is null)
-        {
-            throw new InvalidOperationException("Cannot activate Stretchy without an active turn.");
-        }
-
-        if (gameState.CurrentTurn.Phase != TurnPhase.Rolling || gameState.CurrentTurn.DiceResolved)
-        {
-            throw new InvalidOperationException("Stretchy can only be used during the rolling phase before dice are finalized.");
-        }
-
-        if (gameState.CurrentTurn.RollCountUsed <= 0)
-        {
-            throw new InvalidOperationException("Stretchy can only be used after at least one roll.");
-        }
+        EnsureCanModifyDieDuringRolling(gameState, command.ActorPlayerId, command.DieIndex, "Stretchy");
 
         var currentPlayer = gameState.GetCurrentPlayer();
-
-        if (command.ActorPlayerId.HasValue && command.ActorPlayerId.Value != currentPlayer.PlayerId)
-        {
-            throw new InvalidOperationException("Actor does not match the current player.");
-        }
-
-        if (command.DieIndex < 0 || command.DieIndex >= gameState.CurrentTurn.DicePool.Dice.Count)
-        {
-            throw new InvalidOperationException("Selected die index is invalid.");
-        }
-
         var keepCardRulesService = new Services.KeepCardRulesService();
 
         if (!keepCardRulesService.CanUseStretchy(currentPlayer))
         {
             throw new InvalidOperationException("Player cannot use Stretchy right now.");
+        }
+    }
+
+    public void EnsureCanActivateHerdCuller(GameState gameState, ActivateHerdCullerCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(gameState);
+        ArgumentNullException.ThrowIfNull(command);
+
+        EnsureCanModifyDieDuringRolling(gameState, command.ActorPlayerId, command.DieIndex, "Herd Culler");
+
+        if (gameState.CurrentTurn!.Flags.HerdCullerUsed)
+        {
+            throw new InvalidOperationException("Herd Culler can only be used once per turn.");
+        }
+
+        var currentPlayer = gameState.GetCurrentPlayer();
+        var keepCardRulesService = new Services.KeepCardRulesService();
+
+        if (!keepCardRulesService.CanUseHerdCuller(currentPlayer))
+        {
+            throw new InvalidOperationException("Player cannot use Herd Culler right now.");
         }
     }
 
@@ -564,8 +559,7 @@ public sealed class GameStateValidator
             throw new InvalidOperationException("Cannot buy peeked top deck card without an active turn.");
         }
 
-        if (gameState.PendingDecision is null ||
-            gameState.PendingDecision.DecisionType != Decisions.DecisionType.PeekTopDeckCardPurchase)
+        if (gameState.PendingDecision is null || gameState.PendingDecision.DecisionType != DecisionType.PeekTopDeckCardPurchase)
         {
             throw new InvalidOperationException("No peeked top deck card is waiting for resolution.");
         }
@@ -603,8 +597,7 @@ public sealed class GameStateValidator
             throw new InvalidOperationException("Cannot decline peeked top deck card without an active turn.");
         }
 
-        if (gameState.PendingDecision is null ||
-            gameState.PendingDecision.DecisionType != Decisions.DecisionType.PeekTopDeckCardPurchase)
+        if (gameState.PendingDecision is null || gameState.PendingDecision.DecisionType != DecisionType.PeekTopDeckCardPurchase)
         {
             throw new InvalidOperationException("No peeked top deck card is waiting for resolution.");
         }
@@ -614,6 +607,41 @@ public sealed class GameStateValidator
         if (command.ActorPlayerId.HasValue && command.ActorPlayerId.Value != currentPlayer.PlayerId)
         {
             throw new InvalidOperationException("Actor does not match the current player.");
+        }
+    }
+
+    private static void EnsureCanModifyDieDuringRolling(GameState gameState, int? actorPlayerId, int dieIndex, string cardName)
+    {
+        if (gameState.Status != GameStatus.Running)
+        {
+            throw new InvalidOperationException($"Cannot activate {cardName} when game is not running.");
+        }
+
+        if (gameState.CurrentTurn is null)
+        {
+            throw new InvalidOperationException($"Cannot activate {cardName} without an active turn.");
+        }
+
+        if (gameState.CurrentTurn.Phase != TurnPhase.Rolling || gameState.CurrentTurn.DiceResolved)
+        {
+            throw new InvalidOperationException($"{cardName} can only be used during the rolling phase before dice are finalized.");
+        }
+
+        if (gameState.CurrentTurn.RollCountUsed <= 0)
+        {
+            throw new InvalidOperationException($"{cardName} can only be used after at least one roll.");
+        }
+
+        var currentPlayer = gameState.GetCurrentPlayer();
+
+        if (actorPlayerId.HasValue && actorPlayerId.Value != currentPlayer.PlayerId)
+        {
+            throw new InvalidOperationException("Actor does not match the current player.");
+        }
+
+        if (dieIndex < 0 || dieIndex >= gameState.CurrentTurn.DicePool.Dice.Count)
+        {
+            throw new InvalidOperationException("Selected die index is invalid.");
         }
     }
 }
