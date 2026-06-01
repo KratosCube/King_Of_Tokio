@@ -32,14 +32,6 @@ jobs:
           dotnet --info
           git --version
 
-      - name: Restore
-        shell: powershell
-        run: dotnet restore king-of-tokyo-engine\KingOfTokyo.Engine.slnx
-
-      - name: Build
-        shell: powershell
-        run: dotnet build king-of-tokyo-engine\KingOfTokyo.Engine.slnx --configuration Release --no-restore
-
       - name: Test
         shell: powershell
-        run: dotnet test king-of-tokyo-engine\KingOfTokyo.Engine.slnx --configuration Release --no-build --logger "console;verbosity=detailed"
+        run: dotnet test king-of-tokyo-engine\KingOfTokyo.Engine.slnx --logger "console;verbosity=detailed"
