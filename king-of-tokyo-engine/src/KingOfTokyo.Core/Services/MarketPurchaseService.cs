@@ -6,6 +6,7 @@ using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Engine;
 using KingOfTokyo.Core.Events;
 using KingOfTokyo.Core.Rules.Attack;
+using KingOfTokyo.Core.Rules.Tokyo;
 using KingOfTokyo.Core.Rules.Victory;
 
 namespace KingOfTokyo.Core.Services;
@@ -15,15 +16,18 @@ public sealed class MarketPurchaseService
     private readonly KeepCardRulesService _keepCardRulesService;
     private readonly DamageApplier _damageApplier;
     private readonly EliminationService _eliminationService;
+    private readonly TokyoResolver _tokyoResolver;
 
     public MarketPurchaseService(
         KeepCardRulesService? keepCardRulesService = null,
         DamageApplier? damageApplier = null,
-        EliminationService? eliminationService = null)
+        EliminationService? eliminationService = null,
+        TokyoResolver? tokyoResolver = null)
     {
         _keepCardRulesService = keepCardRulesService ?? new KeepCardRulesService();
         _damageApplier = damageApplier ?? new DamageApplier();
         _eliminationService = eliminationService ?? new EliminationService();
+        _tokyoResolver = tokyoResolver ?? new TokyoResolver();
     }
 
     public EngineStepResult BuyFaceUpCard(GameState gameState, int slotIndex, int effectiveCost)
@@ -167,6 +171,14 @@ public sealed class MarketPurchaseService
                         ? $"Bought card: {boughtCard.Name} + Regeneration."
                         : $"Bought card: {boughtCard.Name}."));
             }
+        }
+
+        if (effect.EnterTokyo && player.TokyoSlot == TokyoSlot.None && _tokyoResolver.GetPreferredAvailableSlot(gameState) is not null)
+        {
+            var enteredSlot = _tokyoResolver.EnterTokyo(gameState, player);
+            currentTurn.Flags.EnteredTokyo = true;
+
+            events.Add(new TokyoEnteredEvent(player.PlayerId, enteredSlot));
         }
 
         if (effect.DamageAllOthers > 0)
