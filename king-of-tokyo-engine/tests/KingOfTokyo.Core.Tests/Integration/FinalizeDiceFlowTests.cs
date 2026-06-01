@@ -79,6 +79,60 @@ public sealed class FinalizeDiceFlowTests
         Assert.Equal(TurnPhase.Purchase, gameState.CurrentTurn!.Phase);
     }
 
+    [Fact]
+    public void FinalizeDice_Should_RemovePoisonTokensBeforeHealing()
+    {
+        var gameState = CreateGameState(4);
+        var currentPlayer = gameState.GetPlayerById(0);
+        currentPlayer.TakeDamage(3);
+        currentPlayer.Status.AddPoisonTokens(2);
+        var engine = CreateEngine(
+            DieFace.Heart, DieFace.Heart, DieFace.Heart,
+            DieFace.One, DieFace.Two, DieFace.Three);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(0));
+        engine.Execute(gameState, new RollDiceCommand(0));
+
+        var result = engine.Execute(gameState, new FinalizeDiceCommand(0));
+
+        Assert.True(result.Success);
+        Assert.Equal(0, currentPlayer.Status.PoisonTokens);
+        Assert.Equal(8, currentPlayer.Health);
+
+        var statusEvent = Assert.Single(result.NewEvents.OfType<StatusTokensRemovedEvent>());
+        Assert.Equal(2, statusEvent.PoisonTokensRemoved);
+        Assert.Equal(0, statusEvent.ShrinkTokensRemoved);
+        Assert.Equal(2, statusEvent.HeartsSpent);
+    }
+
+    [Fact]
+    public void FinalizeDice_Should_RemoveShrinkTokensAfterPoisonTokens()
+    {
+        var gameState = CreateGameState(4);
+        var currentPlayer = gameState.GetPlayerById(0);
+        currentPlayer.Status.AddPoisonTokens(1);
+        currentPlayer.Status.AddShrinkTokens(2);
+        var engine = CreateEngine(
+            DieFace.Heart, DieFace.Heart, DieFace.One,
+            DieFace.One, DieFace.Two, DieFace.Three);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(0));
+        engine.Execute(gameState, new RollDiceCommand(0));
+
+        var result = engine.Execute(gameState, new FinalizeDiceCommand(0));
+
+        Assert.True(result.Success);
+        Assert.Equal(0, currentPlayer.Status.PoisonTokens);
+        Assert.Equal(1, currentPlayer.Status.ShrinkTokens);
+
+        var statusEvent = Assert.Single(result.NewEvents.OfType<StatusTokensRemovedEvent>());
+        Assert.Equal(1, statusEvent.PoisonTokensRemoved);
+        Assert.Equal(1, statusEvent.ShrinkTokensRemoved);
+        Assert.Equal(2, statusEvent.HeartsSpent);
+    }
+
     private static GameState CreateGameState(int playerCount)
     {
         var players = Enumerable.Range(0, playerCount)
