@@ -211,7 +211,7 @@ public sealed class GameStateDtoMapperTests
 
         var dto = gameState.ToDto();
 
-        var cardDto = Assert.Single(dto.Market.FaceUpCards.Where(card => card is not null));
+        var cardDto = Assert.Single(dto.Market.FaceUpCards, card => card is not null);
         Assert.NotNull(cardDto);
         Assert.Equal("card-stateful-market", cardDto!.CardId);
         Assert.Equal(3, cardDto.Counters);
