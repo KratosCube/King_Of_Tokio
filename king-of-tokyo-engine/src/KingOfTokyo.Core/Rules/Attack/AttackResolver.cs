@@ -32,8 +32,9 @@ public sealed class AttackResolver
         var totalAttackDamage = summary.AttackCount +
                                 _keepCardRulesService.GetBonusAttackDamage(attacker, summary.AttackCount);
 
-        IEnumerable<PlayerState> targets =
-            attacker.TokyoSlot == TokyoSlot.None
+        IEnumerable<PlayerState> targets = _keepCardRulesService.HasNovaBreath(attacker)
+            ? gameState.Players.Where(p => p.IsAlive && p.PlayerId != attacker.PlayerId)
+            : attacker.TokyoSlot == TokyoSlot.None
                 ? gameState.Players.Where(p =>
                     p.IsAlive &&
                     p.PlayerId != attacker.PlayerId &&
