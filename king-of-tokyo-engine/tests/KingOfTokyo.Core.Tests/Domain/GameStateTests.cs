@@ -43,6 +43,7 @@ public sealed class GameStateTests
         Assert.Equal(gameId, gameState.GameId);
         Assert.Equal(0, gameState.Version);
         Assert.Empty(gameState.EventLog);
+        Assert.Empty(gameState.ScheduledTurnPlayerIds);
     }
 
     [Fact]
@@ -92,6 +93,45 @@ public sealed class GameStateTests
         gameState.AdvanceToNextAlivePlayer();
 
         Assert.Equal(2, gameState.GetCurrentPlayer().PlayerId);
+    }
+
+    [Fact]
+    public void AdvanceToNextAlivePlayer_Should_UseScheduledExtraTurnBeforeNormalOrder()
+    {
+        var gameState = CreateGameState(4);
+        gameState.StartGame();
+        gameState.ScheduleExtraTurn(0);
+
+        gameState.AdvanceToNextAlivePlayer();
+
+        Assert.Equal(0, gameState.GetCurrentPlayer().PlayerId);
+        Assert.Empty(gameState.ScheduledTurnPlayerIds);
+    }
+
+    [Fact]
+    public void AdvanceToNextAlivePlayer_Should_SkipDeadScheduledPlayer()
+    {
+        var gameState = CreateGameState(4);
+        gameState.StartGame();
+        gameState.ScheduleExtraTurn(2);
+        gameState.GetPlayerById(2).TakeDamage(10);
+
+        gameState.AdvanceToNextAlivePlayer();
+
+        Assert.Equal(1, gameState.GetCurrentPlayer().PlayerId);
+        Assert.Empty(gameState.ScheduledTurnPlayerIds);
+    }
+
+    [Fact]
+    public void ScheduleExtraTurn_Should_Fail_ForDeadPlayer()
+    {
+        var gameState = CreateGameState(4);
+        gameState.StartGame();
+        gameState.GetPlayerById(2).TakeDamage(10);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => gameState.ScheduleExtraTurn(2));
+
+        Assert.Equal("Cannot schedule an extra turn for a dead player.", ex.Message);
     }
 
     [Fact]
