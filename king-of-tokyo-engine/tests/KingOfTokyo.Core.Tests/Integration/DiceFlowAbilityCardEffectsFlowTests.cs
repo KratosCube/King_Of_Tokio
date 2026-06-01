@@ -96,6 +96,39 @@ public sealed class DiceFlowAbilityCardEffectsFlowTests
     }
 
     [Fact]
+    public void ActivateHerdCuller_Should_ChangeSelectedDieToOne_OncePerTurn()
+    {
+        var gameState = CreateGameState(4);
+        var player = gameState.GetCurrentPlayer();
+
+        player.AddKeepCard(new MarketCardState(
+            KnownCardIds.HerdCuller,
+            "Herd Culler",
+            "Once per turn, you may change one die to 1.",
+            3,
+            MarketCardType.Keep));
+
+        var engine = CreateEngine(
+            DieFace.Energy, DieFace.Energy, DieFace.Attack,
+            DieFace.Two, DieFace.Heart, DieFace.Three);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(player.PlayerId));
+
+        var result = engine.Execute(gameState, new ActivateHerdCullerCommand(2, player.PlayerId));
+
+        Assert.True(result.Success);
+        Assert.Equal(DieFace.One, gameState.CurrentTurn!.DicePool.Dice[2].CurrentFace);
+        Assert.True(gameState.CurrentTurn.Flags.HerdCullerUsed);
+
+        result = engine.Execute(gameState, new ActivateHerdCullerCommand(3, player.PlayerId));
+
+        Assert.False(result.Success);
+        Assert.Equal(DieFace.Two, gameState.CurrentTurn.DicePool.Dice[3].CurrentFace);
+    }
+
+    [Fact]
     public void PeekTopDeckCard_Should_CreatePendingDecision_WhenPlayerHasMadeInALab()
     {
         var gameState = CreateGameState(4);
