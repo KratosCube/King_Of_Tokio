@@ -173,6 +173,18 @@ public sealed class KeepCardRulesService
         return player.HasKeepCard(KnownCardIds.WereOnlyMakingItStronger) ? 1 : 0;
     }
 
+    public int GetHealingWhenLeavingTokyo(PlayerState player, int damageTaken)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+
+        if (damageTaken <= 0 || !player.HasKeepCard(KnownCardIds.Jets))
+        {
+            return 0;
+        }
+
+        return damageTaken;
+    }
+
     public int GetBonusScoringVictoryPoints(PlayerState player, int scoredVictoryPointsFromNumbers)
     {
         ArgumentNullException.ThrowIfNull(player);
