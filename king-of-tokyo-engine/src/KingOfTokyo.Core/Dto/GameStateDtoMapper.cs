@@ -15,13 +15,15 @@ public static class GameStateDtoMapper
             gameState.Version,
             gameState.Status,
             gameState.CurrentPlayerIndex,
-            gameState.WinnerInfo?.WinnerPlayerId,
-            gameState.WinnerInfo?.Reason,
             gameState.Players.Select(ToDto).ToArray(),
             ToDto(gameState.Tokyo),
             ToDto(gameState.Market),
             gameState.CurrentTurn is null ? null : ToDto(gameState.CurrentTurn),
-            gameState.PendingDecision is null ? null : ToDto(gameState.PendingDecision));
+            gameState.PendingDecision is null ? null : ToDto(gameState.PendingDecision),
+            gameState.WinnerInfo is null ? null : new WinnerInfoDto(
+                gameState.WinnerInfo.WinnerPlayerId,
+                gameState.WinnerInfo.Reason),
+            gameState.EventLog.Count);
     }
 
     private static PlayerDto ToDto(PlayerState player)
@@ -34,25 +36,19 @@ public static class GameStateDtoMapper
             player.VictoryPoints,
             player.Energy,
             player.TokyoSlot,
-            player.IsAlive,
             ToDto(player.Status),
+            player.IsAlive,
             player.KeepCards.Select(ToDto).ToArray());
     }
 
     private static PlayerStatusDto ToDto(PlayerStatusState status)
     {
-        return new PlayerStatusDto(
-            status.PoisonTokens,
-            status.ShrinkTokens);
+        return new PlayerStatusDto(status.PoisonTokens, status.ShrinkTokens);
     }
 
     private static TokyoDto ToDto(TokyoState tokyo)
     {
-        return new TokyoDto(
-            tokyo.CityOccupantId,
-            tokyo.BayOccupantId,
-            tokyo.BayEnabled,
-            tokyo.IsEmpty);
+        return new TokyoDto(tokyo.CityOccupantId, tokyo.BayOccupantId, tokyo.BayEnabled, tokyo.IsEmpty);
     }
 
     private static MarketDto ToDto(MarketState market)
@@ -65,12 +61,7 @@ public static class GameStateDtoMapper
 
     private static CardDto ToDto(MarketCardState card)
     {
-        return new CardDto(
-            card.CardId,
-            card.Name,
-            card.Description,
-            card.Cost,
-            card.CardType);
+        return new CardDto(card.CardId, card.Name, card.Description, card.Cost, card.CardType);
     }
 
     private static TurnDto ToDto(TurnState turn)
@@ -83,16 +74,13 @@ public static class GameStateDtoMapper
             turn.DiceCount,
             turn.DiceResolved,
             turn.PurchasePhaseFinished,
-            turn.DicePool.Dice.Select(ToDto).ToArray(),
-            ToDto(turn.Flags));
+            ToDto(turn.Flags),
+            turn.DicePool.Dice.Select(ToDto).ToArray());
     }
 
     private static DieDto ToDto(DieState die)
     {
-        return new DieDto(
-            die.Index,
-            die.CurrentFace,
-            die.IsLocked);
+        return new DieDto(die.Index, die.CurrentFace, die.IsLocked);
     }
 
     private static TurnFlagsDto ToDto(TurnFlags flags)
@@ -110,9 +98,6 @@ public static class GameStateDtoMapper
 
     private static PendingDecisionDto ToDto(PendingDecision pendingDecision)
     {
-        return new PendingDecisionDto(
-            pendingDecision.DecisionType,
-            pendingDecision.PlayerId,
-            pendingDecision.Payload);
+        return new PendingDecisionDto(pendingDecision.DecisionType, pendingDecision.PlayerId, pendingDecision.Payload);
     }
 }
