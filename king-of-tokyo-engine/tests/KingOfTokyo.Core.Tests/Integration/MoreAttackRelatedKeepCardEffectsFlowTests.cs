@@ -190,6 +190,42 @@ public sealed class MoreAttackRelatedKeepCardEffectsFlowTests
     }
 
     [Fact]
+    public void FinalizeDice_Should_DealOneExtraAttackDamage_WhenPlayerHasAcidAttack()
+    {
+        var gameState = CreateGameState(3);
+        var attacker = gameState.GetPlayerById(0);
+        var defender = gameState.GetPlayerById(1);
+
+        attacker.AddKeepCard(new MarketCardState(
+            KnownCardIds.AcidAttack,
+            "Acid Attack",
+            "Your attacks deal 1 extra damage.",
+            6,
+            MarketCardType.Keep));
+
+        defender.SetTokyoSlot(TokyoSlot.City);
+        gameState.Tokyo.SetCityOccupant(defender.PlayerId);
+
+        var engine = CreateEngine(
+            DieFace.Attack, DieFace.Heart, DieFace.One,
+            DieFace.Two, DieFace.Three, DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(attacker.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(attacker.PlayerId));
+
+        var result = engine.Execute(gameState, new FinalizeDiceCommand(attacker.PlayerId));
+
+        Assert.True(result.Success);
+        Assert.Equal(8, defender.Health);
+        Assert.Contains(result.NewEvents, e => e is DamageDealtEvent damage &&
+                                               damage.SourcePlayerId == attacker.PlayerId &&
+                                               damage.TargetPlayerId == defender.PlayerId &&
+                                               damage.Amount == 2 &&
+                                               damage.DamageKind == DamageKind.Attack);
+    }
+
+    [Fact]
     public void FinalizeDice_Should_DealOneExtraAttackDamageIntoTokyo_WhenPlayerHasBurrowing()
     {
         var gameState = CreateGameState(3);
