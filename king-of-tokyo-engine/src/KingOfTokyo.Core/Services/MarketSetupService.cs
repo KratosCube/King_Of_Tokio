@@ -53,6 +53,7 @@ public sealed class MarketSetupService
             new(KnownCardIds.Burrowing, "Burrowing", "When attacking Tokyo, deal 1 extra damage. When leaving Tokyo, deal 1 damage to the monster taking your place.", 5, MarketCardType.Keep),
             new(KnownCardIds.ArmorPlating, "Armor Plating", "Ignore 1 damage.", 4, MarketCardType.Keep),
             new(KnownCardIds.EvenBigger, "Even Bigger", "Your maximum health is increased by 2. When you gain this card, heal 2. When you lose this card, lose 2 health.", 8, MarketCardType.Keep, new CardPurchaseEffect { IncreaseMaxHealth = 2, Heal = 2 }),
+            new(KnownCardIds.WereOnlyMakingItStronger, "We're Only Making It Stronger", "When you lose 2 or more health, gain 1 victory point.", 3, MarketCardType.Keep),
             new(KnownCardIds.NuclearPowerPlant, "Nuclear Power Plant", "+2 victory points and heal 3 damage.", 6, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 2, Heal = 3 }),
             new(KnownCardIds.DropFromHighAltitude, "Drop from High Altitude", "+2 victory points and enter Tokyo if a slot is available.", 5, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 2, EnterTokyo = true }),
             new(KnownCardIds.FireBlast, "Fire Blast", "All other monsters lose 2 health.", 3, MarketCardType.Discard, new CardPurchaseEffect { DamageAllOthers = 2 }),
