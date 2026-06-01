@@ -1,0 +1,44 @@
+name: .NET engine tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'king-of-tokyo-engine/**'
+      - '.github/workflows/dotnet-tests.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'king-of-tokyo-engine/**'
+      - '.github/workflows/dotnet-tests.yml'
+
+jobs:
+  test:
+    name: Build and test engine
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: king-of-tokyo-engine
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDKs
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore KingOfTokyo.Engine.slnx
+
+      - name: Build
+        run: dotnet build KingOfTokyo.Engine.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test KingOfTokyo.Engine.slnx --configuration Release --no-build --verbosity normal
