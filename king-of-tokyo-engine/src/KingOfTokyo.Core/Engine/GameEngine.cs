@@ -73,6 +73,7 @@ public sealed class GameEngine : IGameEngine
                 ActivateTelepathCommand activateTelepathCommand => ExecuteActivateTelepath(gameState, activateTelepathCommand),
                 ActivateStretchyCommand activateStretchyCommand => ExecuteActivateStretchy(gameState, activateStretchyCommand),
                 ActivateHerdCullerCommand activateHerdCullerCommand => ExecuteActivateHerdCuller(gameState, activateHerdCullerCommand),
+                ActivateSmokeCloudCommand activateSmokeCloudCommand => ExecuteActivateSmokeCloud(gameState, activateSmokeCloudCommand),
                 ActivateWingsCommand activateWingsCommand => ExecuteActivateWings(gameState, activateWingsCommand),
                 ActivatePlotTwistCommand activatePlotTwistCommand => ExecuteActivatePlotTwist(gameState, activatePlotTwistCommand),
                 ActivateMetamorphCommand activateMetamorphCommand => ExecuteActivateMetamorph(gameState, activateMetamorphCommand),
@@ -217,6 +218,14 @@ public sealed class GameEngine : IGameEngine
     {
         _validator.EnsureCanActivateHerdCuller(gameState, command);
         var stepResult = _specialCardActivationService.ActivateHerdCuller(gameState, command.DieIndex);
+        return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
+    }
+
+    private CommandResult ExecuteActivateSmokeCloud(GameState gameState, ActivateSmokeCloudCommand command)
+    {
+        _validator.EnsureCanActivateSmokeCloud(gameState, command);
+        var stepResult = _specialCardActivationService.ActivateSmokeCloud(gameState);
+        PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
 
