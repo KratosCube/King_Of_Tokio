@@ -1,0 +1,145 @@
+King of Tokyo (Godzilly v Tokiu) 
+Autor: Richard Garfield 
+ 
+Pozn. překl.: Přeloženo z anglického originálu – čtyřstránkové brožurky bez číslování stránek. Odkazy a originální názvy se vztahují na tuto brožuru za účelem usnadnění orientace v ní. 
+Legenda hry 
+Zahrajte si na obludu pustošící vše kolem sebe! Budete házet kostkami a snažit se, abyste dostali optimální kombinaci akcí umožňujících léčit utržené šrámy, provádět útoky na soupeře, nakupovat výhodné karty nebo získávat vítězné body. Je na vás, jakou zvolíte taktiku, abyste se stali Pánem Tokia právě včas a naráz smetli všechny své soupeře jediným mocným úderem! Vítězí ten, kdo jako první získá 20 vítězných bodů nebo přežije nejdéle! 
+Hráči představují strašlivé příšery, které se vydaly zdevastovat město Tokio. Za úspěšné ničivé údery získávají vítězné body. Hráč, který jako první dosáhne 20 vítězných bodů, zvítězí. Můžete také hrát tak, že vítězem je poslední přežívající příšera ve hře – je to na vás. 
+Herní materiál (viz obr. nahoře na str. 2) 
+
+    brožurka s pravidly (rules) 
+    hrací plán představující Tokio (Tokyo board) (1) 
+    66 ks hracích karet (cards) (2) 
+    28 ks kartónových žetonů („counters“), z toho 3 ks kouř (Smoke), 1 ks napodobení (Mimic), 12 ks ochromení (Shrink), 12 ks otrava (Poison) (3) 
+    8 ks hracích kostek (dice), z toho 6 ks černých a 2 ks zelených (4) 
+    6 ks panelů příšer (Monster Boards) – na nich hráči zaznamenávají průběžné skóre vítězných bodů a zbývajících životů (5) 
+    6 ks kartónových figurek příšer (carton figures) + 6 ks plastových podstavců (plastic stand up) (6) 
+    hrst kostek energie (Energy cubes) (7) 
+
+Cíl hry 
+Cílem hry je stát se Pánem Tokia. Hra končí v okamžiku, kdy se některému z hráčů podaří dosáhnout 20 vítězných bodů nebo zůstane naživu jediná příšera. 
+Příprava hry 
+Každý hráč si vybere jednu příšeru, vezme si její figurku a příslušný panel, nastaví počet životů na 10 a skóre vítězných bodů na 0. 
+Hrací plán umístěte doprostřed stolu tak, aby na  něj všichni hráči dobře dosáhli. Hrací plán přestavuje město Tokio a jsou na něm vyznačena dvě hrací pole – Město (zelená 1 na obr. na str. 2) a Záliv (žlutá 1 tamtéž). 
+Kdykoliv některá z karet odkazuje na Tokio, platí její efekt pro obě hrací pole. 
+Na začátku hry se žádná figurka nenachází v Tokiu.  
+Hrajete-li hru poprvé nebo v počtu hráčů 4 a méně, budete používat pouze hrací pole Město. V případě další hry v 5 nebo 6 hráčích použijete rovněž hrací pole Záliv. 
+Zamíchejte karty, vytvořte z nich doplňovací balíček lícem dolů, otočte vrchní tři karty a vyložte je lícem nahoru poblíž hracího plánu. Vedle připravte zásobu žetonů a 6 černých kostek, 2 zelené kostky připravte také, přijdou do hry při použití příslušných karet. Na závěr připravte zásobu kostek energie. 
+Průběh hry 
+Hráči postupně hodí všemi černými kostkami. Komu padne nejvíce symbolů Útok (STOPA), začíná.  
+ 
+Pozn. aut.: V dalším textu používáme pro hráče též termín „Příšera“. 
+ 
+Hru zahajuje začínající hráč, po něm následují další hráči ve směru hodinových ručiček. Tah hráče se skládá z následujících po sobě jdoucích kroků: 
+
+    Hody kostkami 
+    Provedení výsledku hodů 
+    Nákup karet (tento krok je nepovinný) 
+    Ukončení tahu 
+     
+
+1. Hody kostkami 
+Hráč na tahu hodí všemi černými kostkami. Poté může házet znovu libovolným počtem z nich ješte podruhé a potřetí. Při každém dalším hodu může znovu házet i těmi kostkami, které po předchozím hodu či hodech nechal stranou.  
+ 
+2. Provedení výsledku hodů 
+Výsledek po případném třetím hodu udává akce, které máte ve vašem tahu k dispozici.  
+ 
+Přehled symbolů na kostkách 
+1, 2, 3: Vítězné body (*) 
+$ (SYMBOL BLESKU): Energie 
+(SYMBOL STOPY): Útok 
+♥: Léčení 
+ 
+Význam symbolů na kostkách 
+Vítězné body 
+Podaří-li se hodit trojici stejných čísel (tři 1, 2 nebo 3), udává číslo počet vítězných bodů *, které hráč získá. Například, tři hozené symboly 3 znamenají zisk tří *, nikoliv devíti. Každá další kostka se stejným číslem znamená zisk dalšího jednoho *, tedy čtyři hozené symboy 3 znamenají zisk čtyř *, čtyři hozené symboly 1 znamenají zisk dvou * atd. – viz též příklady v rámečku na str. 2 nahoře. 
+Energie 
+Za každý hozený symbol $ si hráč může vzít jednu kostku energie ze všeobecné do své zásoby. Zde není třeba hodit trojici těchto symbolů. Hráči si mohou ponechat získané kostky energie do dalších tahů.  
+Útok 
+Každý hozený symbol Útok znamená jeden zásah každé příšeře, která není na témže místě (v Tokiu nebo mimo Tokio).  
+
+    Jste-li v Tokiu, ať už ve Městě nebo v Zálivu, pak za každý hozený Útok zasáhnete každou z příšer, které jsou mimo Tokio.  
+    Jste-li mimo Tokio, pak za každý hozený Útok zasáhnete každou z příšer v Tokiu, a to jak ve Městě, tak i v Zálivu. 
+
+Každý utrpěný zásah znamená ztrátu jednoho života. Ztratí-li příšera svůj poslední život, je ze hry vyřazena. 
+První hráč, který ve hře hodí alespoň jeden Útok, nezpůsobí žádný zásah, ale zmocní se Tokia – přesune svou figurku na pole Město – viz obr. na str. 3.  
+Léčení 
+Za každý hozený symbol ♥ získá hráč zpět jeden z životů, které v průběhu hry ztratil. Žádná příšera nemůže mít více životů než 10, pokud jí to neumožní některá z karet. 
+ 
+Příklady výsledku hodů kostkami 
+Na tahu je Gigazaur nacházející se mimo Tokio, výsledek prvního hodu kostkami je 1, 2, 3, 3, ♥ a $. Hráč ponechá stranou obě kostky se symbolem 3, zbylými kostkami hází podruhé. Tentokrát je stav na všech kostkách 3, 3 (z prvního hodu), 2, 2, 2, (STOPA). Hráč má k dispozici ještě jeden hod, nechá tentokrát stranou tři kostky s dvojkami a konečný výsledek je 2, 2, 2, 2, $ a (STOPA). Za čtyři kostky s dvojkami získává hráč 3 * (dva za trojici dvojek plus jeden navíc za čtvrtou dvojku) a vezme si z obecné zásoby jednu kostku energie.  
+Z ostatních soupeřů se CyberBunny nachází v Tokiu, ten utrží jeden zásah a ztrácí jeden život . Pokud by byl v Tokiu Gigazaur místo CyberBunnyho, všichni soupeři by dostali po 1 zásahu. Gigazaur nehodil žádné ♥, ale protože má 10 životů, tak ani žádné léčení nepotřeboval – nemohl by ho využít. 
+Gigazaur si v tomto tahu nekoupí žádnou kartu a předá kostky soupeři po levici. 
+ 
+3. Nákup karet 
+Po vyhodnocení výsledku hodů kostkami si hráč smí koupit libovolné z vyložených karet, přičemž zaplatí uvedenou cenu v $. Za 2 $ smí odhodit všechny vyložené karty a vyložit místo nich nové tři. Nákupy či odhazování vyložených karet dle předchozí věty může hráč dělat v libovolném pořadí libovolně dlouho, nakolik mu vystačí jeho zásoba $. Koupená karta je okamžitě nahrazena novou shora balíčku. 
+ 
+Příklad 
+Kraken má 10 $ a nemá zájem o žádnou z vyložených karet. Zaplatí 2 $, všechny tři karty odhodí a vyloží místo nich nové. Nyní mu zbývá ještě 8 $, vidí kartu s cenou 3 $, o kterou má zájem. Koupí ji a místo ní otočí novou kartu. Zbývá mu ještě 5 $, ale rozhodne se dále nenakupovat a ušetřit své kostky energie na později.  
+ 
+Popis karet: 
+
+    Cena karty v $ je uvedena v levém horním rohu. K získání karty musí hráč zaplatit příslušný počet $ ze své zásoby. 
+    Druh karty je uveden nadpisem v dolní části karty. Karty jsou dvojího druhu dle svého působení – trvající (keep) znamená, že efekt karty je dlouhodobější, hráči si ji ponechají vyloženou před sebou až do konce hry. U některých karet tohoto typu se efekt může po určité době vyčerpat, jak je popsáno na každé takové kartě. Takovou kartu je možno po vyčerpání odhodit. Karty jednorázové (discard) mají okamžitý efekt ihned v momentě jejich pořízení hráčem, poté jsou odhozeny. 
+    V dolní části pod nadpisem je uveden popis, jak karta ve hře působí. 
+     
+
+4. Ukončení tahu 
+V tomto okamžiku mohou působit některé z karet. Poté je tah hráče u konce, předá kostky sousedovi po levici.  
+Pán Tokia 
+Pánem Tokia je příšera (příp. obě příšery) nacházející se v Tokiu. Na začátku hry začínají všechny příšery mimo Tokio. Hráč, který jako první hodí alespoň jeden symbol Útok, nezpůsobí nikomu žádný zásah, ale zmocní se Tokia – přesune svou figurku na pole Město. To platí i v průběhu hry, kdy je pole Město neobsazeno. Je-li příšera v Tokiu a je na ní veden útok, může se rozhodnout Tokio opustit (a těžko jí to vyčítat, v Tokiu to může být velmi drsné). Utržené zásahy však v každém případě zaznamená. Úspěšný útočník musí zaujmout její místo. Je-li příšera vyřazena ze hry v okamžiku, kdy se nacházela v Tokiu, musí se rovněž úspěšný útočník přesunout do Tokia.  
+Pozor! Karty s jednorázovým efektem, které také mohou způsobit zásahy příšerám, se nepočítají jako útok. Pokud je příšera nacházející se v Tokiu vyřazena působením takové karty,  nenastupuje na její místo v Tokiu nikdo, pole zůstane neobsazeno. 
+Při hře v 5 a 6 hráčích mohou být současně v Tokiu dvě příšery (jedna na poli Město, druhá na poli Záliv), v menším počtu hráčů vždy jen jedna. 
+ 
+Přítomnost v Tokiu 
+
+    Pobyt v Tokiu (na poli Město nebo Záliv) má své výhody i nevýhody. v okamžiku, kdy se příšera přesouvá do Tokia, získává 1 * (jak také připomíná obr. vlevo dole na hracím plánu). 
+    pokud začínáte svůj tah a jste v Tokiu, získáváte 2 * (dtto). 
+    příšera v Tokiu si nemůže vyléčit ztracený život pomocí hodu kostkami (dtto). Léčení pomocí karet je nadále možné normálně. 
+     
+
+Cíl vašeho útoku je dán umístěním figurky.  
+
+    Každý symbol Útok hozený příšerou v Tokiu (na poli Město nebo Záliv) způsobí zásah všem příšerám mimo Tokio.  
+    Symbol Útok hozený příšerou mimo Tokio způsobí zásah výhradně příšerám na polích Město a Záliv. 
+
+Dosažení vítězství ve hře 
+Hra končí v okamžiku, kdy některý z hráčů dosáhne 20 vítězných bodů, nebo zůstane ve hře jediná příšera. Vítěz je prohlášen Pánem Tokia. 
+Pravidla o využití pole Záliv 
+Při hře v 5 nebo 6 hráčích můžete využít i pole Záliv. Toto pole poskytuje dodatečný prostor v Tokiu, což může být ve větším počtu hráčů zábavnější. Jak uvedeno výše, příšery na polích Město i Záliv jsou považovány za nacházející se „v Tokiu“.  Útočí-li příšera nacházející se mimo Tokio a jedno z polí v Tokiu je prázdné nebo opuštěné v důsledku útoku, musí se na něj útočící příšera přesunout. Pokud jsou prázdná pole obě, je třeba nejprve obsadit pole Město. Jsou-li v okamžiku útoku příšery mimo Tokio obě pole v Tokiu prázdné, neutrží zásah nikdo (podobně jak bylo již uvedeno výše). Útočí-li příšera nacházející se mimo Tokio a v Tokiu je obsazeno pouze pole Město, utrží tam se nacházející příšera zásah a útočník se přesune na pole Záliv. Rozhodne-li se zasažená příšera Tokio opustit, musí se útočník přesunout na uprázdněné pole Město.  
+
+    Je-li zasažena příšera nacházející se na poli Záliv, může se po zaznamenání zásahu rozhodnout Tokio opustit. Útočník zaujme její místo, pokud se nemůže přesunout na pole Město. V takovém případě je pole Záliv dočasně neobsazeno. 
+    Žádná příšera nemůže současně obsadit pole Město i Záliv. 
+
+Pokud je nějaká příšera vyřazena ze hry a celkový počet příšer ve hře tak poklesne pod 5, není možné dále využívat pole Záliv. Příšera, která se na něm případně nachází, musí Tokio opustit. 
+Každá karta působící na Tokio působí jak na pole Město, tak na pole Záliv. 
+ 
+Příklad hry v 5 hráčích 
+Gigazaur se nachází v Tokiu na poli Město, Kraken na poli Záliv. Ve hře dále hrají Kong, MekaDragon a CyberBunny. MekaDragon hodí čtyři symboly Útok. Gigazaur i Kraken utrží po čtyřech zásazích. Oba se rozhodnou opustit Tokio, MekaDragon se přemístí na pole Město, za což získává 1 *. Pole Záliv je neobsazeno. Nyní je na tahu Gigazaur, hodí jeden symbol Útok. Zásah utrží pouze MekaDragon, protože pole Záliv je volné. MekaDragon zůstane na poli Město a protože pole Záliv je volné, musí se na něj Gigazaur přesunout, za což také získá 1 *. Pokud by se byl MekaDragon rozhodl pole Město opustit, přesunul by se Gigazaur tam a pole Záliv by dále zůstalo volné. Na tahu dále následuje CyberBunny. Hodí 1 symbol Útok. Zásah utrží jak MekaDragon, tak Gigazaur. Gigazaur se rozhodne opustit Tokio, zatímco MekaDragon zůstává. CyberBunny se tak musí přesunout na pole Záliv, za což získá 1 *. Kong a Kraken ve svých tazích nehodí žádný symbol Útok. Na tah přichází MekaDragon, a protože se nachází v Tokiu, získává v tomto okamžiku 2 *. Hodí 3 symboly Útok. Po třech zásazích dostanou Kong, Kraken i Gigazaur, nikoliv však v Zálivu se  nacházející CyberBunny. Gigazaur je tímto útokem vyřazen ze hry. Protože tímto klesá počet hráčů ve hře na čtyři, není možné dále používat pole Záliv. MekaDragon zůstává na poli Město a všechny zbývající příšery ve hře (Kong, Kraken i CyberBunny) jsou mimo Tokio.  
+Vysvětlení působení karet 
+
+    Je-li na kartě uvedeno číslo následované symbolem *, znamená to, kolik vítězných bodů obdrží hráč, který si kartu koupí. Například při koupi karty Mrakodrap získává hráč okamžitě 4 *, přičemž kartu hned odhodí.  
+    Může se stát, že ve svém tahu hráč dosáhne zisku 20 *, ale zároveň je v témže tahu v důsledku působení karet vyřazen. V takovém případě má smůlu – k dosažení vítězství je nezbytné přežít tah, ve kterém se podmínka vítězství splní. Rovněž je možné, že jsou v jednom tahu vyřazeny všechny příšery najednou. Také v tomto případě je to smůla – všichni prohrávají.  
+    Není možné, aby některá z příšer získala větší počet životů než 10, pokud není na kartě výslovně uveden opak. 
+
+Podrobnější vysvětlení některých pojmů 
+
+    Hod kostkami navíc – Pokud je na kartě uvedeno, že hráč má hod kostkami navíc, znamená to, že může ve svém tahu házet navíc nad běžný limit tří hodů libovolným počtem kostek, pokud není na kartě výslovně uvedeno, že se smí házet pouze jedinou kostkou. 
+    Zásah – soupeř ztrácí 1 život. 
+    Útok / útočící příšera – Příšera je považována za útočící jen tehdy, pokud hráč hodil alespoň jeden symbol Útok na kostkách, jinak útočící není. To znamená, že pokud karta zvyšuje účinek útoku, nemůže zvýšit útok o síle nula na jakékoliv vyšší číslo. Pokud útok z nějakého důvodu žádný zásah nezpůsobí (například kvůli použití karty Kamufláž), pak takový útok rovněž není považován za útok pro účely účinku karet typu Jedovatá slina nebo Býložravec. Pokud karta způsobí soupeřům zásah v okamžiku pořízení (jako např. Rafinerie ropy), není to považováno za útok. Při takto utrženém zásahu nesmí příšera opustit Tokio a karty působící proti útokům nelze proti takovéto kartě použít.  
+    Opuštění Tokia – Příšera se může rozhodnout opustit Tokio v důsledku útoku na ni vedeného, přičemž útočník zaujme její místo. Pokud nějaká karta umožňuje  příšeře po útoku opustit Tokio bez utržení zásahu, musí přesto útočník zaujmout její místo v Tokiu. 
+    Vyřazení – příšera je vyřazena ze hry, jakmile její počet životů klesne na nulu. 
+     
+
+Podrobnější poznámky k některým kartám 
+Větší než jste čekali – přijdeš-li o tuto kartu, ztrácíš 2♥ získané při jejím pořízení. 
+Mrchožrout – Příšera, která po vyřazení pokračuje ve hře díky kartě Ono to má mladé! je rovněž považována za vyřazenou pro účely této karty. 
+Chapadla – tuto kartu můžeš využít jen ve fázi nakupování karet. Pokud na kartě, o kterou máš zájem, leží nějaké žetony, dostaneš kartu i s těmito žetony 
+Dělej po mě! – Pokud je z nějakého důvodu ze hry odstraněna karta, na níž leží žeton napodobení, např. v důsledku vyřazení příslušné příšery, vezmi si žeton zpět. Na začátku svého tahu ho můžeš jako obvykle po zaplacení 1 $ přesunout na jinou kartu. Pokud na kopírované kartě leží nějaké žetony (či kostky energie), použij své vlastní, jako bys takovou kartu sám koupil nově. 
+Chmaták – pokud používají efekt této karty dva hráči (např. pomocí karty Dělej po mě!),  má předkupní právo ten, který je po směru hodinových ručiček blíže k hráči na tahu. 
+Ohnivý dech – způsobenou škodu navíc utrží jen ten soused, který byl útokem napaden. Nebyl-li soused napaden, touto kartou samotnou mu zásah způsoben není. 
+Transformer – prodej karet probíhá po ukončení nákupu karet. Je možné prodat i právě koupenou kartu. 
+Solární pohon – tuto kartu lze využít ihned v témže tahu, v němž byla pořízena. 
+Skok z výšky – získáváš 2* a zároveň ovládneš Tokio – obsadíš pole Město; je-li obsazeno, musí ho soupeř uvolnit. Nacházíš-li se již v Tokiu (na poli Město nebo Záliv), nic se neděje.  
+(NENÍ JASNÉ, CO SE STANE, JE-LI VE HŘE PŘI VYUŽITÍ POLE ZÁLIV OBSAZENO JEN POLE MĚSTO. JÁ SE DOMNÍVÁM, ŽE MAJITEL TÉTO KARTY OBSADÍ POLE MĚSTO A SOUPEŘE VYTLAČÍ NA POLE ZÁLIV, NIKOLIV MIMO TOKIO –POZN. PŘEKL.) 
+Jedovatá slina a Paralýza – žetony zůstávají ve hře i po vyřazení příšery, která otravu či ochromení způsobila. 
