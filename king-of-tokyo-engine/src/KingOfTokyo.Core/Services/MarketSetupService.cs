@@ -69,6 +69,7 @@ public sealed class MarketSetupService
             new(KnownCardIds.HerdCuller, "Herd Culler", "Once per turn, you may change one die to 1.", 3, MarketCardType.Keep),
             new(KnownCardIds.MadeInALab, "Made in a Lab", "During your purchase phase, you may look at the top card of the deck and buy it.", 2, MarketCardType.Keep),
             new(KnownCardIds.Metamorph, "Metamorph", "At the end of your turn, you may discard one of your keep cards to gain energy equal to its cost.", 3, MarketCardType.Keep),
+            new(KnownCardIds.PlotTwist, "Plot Twist", "Change one of your dice to any result, then discard this card.", 3, MarketCardType.Keep),
             new(KnownCardIds.ExtraHead, "Extra Head", "You have 1 extra die.", 7, MarketCardType.Keep),
             new(KnownCardIds.Telepath, "Telepath", "Spend 1 energy to gain 1 extra reroll.", 4, MarketCardType.Keep),
             new(KnownCardIds.Stretchy, "Stretchy", "Spend 2 energy to change one of your dice to any result.", 3, MarketCardType.Keep)
