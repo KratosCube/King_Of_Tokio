@@ -35,7 +35,15 @@ public static class GameStateDtoMapper
             player.Energy,
             player.TokyoSlot,
             player.IsAlive,
+            ToDto(player.Status),
             player.KeepCards.Select(ToDto).ToArray());
+    }
+
+    private static PlayerStatusDto ToDto(PlayerStatusState status)
+    {
+        return new PlayerStatusDto(
+            status.PoisonTokens,
+            status.ShrinkTokens);
     }
 
     private static TokyoDto ToDto(TokyoState tokyo)
