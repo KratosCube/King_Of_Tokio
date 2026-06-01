@@ -73,7 +73,8 @@ public sealed record TurnFlagsDto(
     bool StartedTurnInTokyo,
     bool ScoredVictoryPoints,
     bool EliminatedSomeone,
-    bool BoughtCard);
+    bool BoughtCard,
+    bool HerdCullerUsed);
 
 public sealed record PendingDecisionDto(
     DecisionType DecisionType,
