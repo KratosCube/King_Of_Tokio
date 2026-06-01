@@ -3,6 +3,9 @@ using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
+using KingOfTokyo.Core.Engine;
+using KingOfTokyo.Core.Commands;
+using KingOfTokyo.Core.Events;
 
 namespace KingOfTokyo.Core.Tests.Domain;
 
@@ -28,6 +31,17 @@ public sealed class GameStateTests
         var gameState = new GameState(players, options);
 
         Assert.False(gameState.Tokyo.BayEnabled);
+    }
+
+    [Fact]
+    public void Constructor_Should_AssignGameIdAndStartAtVersionZero()
+    {
+        var gameId = Guid.NewGuid();
+        var gameState = CreateGameState(4, gameId);
+
+        Assert.Equal(gameId, gameState.GameId);
+        Assert.Equal(0, gameState.Version);
+        Assert.Empty(gameState.EventLog);
     }
 
     [Fact]
@@ -94,11 +108,44 @@ public sealed class GameStateTests
         Assert.Equal(TurnPhase.Finished, gameState.CurrentTurn!.Phase);
     }
 
-    private static GameState CreateGameState(int playerCount)
+    [Fact]
+    public void CommandResultSuccessful_Should_IncrementVersionAndRecordEvents()
+    {
+        var gameState = CreateGameState(4);
+        var gameEngine = new GameEngine();
+
+        var result = gameEngine.Execute(gameState, new InitializeGameCommand());
+
+        Assert.True(result.Success);
+        Assert.Equal(1, gameState.Version);
+        Assert.Empty(gameState.EventLog);
+
+        result = gameEngine.Execute(gameState, new BeginTurnCommand(0));
+
+        Assert.True(result.Success);
+        Assert.Equal(2, gameState.Version);
+        Assert.Single(gameState.EventLog);
+        Assert.IsType<TurnStartedEvent>(gameState.EventLog[0]);
+    }
+
+    [Fact]
+    public void CommandResultFailed_Should_NotIncrementVersionOrRecordEvents()
+    {
+        var gameState = CreateGameState(4);
+        var gameEngine = new GameEngine();
+
+        var result = gameEngine.Execute(gameState, new BeginTurnCommand(0));
+
+        Assert.False(result.Success);
+        Assert.Equal(0, gameState.Version);
+        Assert.Empty(gameState.EventLog);
+    }
+
+    private static GameState CreateGameState(int playerCount, Guid? gameId = null)
     {
         var players = CreatePlayers(playerCount);
         var options = new GameOptions(playerCount);
-        return new GameState(players, options);
+        return new GameState(players, options, gameId);
     }
 
     private static IReadOnlyList<PlayerState> CreatePlayers(int count)
