@@ -25,7 +25,12 @@ public sealed record PlayerDto(
     int Energy,
     TokyoSlot TokyoSlot,
     bool IsAlive,
+    PlayerStatusDto Status,
     IReadOnlyList<CardDto> KeepCards);
+
+public sealed record PlayerStatusDto(
+    int PoisonTokens,
+    int ShrinkTokens);
 
 public sealed record TokyoDto(
     int? CityOccupantId,
