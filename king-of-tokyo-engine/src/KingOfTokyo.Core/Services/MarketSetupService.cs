@@ -64,7 +64,7 @@ public sealed class MarketSetupService
             new(KnownCardIds.EvacuationOrders, "Evacuation Orders", "All other monsters lose 5 health.", 7, MarketCardType.Discard, new CardPurchaseEffect { DamageAllOthers = 5 }),
             new(KnownCardIds.NationalGuard, "National Guard", "+2 victory points and suffer 2 damage.", 3, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 2, DamageSelf = 2 }),
             new(KnownCardIds.Tanks, "Tanks", "+4 victory points and suffer 3 damage.", 4, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 4, DamageSelf = 3 }),
-            new(KnownCardIds.JetFighters, "Jet Fighters", "+5 victory points and suffer 4 damage.", 5, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 5 }),
+            new(KnownCardIds.JetFighters, "Jet Fighters", "+5 victory points and suffer 4 damage.", 5, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 5, DamageSelf = 4 }),
             new(KnownCardIds.GasRefinery, "Gas Refinery", "+2 victory points and deal 3 damage to all other monsters.", 6, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 2, DamageAllOthers = 3 }),
             new(KnownCardIds.Skyscraper, "Skyscraper", "+4 victory points.", 6, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 4 }),
             new(KnownCardIds.VastStorm, "Vast Storm", "+2 victory points. All other monsters lose 1 health for every 2 energy they have.", 6, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 2, DamageOthersPerTwoEnergy = 1 }),
