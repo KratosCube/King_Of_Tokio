@@ -75,6 +75,38 @@ public sealed class SpecialCardActivationService
         return new EngineStepResult(Array.Empty<GameEventBase>(), pendingDecision);
     }
 
+    public EngineStepResult ActivateWings(GameState gameState, int playerId)
+    {
+        ArgumentNullException.ThrowIfNull(gameState);
+
+        var currentTurn = gameState.CurrentTurn
+            ?? throw new InvalidOperationException("Cannot activate Wings without an active turn.");
+
+        var player = gameState.GetPlayerById(playerId);
+        var damageTakenThisTurn = currentTurn.GetDamageTakenThisTurn(player.PlayerId);
+        var cancelableDamage = Math.Min(damageTakenThisTurn, player.MaxHealth - player.Health);
+
+        if (cancelableDamage <= 0)
+        {
+            throw new InvalidOperationException("Player has no damage left to cancel.");
+        }
+
+        player.SpendEnergy(KeepCardRulesService.WingsCost);
+        player.Heal(cancelableDamage);
+        currentTurn.ClearDamageTakenThisTurn(player.PlayerId);
+        currentTurn.SetPendingTokyoLeaveDamageTaken(player.PlayerId, 0);
+
+        var events = new GameEventBase[]
+        {
+            new DamageCanceledEvent(
+                player.PlayerId,
+                cancelableDamage,
+                "Keep card: Wings.")
+        };
+
+        return new EngineStepResult(events, gameState.PendingDecision);
+    }
+
     public EngineStepResult ActivatePlotTwist(GameState gameState, int dieIndex, DieFace targetFace)
     {
         ArgumentNullException.ThrowIfNull(gameState);
