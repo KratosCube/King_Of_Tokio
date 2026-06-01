@@ -2,7 +2,7 @@
 
 This document tracks how far the headless engine is from supporting the full card set before building the online Blazor UI.
 
-Last verified locally by user after representative game flow fix: `dotnet test KingOfTokyo.Engine.slnx` => 144 tests succeeded.
+Last verified locally by user after Wings + Camouflage prevention work: `dotnet test KingOfTokyo.Engine.slnx` => 150 tests succeeded before the Camouflage attack-flow test was added.
 
 Source of truth for this audit:
 
@@ -33,6 +33,7 @@ The codebase now has stable foundations for the online UI boundary:
 | Server-facing DTO projection | Implemented | `GameStateDtoMapper` maps game id, version, players, Tokyo, market, turn state, dice, flags, and pending decisions. |
 | DTO mapper coverage | Implemented | Mapper tests cover setup state, running turn, pending reroll decision payload, keep cards, status tokens, Tokyo slots, market cards/counts, dice, and flags. |
 | Representative game flow | Implemented | Integration test covers multiple turns, Tokyo entry/leave/stay decisions, card purchase, healing, scoring, start-in-Tokyo VP, versioning, and event log consistency. |
+| Damage prevention/cancellation | Partial | Static prevention, Wings cancellation, and Camouflage random prevention exist. Still needs fuller replacement hooks for It Has a Child and some lethal/timing edge cases. |
 | Player status tokens | Implemented | Poison/shrink token state exists; attack-token application, heart-based token removal, shrink dice reduction, and poison end-of-turn damage are covered. More edge cases can still be added as regression tests. |
 | Owned keep-card lifecycle | Partial | Player-owned keep cards can be added/removed/discarded; Plot Twist and Metamorph use this. Generic lifecycle hooks/transfers/counters are still missing. |
 
@@ -48,6 +49,7 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Apartment Building | Implemented | Simple discard VP gain. |
 | Armor Plating | Implemented | Damage reduction. |
 | Burrowing | Implemented | Extra damage when attacking Tokyo and damage when leaving Tokyo. |
+| Camouflage | Implemented | Rolls one die per remaining incoming damage after static prevention; each heart prevents 1 damage. Covered by prevention tests and attack-flow test. |
 | Commuter Train | Implemented | Simple discard VP gain. |
 | Complete Destruction | Implemented | Bonus VP when scoring includes 1, 2, and 3. |
 | Corner Store | Implemented | Simple discard VP gain. |
@@ -69,7 +71,7 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Herd Culler | Implemented | Activated once-per-turn die change to `One`. |
 | High Altitude Bombing | Implemented | Damage to everyone. |
 | Jet Fighters | Implemented | VP + self damage. |
-| Jets | Partial | Leave-Tokyo damage recovery is represented. Needs edge-case check for prevention timing versus lethal damage. |
+| Jets | Partial | Leave-Tokyo damage recovery is represented and Wings can zero the pending leave damage. Still needs edge-case check for prevention timing versus lethal damage. |
 | Made in a Lab | Implemented | Peek and optionally buy top deck card through pending decision. |
 | Metamorph | Implemented | Activated in purchase phase; discards an owned keep card and grants energy equal to cost. |
 | National Guard | Implemented | VP + self damage. |
@@ -91,6 +93,7 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Urbavore | Implemented | Tokyo start-turn VP and Tokyo damage bonus. |
 | Vast Storm | Implemented | VP + damage based on opponents' energy. |
 | We're Only Making It Stronger | Implemented | VP when losing 2+ health. |
+| Wings | Implemented | Explicit activation after damage taken this turn; spends 2 energy, cancels/heals that damage, emits `DamageCanceledEvent`, and preserves/updates pending Tokyo leave decisions. |
 
 ## Missing or incomplete cards from the uploaded card reference
 
@@ -98,7 +101,6 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | --- | --- | --- |
 | Opportunist | Missing / Needs engine concept | Reaction to newly revealed market card; out-of-turn purchase window. |
 | Background Dweller | Missing | Always reroll a specific result; needs dice modification hook or card-specific reroll rule. |
-| Camouflage | Missing / Needs engine concept | Roll per incoming damage point to prevent damage. Needs prevention hook and random roll. |
 | Fire Breathing | Missing / Needs engine concept | Neighbor damage when dealing damage; needs seating/adjacency model. |
 | Freeze Time | Missing / Needs engine concept | Extra turn with one fewer die after scoring 1s. |
 | Frenzy | Missing / Needs engine concept | Immediate extra turn after purchase. |
@@ -110,14 +112,12 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Parasitic Tentacles | Missing / Needs engine concept | Buy cards from other players. Needs ownership transfer and payment to another player. |
 | Psychic Probe | Missing / Needs engine concept | Reroll one die during another player's turn; discard on heart result. |
 | Smoke Cloud | Missing / Needs engine concept | Charge counter card, spend charges for extra rerolls, auto-discard. |
-| Wings | Missing / Needs engine concept | Spend energy to cancel damage during a turn. Needs prevention window. |
 
 ## Remaining pure-engine work before UI
 
 ### Must-have before online UI
 
 - Finish the missing/incomplete card mechanics that affect public game state.
-- Add generic damage prevention/replacement support for Wings, Camouflage, Jets edge cases, Armor Plating generalization, and It Has a Child.
 - Add card-local state for charged/stored/copying cards: Smoke Cloud, Monster Batteries, Mimic.
 - Add extra-turn scheduling for Freeze Time and Frenzy.
 - Add out-of-turn reaction windows for Opportunist and Psychic Probe.
@@ -134,18 +134,7 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 
 ## Recommended engine concepts to add next
 
-### 1. Damage prevention/replacement windows
-
-Needed for Wings, Camouflage, Jets edge cases, Armor Plating generalization, and It Has a Child.
-
-Recommended shape:
-
-- Build a `DamageContext` before applying health changes.
-- Let prevention/replacement effects modify or cancel damage.
-- Only then apply damage and emit events.
-- Keep Tokyo-leave decisions based on final applied attack damage.
-
-### 2. Card-local state
+### 1. Card-local state
 
 Needed for Mimic, Smoke Cloud, Monster Batteries, and future richer keep cards.
 
@@ -157,7 +146,7 @@ Required capabilities:
 - auto-discard when exhausted,
 - keep event log entries for card-local state changes.
 
-### 3. Owned-card lifecycle
+### 2. Owned-card lifecycle
 
 Needed for Even Bigger, Metamorph follow-ups, Mimic, Smoke Cloud, Plot Twist-style one-shot cards, Monster Batteries, and Parasitic Tentacles.
 
@@ -169,19 +158,19 @@ Required operations:
 - Transfer keep card
 - Run `OnCardLost` / `OnCardDiscarded` effects from every removal path
 
-### 4. Extra-turn scheduling
+### 3. Extra-turn scheduling
 
 Needed for Freeze Time and Frenzy.
 
 This should avoid mutating `CurrentPlayerIndex` ad hoc and instead give the turn coordinator an explicit queue/override for the next actor.
 
-### 5. Out-of-turn reactions
+### 4. Out-of-turn reactions
 
 Needed for Opportunist and Psychic Probe.
 
 This should probably reuse `PendingDecision`, but support multiple eligible players and timeouts once online.
 
-### 6. Seating/adjacency model
+### 5. Seating/adjacency model
 
 Needed for Fire Breathing.
 
@@ -189,16 +178,13 @@ A minimal model can be player order based, but tests should cover eliminated pla
 
 ## Proposed implementation order
 
-1. Add a minimal damage prevention/replacement mechanism.
-2. Implement Wings on top of the prevention mechanism.
-3. Implement Camouflage on top of the prevention mechanism.
-4. Add card-local counters/energy storage.
-5. Implement Smoke Cloud.
-6. Implement Monster Batteries.
-7. Add extra-turn scheduling support.
-8. Implement Freeze Time and Frenzy.
-9. Add out-of-turn reaction support.
-10. Implement Opportunist and Psychic Probe.
-11. Add seating/adjacency support and implement Fire Breathing.
-12. Implement/verify remaining card-transfer/copy cards: Mimic, Parasitic Tentacles, Healing Ray, It Has a Child, Omnivore, Background Dweller.
-13. Start SignalR server and Blazor client only after the headless engine can complete representative games.
+1. Add card-local counters/energy storage.
+2. Implement Smoke Cloud.
+3. Implement Monster Batteries.
+4. Add extra-turn scheduling support.
+5. Implement Freeze Time and Frenzy.
+6. Add out-of-turn reaction support.
+7. Implement Opportunist and Psychic Probe.
+8. Add seating/adjacency support and implement Fire Breathing.
+9. Implement/verify remaining card-transfer/copy cards: Mimic, Parasitic Tentacles, Healing Ray, It Has a Child, Omnivore, Background Dweller.
+10. Start SignalR server and Blazor client only after the headless engine can complete representative games.
