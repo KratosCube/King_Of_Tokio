@@ -161,6 +161,18 @@ public sealed class KeepCardRulesService
         return 0;
     }
 
+    public int GetVictoryPointsWhenTakingDamage(PlayerState player, int actualDamage)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+
+        if (actualDamage < 2 || !player.IsAlive)
+        {
+            return 0;
+        }
+
+        return player.HasKeepCard(KnownCardIds.WereOnlyMakingItStronger) ? 1 : 0;
+    }
+
     public int GetBonusScoringVictoryPoints(PlayerState player, int scoredVictoryPointsFromNumbers)
     {
         ArgumentNullException.ThrowIfNull(player);
