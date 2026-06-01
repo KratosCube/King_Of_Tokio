@@ -199,6 +199,13 @@ public sealed class MarketSetupService
                 MarketCardType.Keep),
 
             new(
+                KnownCardIds.AcidAttack,
+                "Acid Attack",
+                "Your attacks deal 1 extra damage.",
+                6,
+                MarketCardType.Keep),
+
+            new(
                 KnownCardIds.PoisonSpit,
                 "Poison Spit",
                 "When you attack, give each damaged monster a poison token.",
