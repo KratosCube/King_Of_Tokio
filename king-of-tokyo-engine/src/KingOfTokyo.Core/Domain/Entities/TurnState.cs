@@ -7,6 +7,7 @@ namespace KingOfTokyo.Core.Domain.Entities;
 public sealed class TurnState
 {
     private readonly Queue<TokyoLeaveDecisionContext> _pendingTokyoLeaveDecisions = new();
+    private readonly Dictionary<int, int> _damageTakenThisTurnByPlayer = new();
 
     public int CurrentPlayerId { get; }
     public TurnPhase Phase { get; private set; }
@@ -75,6 +76,46 @@ public sealed class TurnState
         PurchasePhaseFinished = true;
     }
 
+    public void RecordDamageTaken(int playerId, int amount)
+    {
+        if (playerId < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(playerId));
+        }
+
+        if (amount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(amount));
+        }
+
+        if (amount == 0)
+        {
+            return;
+        }
+
+        _damageTakenThisTurnByPlayer[playerId] = GetDamageTakenThisTurn(playerId) + amount;
+    }
+
+    public int GetDamageTakenThisTurn(int playerId)
+    {
+        if (playerId < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(playerId));
+        }
+
+        return _damageTakenThisTurnByPlayer.TryGetValue(playerId, out var amount) ? amount : 0;
+    }
+
+    public void ClearDamageTakenThisTurn(int playerId)
+    {
+        if (playerId < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(playerId));
+        }
+
+        _damageTakenThisTurnByPlayer.Remove(playerId);
+    }
+
     public void EnqueueTokyoLeaveDecisions(IEnumerable<TokyoLeaveDecisionContext> contexts)
     {
         ArgumentNullException.ThrowIfNull(contexts);
@@ -110,7 +151,7 @@ public sealed class TurnState
         _pendingTokyoLeaveDecisions.Clear();
     }
 
-        public void AddExtraRolls(int amount)
+    public void AddExtraRolls(int amount)
     {
         if (amount < 0)
         {
