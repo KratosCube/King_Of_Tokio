@@ -54,6 +54,25 @@ public sealed class SpecialCardActivationService
         return new EngineStepResult(Array.Empty<GameEventBase>(), pendingDecision);
     }
 
+    public EngineStepResult ActivateHerdCuller(GameState gameState, int dieIndex)
+    {
+        ArgumentNullException.ThrowIfNull(gameState);
+
+        var currentTurn = gameState.CurrentTurn
+            ?? throw new InvalidOperationException("Cannot activate Herd Culler without an active turn.");
+
+        var die = currentTurn.DicePool.Dice.FirstOrDefault(d => d.Index == dieIndex)
+            ?? throw new InvalidOperationException("Selected die does not exist.");
+
+        die.SetFace(DieFace.One);
+        currentTurn.Flags.HerdCullerUsed = true;
+
+        var pendingDecision = CreateRerollDecisionIfAvailable(currentTurn);
+        gameState.SetPendingDecision(pendingDecision);
+
+        return new EngineStepResult(Array.Empty<GameEventBase>(), pendingDecision);
+    }
+
     public EngineStepResult PeekTopDeckCard(GameState gameState)
     {
         ArgumentNullException.ThrowIfNull(gameState);
