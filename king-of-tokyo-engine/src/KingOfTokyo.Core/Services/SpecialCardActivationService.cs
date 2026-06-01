@@ -75,6 +75,37 @@ public sealed class SpecialCardActivationService
         return new EngineStepResult(Array.Empty<GameEventBase>(), pendingDecision);
     }
 
+    public EngineStepResult ActivatePlotTwist(GameState gameState, int dieIndex, DieFace targetFace)
+    {
+        ArgumentNullException.ThrowIfNull(gameState);
+
+        var currentTurn = gameState.CurrentTurn
+            ?? throw new InvalidOperationException("Cannot activate Plot Twist without an active turn.");
+
+        var player = gameState.GetCurrentPlayer();
+        var die = currentTurn.DicePool.Dice.FirstOrDefault(d => d.Index == dieIndex)
+            ?? throw new InvalidOperationException("Selected die does not exist.");
+
+        die.SetFace(targetFace);
+
+        var card = player.RemoveKeepCard(KnownCardIds.PlotTwist);
+        gameState.Market.Discard(card);
+
+        var pendingDecision = CreateRerollDecisionIfAvailable(currentTurn);
+        gameState.SetPendingDecision(pendingDecision);
+
+        var events = new GameEventBase[]
+        {
+            new KeepCardDiscardedEvent(
+                player.PlayerId,
+                card.CardId,
+                card.Name,
+                "Keep card: Plot Twist.")
+        };
+
+        return new EngineStepResult(events, pendingDecision);
+    }
+
     public EngineStepResult ActivateMetamorph(GameState gameState, string cardIdToDiscard)
     {
         ArgumentNullException.ThrowIfNull(gameState);
