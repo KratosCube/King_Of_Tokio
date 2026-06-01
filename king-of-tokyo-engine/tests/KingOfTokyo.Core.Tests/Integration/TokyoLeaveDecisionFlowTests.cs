@@ -79,6 +79,45 @@ public sealed class TokyoLeaveDecisionFlowTests
     }
 
     [Fact]
+    public void ChooseLeaveTokyo_Should_HealAttackDamage_WhenDefenderHasJets()
+    {
+        var gameState = CreateGameState(3);
+        var attacker = gameState.GetPlayerById(0);
+        var defender = gameState.GetPlayerById(1);
+
+        defender.AddKeepCard(new MarketCardState(
+            KnownCardIds.Jets,
+            "Jets",
+            "When you leave Tokyo after taking damage, heal that damage.",
+            5,
+            MarketCardType.Keep));
+
+        defender.SetTokyoSlot(TokyoSlot.City);
+        gameState.Tokyo.SetCityOccupant(defender.PlayerId);
+
+        var engine = CreateEngine(
+            DieFace.Attack, DieFace.Attack, DieFace.One,
+            DieFace.Two, DieFace.Three, DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(attacker.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(attacker.PlayerId));
+        engine.Execute(gameState, new FinalizeDiceCommand(attacker.PlayerId));
+
+        Assert.Equal(8, defender.Health);
+
+        var result = engine.Execute(gameState, new ChooseLeaveTokyoCommand(true, defender.PlayerId));
+
+        Assert.True(result.Success);
+        Assert.Equal(10, defender.Health);
+        Assert.Equal(TokyoSlot.None, defender.TokyoSlot);
+        Assert.Contains(result.NewEvents, e => e is PlayerHealedEvent healed &&
+                                               healed.PlayerId == defender.PlayerId &&
+                                               healed.Amount == 2 &&
+                                               healed.Reason == "Keep card: Jets.");
+    }
+
+    [Fact]
     public void ChooseLeaveTokyo_Should_KeepDefenderInTokyo_WhenPlayerStays()
     {
         var gameState = CreateGameState(3);
