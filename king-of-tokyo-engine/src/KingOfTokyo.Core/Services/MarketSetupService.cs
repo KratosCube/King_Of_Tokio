@@ -199,6 +199,20 @@ public sealed class MarketSetupService
                 MarketCardType.Keep),
 
             new(
+                KnownCardIds.PoisonSpit,
+                "Poison Spit",
+                "When you attack, give each damaged monster a poison token.",
+                4,
+                MarketCardType.Keep),
+
+            new(
+                KnownCardIds.ShrinkRay,
+                "Shrink Ray",
+                "When you attack, give each damaged monster a shrink token.",
+                6,
+                MarketCardType.Keep),
+
+            new(
                 KnownCardIds.Burrowing,
                 "Burrowing",
                 "When attacking Tokyo, deal 1 extra damage. When leaving Tokyo, deal 1 damage to the monster taking your place.",
@@ -235,8 +249,8 @@ public sealed class MarketSetupService
                     GainVictoryPoints = 2,
                     Heal = 3
                 }),
-            
-                        new(
+
+            new(
                 KnownCardIds.FireBlast,
                 "Fire Blast",
                 "All other monsters lose 2 health.",
@@ -304,8 +318,8 @@ public sealed class MarketSetupService
                     GainVictoryPoints = 5,
                     DamageSelf = 4
                 }),
-            
-                        new(
+
+            new(
                 KnownCardIds.GasRefinery,
                 "Gas Refinery",
                 "+2 victory points and deal 3 damage to all other monsters.",
@@ -339,8 +353,8 @@ public sealed class MarketSetupService
                     GainVictoryPoints = 2,
                     DamageOthersPerTwoEnergy = 1
                 }),
-            
-                        new(
+
+            new(
                 KnownCardIds.MadeInALab,
                 "Made in a Lab",
                 "During your purchase phase, you may look at the top card of the deck and buy it.",
