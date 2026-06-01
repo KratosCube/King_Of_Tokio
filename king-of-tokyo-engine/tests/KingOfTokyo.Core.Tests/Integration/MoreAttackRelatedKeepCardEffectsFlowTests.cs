@@ -82,6 +82,78 @@ public sealed class MoreAttackRelatedKeepCardEffectsFlowTests
     }
 
     [Fact]
+    public void FinalizeDice_Should_AddPoisonTokenToAttackTarget_WhenPlayerHasPoisonSpit()
+    {
+        var gameState = CreateGameState(3);
+        var attacker = gameState.GetPlayerById(0);
+        var defender = gameState.GetPlayerById(1);
+
+        attacker.AddKeepCard(new MarketCardState(
+            KnownCardIds.PoisonSpit,
+            "Poison Spit",
+            "When you attack, give each damaged monster a poison token.",
+            4,
+            MarketCardType.Keep));
+
+        defender.SetTokyoSlot(TokyoSlot.City);
+        gameState.Tokyo.SetCityOccupant(defender.PlayerId);
+
+        var engine = CreateEngine(
+            DieFace.Attack, DieFace.Heart, DieFace.One,
+            DieFace.Two, DieFace.Three, DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(attacker.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(attacker.PlayerId));
+
+        var result = engine.Execute(gameState, new FinalizeDiceCommand(attacker.PlayerId));
+
+        Assert.True(result.Success);
+        Assert.Equal(1, defender.Status.PoisonTokens);
+        Assert.Contains(result.NewEvents, e => e is StatusTokensAddedEvent added &&
+                                               added.SourcePlayerId == attacker.PlayerId &&
+                                               added.TargetPlayerId == defender.PlayerId &&
+                                               added.PoisonTokensAdded == 1 &&
+                                               added.ShrinkTokensAdded == 0);
+    }
+
+    [Fact]
+    public void FinalizeDice_Should_AddShrinkTokenToAttackTarget_WhenPlayerHasShrinkRay()
+    {
+        var gameState = CreateGameState(3);
+        var attacker = gameState.GetPlayerById(0);
+        var defender = gameState.GetPlayerById(1);
+
+        attacker.AddKeepCard(new MarketCardState(
+            KnownCardIds.ShrinkRay,
+            "Shrink Ray",
+            "When you attack, give each damaged monster a shrink token.",
+            6,
+            MarketCardType.Keep));
+
+        defender.SetTokyoSlot(TokyoSlot.City);
+        gameState.Tokyo.SetCityOccupant(defender.PlayerId);
+
+        var engine = CreateEngine(
+            DieFace.Attack, DieFace.Heart, DieFace.One,
+            DieFace.Two, DieFace.Three, DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(attacker.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(attacker.PlayerId));
+
+        var result = engine.Execute(gameState, new FinalizeDiceCommand(attacker.PlayerId));
+
+        Assert.True(result.Success);
+        Assert.Equal(1, defender.Status.ShrinkTokens);
+        Assert.Contains(result.NewEvents, e => e is StatusTokensAddedEvent added &&
+                                               added.SourcePlayerId == attacker.PlayerId &&
+                                               added.TargetPlayerId == defender.PlayerId &&
+                                               added.PoisonTokensAdded == 0 &&
+                                               added.ShrinkTokensAdded == 1);
+    }
+
+    [Fact]
     public void FinalizeDice_Should_DealOneExtraAttackDamageIntoTokyo_WhenPlayerHasBurrowing()
     {
         var gameState = CreateGameState(3);
