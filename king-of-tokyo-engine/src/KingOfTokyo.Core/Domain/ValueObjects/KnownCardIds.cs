@@ -35,6 +35,7 @@ public static class KnownCardIds
     public const string NovaBreath = "card-nova-breath";
     public const string Burrowing = "card-burrowing";
     public const string Jets = "card-jets";
+    public const string Wings = "card-wings";
 
     public const string ArmorPlating = "card-armor-plating";
     public const string EvenBigger = "card-even-bigger";
