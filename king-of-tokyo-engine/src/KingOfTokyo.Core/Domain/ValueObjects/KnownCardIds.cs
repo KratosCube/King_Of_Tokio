@@ -52,6 +52,7 @@ public static class KnownCardIds
     public const string Skyscraper = "card-skyscraper";
     public const string VastStorm = "card-vast-storm";
 
+    public const string HerdCuller = "card-herd-culler";
     public const string MadeInALab = "card-made-in-a-lab";
     public const string ExtraHead = "card-extra-head";
     public const string Telepath = "card-telepath";
