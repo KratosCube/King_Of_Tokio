@@ -83,7 +83,7 @@ public sealed class SpecialCardActivationService
             ?? throw new InvalidOperationException("Cannot activate Wings without an active turn.");
 
         var player = gameState.GetPlayerById(playerId);
-        var damageTakenThisTurn = currentTurn.GetDamageTakenThisTurn(player.PlayerId);
+        var damageTakenThisTurn = GameStateValidatorWingsExtensions.GetNetDamageTakenThisTurn(gameState, player.PlayerId);
         var cancelableDamage = Math.Min(damageTakenThisTurn, player.MaxHealth - player.Health);
 
         if (cancelableDamage <= 0)
