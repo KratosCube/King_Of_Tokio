@@ -221,6 +221,7 @@ public sealed class GameEngine : IGameEngine
 
     private CommandResult ExecuteActivatePlotTwist(GameState gameState, ActivatePlotTwistCommand command)
     {
+        _validator.EnsureCanActivatePlotTwist(gameState, command);
         var stepResult = _specialCardActivationService.ActivatePlotTwist(gameState, command.DieIndex, command.TargetFace);
         PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
