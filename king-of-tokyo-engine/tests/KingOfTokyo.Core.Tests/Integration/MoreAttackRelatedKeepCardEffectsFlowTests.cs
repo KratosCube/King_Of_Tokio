@@ -226,6 +226,38 @@ public sealed class MoreAttackRelatedKeepCardEffectsFlowTests
     }
 
     [Fact]
+    public void FinalizeDice_Should_GiveVictoryPointToDamagedDefender_WhenDefenderHasStronger()
+    {
+        var gameState = CreateGameState(3);
+        var attacker = gameState.GetPlayerById(0);
+        var defender = gameState.GetPlayerById(1);
+
+        defender.AddKeepCard(new MarketCardState(
+            KnownCardIds.WereOnlyMakingItStronger,
+            "We're Only Making It Stronger",
+            "When you lose 2 or more health, gain 1 victory point.",
+            3,
+            MarketCardType.Keep));
+
+        defender.SetTokyoSlot(TokyoSlot.City);
+        gameState.Tokyo.SetCityOccupant(defender.PlayerId);
+
+        var engine = CreateEngine(
+            DieFace.Attack, DieFace.Attack, DieFace.One,
+            DieFace.Two, DieFace.Three, DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(attacker.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(attacker.PlayerId));
+
+        var result = engine.Execute(gameState, new FinalizeDiceCommand(attacker.PlayerId));
+
+        Assert.True(result.Success);
+        Assert.Equal(8, defender.Health);
+        Assert.Equal(1, defender.VictoryPoints);
+    }
+
+    [Fact]
     public void FinalizeDice_Should_DealOneExtraAttackDamageIntoTokyo_WhenPlayerHasBurrowing()
     {
         var gameState = CreateGameState(3);
