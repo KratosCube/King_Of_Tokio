@@ -8,6 +8,7 @@ public sealed record GameStateDto(
     long Version,
     GameStatus Status,
     int CurrentPlayerIndex,
+    IReadOnlyList<int> ScheduledTurnPlayerIds,
     int? WinnerPlayerId,
     string? WinnerReason,
     IReadOnlyList<PlayerDto> Players,
