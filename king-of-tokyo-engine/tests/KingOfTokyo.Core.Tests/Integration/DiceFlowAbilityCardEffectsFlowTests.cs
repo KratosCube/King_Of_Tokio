@@ -150,7 +150,8 @@ public sealed class DiceFlowAbilityCardEffectsFlowTests
 
         var engine = CreateEngine(
             DieFace.One, DieFace.Two, DieFace.Three,
-            DieFace.Heart, DieFace.Heart, DieFace.Energy);
+            DieFace.Heart, DieFace.Heart, DieFace.Energy,
+            DieFace.Heart);
 
         engine.Execute(gameState, new InitializeGameCommand());
         engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
