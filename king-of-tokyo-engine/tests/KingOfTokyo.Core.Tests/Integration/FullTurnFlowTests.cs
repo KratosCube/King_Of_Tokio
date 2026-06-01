@@ -80,6 +80,60 @@ public sealed class FullTurnFlowTests
     }
 
     [Fact]
+    public void EndTurn_Should_ApplyPoisonDamage()
+    {
+        var gameState = CreateGameState(4);
+        var currentPlayer = gameState.GetCurrentPlayer();
+        currentPlayer.Status.AddPoisonTokens(2);
+        var engine = CreateEngine(
+            DieFace.Two, DieFace.Two, DieFace.Heart,
+            DieFace.Heart, DieFace.Energy, DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(0));
+        engine.Execute(gameState, new RollDiceCommand(0));
+        engine.Execute(gameState, new FinalizeDiceCommand(0));
+
+        var result = engine.Execute(gameState, new EndTurnCommand(0));
+
+        Assert.True(result.Success);
+        Assert.Equal(8, currentPlayer.Health);
+
+        var damageEvent = Assert.Single(result.NewEvents.OfType<DamageDealtEvent>());
+        Assert.Equal(currentPlayer.PlayerId, damageEvent.SourcePlayerId);
+        Assert.Equal(currentPlayer.PlayerId, damageEvent.TargetPlayerId);
+        Assert.Equal(2, damageEvent.Amount);
+        Assert.Equal(DamageKind.StatusEffect, damageEvent.DamageKind);
+    }
+
+    [Fact]
+    public void EndTurn_Should_EndGame_WhenPoisonEliminatesCurrentPlayerAndOneMonsterRemains()
+    {
+        var gameState = CreateGameState(2);
+        var currentPlayer = gameState.GetCurrentPlayer();
+        currentPlayer.TakeDamage(9);
+        currentPlayer.Status.AddPoisonTokens(1);
+        var engine = CreateEngine(
+            DieFace.Two, DieFace.Two, DieFace.Heart,
+            DieFace.Heart, DieFace.Energy, DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(0));
+        engine.Execute(gameState, new RollDiceCommand(0));
+        engine.Execute(gameState, new FinalizeDiceCommand(0));
+
+        var result = engine.Execute(gameState, new EndTurnCommand(0));
+
+        Assert.True(result.Success);
+        Assert.Equal(GameStatus.Finished, gameState.Status);
+        Assert.Equal(1, gameState.WinnerInfo!.WinnerPlayerId);
+        Assert.Contains(result.NewEvents, e => e is PlayerEliminatedEvent eliminated &&
+                                             eliminated.EliminatedPlayerId == currentPlayer.PlayerId);
+        Assert.Contains(result.NewEvents, e => e is GameEndedEvent ended &&
+                                             ended.WinnerPlayerId == 1);
+    }
+
+    [Fact]
     public void AdvanceToNextPlayer_Should_MoveCurrentPlayerIndex_AfterFinishedTurn()
     {
         var gameState = CreateGameState(4);
