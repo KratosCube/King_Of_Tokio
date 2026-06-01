@@ -65,4 +65,5 @@ public static class KnownCardIds
     public const string Stretchy = "card-stretchy";
     public const string SmokeCloud = "card-smoke-cloud";
     public const string MonsterBatteries = "card-monster-batteries";
+    public const string FreezeTime = "card-freeze-time";
 }
