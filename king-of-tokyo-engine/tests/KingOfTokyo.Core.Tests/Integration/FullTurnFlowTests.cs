@@ -80,14 +80,14 @@ public sealed class FullTurnFlowTests
     }
 
     [Fact]
-    public void EndTurn_Should_ApplyPoisonDamage()
+    public void EndTurn_Should_ApplyPoisonDamage_WhenPoisonTokensRemainAfterDiceResolution()
     {
         var gameState = CreateGameState(4);
         var currentPlayer = gameState.GetCurrentPlayer();
         currentPlayer.Status.AddPoisonTokens(2);
         var engine = CreateEngine(
-            DieFace.Two, DieFace.Two, DieFace.Heart,
-            DieFace.Heart, DieFace.Energy, DieFace.Energy);
+            DieFace.Two, DieFace.Two, DieFace.One,
+            DieFace.One, DieFace.Energy, DieFace.Energy);
 
         engine.Execute(gameState, new InitializeGameCommand());
         engine.Execute(gameState, new BeginTurnCommand(0));
@@ -109,13 +109,15 @@ public sealed class FullTurnFlowTests
     [Fact]
     public void EndTurn_Should_EndGame_WhenPoisonEliminatesCurrentPlayerAndOneMonsterRemains()
     {
-        var gameState = CreateGameState(2);
+        var gameState = CreateGameState(3);
         var currentPlayer = gameState.GetCurrentPlayer();
+        var alreadyEliminatedPlayer = gameState.GetPlayerById(1);
+        alreadyEliminatedPlayer.TakeDamage(10);
         currentPlayer.TakeDamage(9);
         currentPlayer.Status.AddPoisonTokens(1);
         var engine = CreateEngine(
-            DieFace.Two, DieFace.Two, DieFace.Heart,
-            DieFace.Heart, DieFace.Energy, DieFace.Energy);
+            DieFace.Two, DieFace.Two, DieFace.One,
+            DieFace.One, DieFace.Energy, DieFace.Energy);
 
         engine.Execute(gameState, new InitializeGameCommand());
         engine.Execute(gameState, new BeginTurnCommand(0));
@@ -126,11 +128,11 @@ public sealed class FullTurnFlowTests
 
         Assert.True(result.Success);
         Assert.Equal(GameStatus.Finished, gameState.Status);
-        Assert.Equal(1, gameState.WinnerInfo!.WinnerPlayerId);
+        Assert.Equal(2, gameState.WinnerInfo!.WinnerPlayerId);
         Assert.Contains(result.NewEvents, e => e is PlayerEliminatedEvent eliminated &&
                                              eliminated.EliminatedPlayerId == currentPlayer.PlayerId);
         Assert.Contains(result.NewEvents, e => e is GameEndedEvent ended &&
-                                             ended.WinnerPlayerId == 1);
+                                             ended.WinnerPlayerId == 2);
     }
 
     [Fact]
