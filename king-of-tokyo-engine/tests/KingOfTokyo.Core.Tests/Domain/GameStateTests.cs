@@ -1,4 +1,5 @@
 using Xunit;
+using KingOfTokyo.Core.Abstractions;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
@@ -129,6 +130,41 @@ public sealed class GameStateTests
     }
 
     [Fact]
+    public void CommandResultSuccessful_Should_RecordReturnedEventsInOrder()
+    {
+        var gameState = CreateGameState(4);
+        var gameEngine = new GameEngine();
+
+        gameEngine.Execute(gameState, new InitializeGameCommand());
+
+        var result = gameEngine.Execute(gameState, new BeginTurnCommand(0));
+
+        Assert.True(result.Success);
+        Assert.Single(result.NewEvents);
+        Assert.Single(gameState.EventLog);
+        Assert.Same(result.NewEvents[0], gameState.EventLog[0]);
+    }
+
+    [Fact]
+    public void CommandResultSuccessful_Should_IncrementVersionOnlyOnce_WhenRecordingMultipleEvents()
+    {
+        var gameState = CreateGameState(4);
+        var versionBefore = gameState.Version;
+        GameEventBase[] eventsToRecord =
+        {
+            new TurnStartedEvent(0),
+            new VictoryPointsGainedEvent(0, 2, "Test event.")
+        };
+
+        var result = CommandResult.Successful(gameState, eventsToRecord);
+
+        Assert.True(result.Success);
+        Assert.Equal(versionBefore + 1, gameState.Version);
+        Assert.Equal(eventsToRecord, result.NewEvents);
+        Assert.Equal(eventsToRecord, gameState.EventLog);
+    }
+
+    [Fact]
     public void CommandResultFailed_Should_NotIncrementVersionOrRecordEvents()
     {
         var gameState = CreateGameState(4);
@@ -139,6 +175,23 @@ public sealed class GameStateTests
         Assert.False(result.Success);
         Assert.Equal(0, gameState.Version);
         Assert.Empty(gameState.EventLog);
+    }
+
+    [Fact]
+    public void CommandResultFailed_Should_NotMutateVersionOrEventLog_AfterSuccessfulCommands()
+    {
+        var gameState = CreateGameState(4);
+        var gameEngine = new GameEngine();
+        gameEngine.Execute(gameState, new InitializeGameCommand());
+        gameEngine.Execute(gameState, new BeginTurnCommand(0));
+        var versionBeforeFailure = gameState.Version;
+        var eventLogCountBeforeFailure = gameState.EventLog.Count;
+
+        var result = gameEngine.Execute(gameState, new BeginTurnCommand(0));
+
+        Assert.False(result.Success);
+        Assert.Equal(versionBeforeFailure, gameState.Version);
+        Assert.Equal(eventLogCountBeforeFailure, gameState.EventLog.Count);
     }
 
     private static GameState CreateGameState(int playerCount, Guid? gameId = null)
