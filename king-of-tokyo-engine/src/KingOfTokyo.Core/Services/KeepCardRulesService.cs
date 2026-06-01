@@ -11,6 +11,7 @@ public sealed class KeepCardRulesService
     public const int WingsCost = 2;
     public const string MetamorphCardId = KnownCardIds.Metamorph;
     public const string PlotTwistCardId = KnownCardIds.PlotTwist;
+    public const string SmokeCloudCardId = KnownCardIds.SmokeCloud;
 
     public int GetEffectiveDiceCount(PlayerState player)
     {
@@ -95,6 +96,12 @@ public sealed class KeepCardRulesService
     {
         ArgumentNullException.ThrowIfNull(player);
         return player.HasKeepCard(KnownCardIds.Wings) && player.Energy >= WingsCost;
+    }
+
+    public bool CanUseSmokeCloud(PlayerState player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        return player.KeepCards.Any(card => card.CardId == KnownCardIds.SmokeCloud && card.Counters > 0);
     }
 
     public bool HasNovaBreath(PlayerState player)
