@@ -124,7 +124,7 @@ public sealed class AttackResolverTests
     [Fact]
     public void ResolveAttack_Should_NotCreateFireBreathingDamage_ForUnattackedNeighbor()
     {
-        var attacker = new PlayerState(0, "Attacker");
+        var attacker = new PlayerState(1, "Attacker");
         attacker.AddKeepCard(new MarketCardState(
             KnownCardIds.FireBreathing,
             "Fire Breathing",
@@ -132,13 +132,14 @@ public sealed class AttackResolverTests
             4,
             MarketCardType.Keep));
 
-        var tokyoDefender = new PlayerState(2, "Tokyo Defender");
+        var neighborA = new PlayerState(0, "Unattacked Neighbor A");
+        var neighborB = new PlayerState(2, "Unattacked Neighbor B");
+        var tokyoDefender = new PlayerState(3, "Tokyo Defender");
         tokyoDefender.SetTokyoSlot(TokyoSlot.City);
-        var unattackedNeighbor = new PlayerState(1, "Unattacked Neighbor");
 
         var gameState = new GameState(
-            new[] { attacker, unattackedNeighbor, tokyoDefender },
-            new GameOptions(3));
+            new[] { neighborA, attacker, neighborB, tokyoDefender },
+            new GameOptions(4));
 
         var summary = new DiceResolutionSummary
         {
