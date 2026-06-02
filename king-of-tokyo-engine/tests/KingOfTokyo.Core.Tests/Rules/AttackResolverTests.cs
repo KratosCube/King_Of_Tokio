@@ -85,4 +85,72 @@ public sealed class AttackResolverTests
 
         Assert.Empty(packets);
     }
+
+    [Fact]
+    public void ResolveAttack_Should_AddFireBreathingDamage_ToAttackedNeighborOnly()
+    {
+        var attacker = new PlayerState(1, "Attacker");
+        attacker.SetTokyoSlot(TokyoSlot.City);
+        attacker.AddKeepCard(new MarketCardState(
+            KnownCardIds.FireBreathing,
+            "Fire Breathing",
+            "Neighboring attacked monsters take 1 extra damage.",
+            4,
+            MarketCardType.Keep));
+
+        var neighborA = new PlayerState(0, "Neighbor A");
+        var neighborB = new PlayerState(2, "Neighbor B");
+        var nonNeighbor = new PlayerState(3, "Non-neighbor");
+
+        var gameState = new GameState(
+            new[] { neighborA, attacker, neighborB, nonNeighbor },
+            new GameOptions(4));
+
+        var summary = new DiceResolutionSummary
+        {
+            AttackCount = 2
+        };
+
+        var resolver = new AttackResolver();
+
+        var packets = resolver.ResolveAttack(gameState, attacker, summary);
+
+        Assert.Equal(3, packets.Count);
+        Assert.Equal(3, packets.Single(packet => packet.TargetPlayerId == neighborA.PlayerId).Amount);
+        Assert.Equal(3, packets.Single(packet => packet.TargetPlayerId == neighborB.PlayerId).Amount);
+        Assert.Equal(2, packets.Single(packet => packet.TargetPlayerId == nonNeighbor.PlayerId).Amount);
+    }
+
+    [Fact]
+    public void ResolveAttack_Should_NotCreateFireBreathingDamage_ForUnattackedNeighbor()
+    {
+        var attacker = new PlayerState(0, "Attacker");
+        attacker.AddKeepCard(new MarketCardState(
+            KnownCardIds.FireBreathing,
+            "Fire Breathing",
+            "Neighboring attacked monsters take 1 extra damage.",
+            4,
+            MarketCardType.Keep));
+
+        var tokyoDefender = new PlayerState(2, "Tokyo Defender");
+        tokyoDefender.SetTokyoSlot(TokyoSlot.City);
+        var unattackedNeighbor = new PlayerState(1, "Unattacked Neighbor");
+
+        var gameState = new GameState(
+            new[] { attacker, unattackedNeighbor, tokyoDefender },
+            new GameOptions(3));
+
+        var summary = new DiceResolutionSummary
+        {
+            AttackCount = 2
+        };
+
+        var resolver = new AttackResolver();
+
+        var packets = resolver.ResolveAttack(gameState, attacker, summary);
+
+        var packet = Assert.Single(packets);
+        Assert.Equal(tokyoDefender.PlayerId, packet.TargetPlayerId);
+        Assert.Equal(2, packet.Amount);
+    }
 }
