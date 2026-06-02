@@ -23,6 +23,7 @@ public sealed class GameEngine : IGameEngine
     private readonly RapidHealingService _rapidHealingService;
     private readonly SpecialCardActivationService _specialCardActivationService;
     private readonly KeepCardRulesService _keepCardRulesService;
+    private readonly OwnedCardTransferService _ownedCardTransferService;
     private readonly IReadOnlyCollection<IGameObserver> _observers;
 
     public GameEngine(
@@ -37,6 +38,7 @@ public sealed class GameEngine : IGameEngine
         RapidHealingService? rapidHealingService = null,
         SpecialCardActivationService? specialCardActivationService = null,
         KeepCardRulesService? keepCardRulesService = null,
+        OwnedCardTransferService? ownedCardTransferService = null,
         IEnumerable<IGameObserver>? observers = null)
     {
         _validator = validator ?? new GameStateValidator();
@@ -50,6 +52,7 @@ public sealed class GameEngine : IGameEngine
         _rapidHealingService = rapidHealingService ?? new RapidHealingService();
         _specialCardActivationService = specialCardActivationService ?? new SpecialCardActivationService();
         _keepCardRulesService = keepCardRulesService ?? new KeepCardRulesService();
+        _ownedCardTransferService = ownedCardTransferService ?? new OwnedCardTransferService();
         _observers = (observers ?? Array.Empty<IGameObserver>()).ToArray();
     }
 
@@ -69,6 +72,7 @@ public sealed class GameEngine : IGameEngine
                 FinalizeDiceCommand finalizeDiceCommand => ExecuteFinalizeDice(gameState, finalizeDiceCommand),
                 ChooseLeaveTokyoCommand chooseLeaveTokyoCommand => ExecuteChooseLeaveTokyo(gameState, chooseLeaveTokyoCommand),
                 BuyFaceUpCardCommand buyFaceUpCardCommand => ExecuteBuyFaceUpCard(gameState, buyFaceUpCardCommand),
+                BuyOwnedKeepCardCommand buyOwnedKeepCardCommand => ExecuteBuyOwnedKeepCard(gameState, buyOwnedKeepCardCommand),
                 RefreshMarketCommand refreshMarketCommand => ExecuteRefreshMarket(gameState, refreshMarketCommand),
                 ActivateRapidHealingCommand activateRapidHealingCommand => ExecuteActivateRapidHealing(gameState, activateRapidHealingCommand),
                 ActivateTelepathCommand activateTelepathCommand => ExecuteActivateTelepath(gameState, activateTelepathCommand),
@@ -194,6 +198,14 @@ public sealed class GameEngine : IGameEngine
         var stepResult = _marketPurchaseService.BuyFaceUpCard(gameState, command.SlotIndex, effectiveCost);
         PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
+    }
+
+    private CommandResult ExecuteBuyOwnedKeepCard(GameState gameState, BuyOwnedKeepCardCommand command)
+    {
+        var (buyer, seller, card) = EnsureCanBuyOwnedKeepCard(gameState, command);
+        _ownedCardTransferService.BuyKeepCardFromPlayer(buyer, seller, card.CardId, card.Cost);
+        gameState.CurrentTurn!.Flags.BoughtCard = true;
+        return CommandResult.Successful(gameState);
     }
 
     private CommandResult ExecuteRefreshMarket(GameState gameState, RefreshMarketCommand command)
@@ -361,6 +373,71 @@ public sealed class GameEngine : IGameEngine
         _validator.EnsureCanAdvanceToNextPlayer(gameState, command);
         _turnLifecycleService.AdvanceToNextPlayer(gameState);
         return CommandResult.Successful(gameState);
+    }
+
+    private static (KingOfTokyo.Core.Domain.Entities.PlayerState Buyer, KingOfTokyo.Core.Domain.Entities.PlayerState Seller, KingOfTokyo.Core.Domain.Entities.MarketCardState Card) EnsureCanBuyOwnedKeepCard(GameState gameState, BuyOwnedKeepCardCommand command)
+    {
+        if (gameState.Status != GameStatus.Running)
+        {
+            throw new InvalidOperationException("Cannot buy owned keep card when game is not running.");
+        }
+
+        if (gameState.CurrentTurn is null)
+        {
+            throw new InvalidOperationException("Cannot buy owned keep card without an active turn.");
+        }
+
+        if (gameState.CurrentTurn.Phase != TurnPhase.Purchase)
+        {
+            throw new InvalidOperationException("Owned keep cards can only be bought during the purchase phase.");
+        }
+
+        if (gameState.PendingDecision is not null)
+        {
+            throw new InvalidOperationException("Cannot buy owned keep card while a decision is pending.");
+        }
+
+        if (!command.ActorPlayerId.HasValue)
+        {
+            throw new InvalidOperationException("BuyOwnedKeepCardCommand requires an actor player id.");
+        }
+
+        if (gameState.CurrentTurn.CurrentPlayerId != command.ActorPlayerId.Value)
+        {
+            throw new InvalidOperationException("Only the current player can buy owned keep cards.");
+        }
+
+        var buyer = gameState.GetPlayerById(command.ActorPlayerId.Value);
+        if (!buyer.IsAlive)
+        {
+            throw new InvalidOperationException("Dead players cannot buy owned keep cards.");
+        }
+
+        if (!buyer.HasKeepCard(KnownCardIds.ParasiticTentacles))
+        {
+            throw new InvalidOperationException("Player does not have Parasitic Tentacles.");
+        }
+
+        var seller = gameState.GetPlayerById(command.SellerPlayerId);
+        if (!seller.IsAlive)
+        {
+            throw new InvalidOperationException("Cannot buy cards from dead players.");
+        }
+
+        if (buyer.PlayerId == seller.PlayerId)
+        {
+            throw new InvalidOperationException("A player cannot buy a card from themselves.");
+        }
+
+        var card = seller.KeepCards.SingleOrDefault(card => card.CardId == command.CardId)
+            ?? throw new InvalidOperationException("Seller does not own this keep card.");
+
+        if (buyer.Energy < card.Cost)
+        {
+            throw new InvalidOperationException("Buyer does not have enough energy.");
+        }
+
+        return (buyer, seller, card);
     }
 
     private static MarketCardRevealDecisionData EnsureCanBuyOpportunistRevealedCard(GameState gameState, BuyOpportunistRevealedCardCommand command)
