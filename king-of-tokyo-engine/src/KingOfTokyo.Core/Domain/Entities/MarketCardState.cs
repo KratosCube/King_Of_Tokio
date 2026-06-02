@@ -89,6 +89,11 @@ public sealed class MarketCardState
         Counters -= amount;
     }
 
+    public void ResetCounters()
+    {
+        Counters = 0;
+    }
+
     public void AddStoredEnergy(int amount)
     {
         if (amount < 0)
