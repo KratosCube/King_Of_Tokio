@@ -3,6 +3,7 @@ using KingOfTokyo.Core.Commands;
 using KingOfTokyo.Core.Decisions;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
+using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Events;
 using KingOfTokyo.Core.Rules.Dice;
 using KingOfTokyo.Core.Services;
@@ -74,6 +75,7 @@ public sealed class GameEngine : IGameEngine
                 ActivateStretchyCommand activateStretchyCommand => ExecuteActivateStretchy(gameState, activateStretchyCommand),
                 ActivateHerdCullerCommand activateHerdCullerCommand => ExecuteActivateHerdCuller(gameState, activateHerdCullerCommand),
                 ActivateSmokeCloudCommand activateSmokeCloudCommand => ExecuteActivateSmokeCloud(gameState, activateSmokeCloudCommand),
+                ActivatePsychicProbeCommand activatePsychicProbeCommand => ExecuteActivatePsychicProbe(gameState, activatePsychicProbeCommand),
                 ActivateWingsCommand activateWingsCommand => ExecuteActivateWings(gameState, activateWingsCommand),
                 ActivatePlotTwistCommand activatePlotTwistCommand => ExecuteActivatePlotTwist(gameState, activatePlotTwistCommand),
                 ActivateMetamorphCommand activateMetamorphCommand => ExecuteActivateMetamorph(gameState, activateMetamorphCommand),
@@ -236,6 +238,38 @@ public sealed class GameEngine : IGameEngine
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
 
+    private CommandResult ExecuteActivatePsychicProbe(GameState gameState, ActivatePsychicProbeCommand command)
+    {
+        EnsureCanActivatePsychicProbe(gameState, command);
+
+        var currentTurn = gameState.CurrentTurn!;
+        var actor = gameState.GetPlayerById(command.ActorPlayerId!.Value);
+
+        _diceRollService.RerollSelected(currentTurn.DicePool, new[] { command.TargetDieIndex });
+        var rerolledFace = currentTurn.DicePool.Dice[command.TargetDieIndex].CurrentFace;
+
+        var events = new List<GameEventBase>
+        {
+            new DiceRolledEvent(currentTurn.CurrentPlayerId, currentTurn.RollCountUsed, currentTurn.DicePool.Dice.Select(d => d.CurrentFace).ToArray())
+        };
+
+        if (rerolledFace == DieFace.Energy)
+        {
+            var discardedCard = actor.RemoveKeepCard(KnownCardIds.PsychicProbe);
+            gameState.Market.Discard(discardedCard);
+            events.Add(new KeepCardDiscardedEvent(
+                actor.PlayerId,
+                discardedCard.CardId,
+                discardedCard.Name,
+                "Keep card: Psychic Probe."));
+        }
+
+        var pendingDecision = CreateRerollDecisionIfAvailable(currentTurn);
+        gameState.SetPendingDecision(pendingDecision);
+        PublishEvents(events);
+        return CommandResult.Successful(gameState, events, pendingDecision);
+    }
+
     private CommandResult ExecuteActivateWings(GameState gameState, ActivateWingsCommand command)
     {
         _validator.EnsureCanActivateWings(gameState, command);
@@ -299,6 +333,61 @@ public sealed class GameEngine : IGameEngine
         _validator.EnsureCanAdvanceToNextPlayer(gameState, command);
         _turnLifecycleService.AdvanceToNextPlayer(gameState);
         return CommandResult.Successful(gameState);
+    }
+
+    private static void EnsureCanActivatePsychicProbe(GameState gameState, ActivatePsychicProbeCommand command)
+    {
+        if (gameState.Status != GameStatus.Running)
+        {
+            throw new InvalidOperationException("Cannot activate Psychic Probe when game is not running.");
+        }
+
+        if (gameState.CurrentTurn is null)
+        {
+            throw new InvalidOperationException("Cannot activate Psychic Probe without an active turn.");
+        }
+
+        if (gameState.CurrentTurn.Phase != TurnPhase.Rolling || gameState.CurrentTurn.DiceResolved)
+        {
+            throw new InvalidOperationException("Psychic Probe can only be used during the rolling phase before dice are finalized.");
+        }
+
+        if (gameState.CurrentTurn.RollCountUsed <= 0)
+        {
+            throw new InvalidOperationException("Psychic Probe can only be used after at least one roll.");
+        }
+
+        if (gameState.PendingDecision is not null &&
+            gameState.PendingDecision.DecisionType != DecisionType.SelectDiceToReroll)
+        {
+            throw new InvalidOperationException("Cannot activate Psychic Probe while another decision is pending.");
+        }
+
+        if (!command.ActorPlayerId.HasValue)
+        {
+            throw new InvalidOperationException("ActivatePsychicProbeCommand requires an actor player id.");
+        }
+
+        if (command.ActorPlayerId.Value == gameState.CurrentTurn.CurrentPlayerId)
+        {
+            throw new InvalidOperationException("Psychic Probe can only be used during another player's turn.");
+        }
+
+        var actor = gameState.GetPlayerById(command.ActorPlayerId.Value);
+        if (!actor.IsAlive)
+        {
+            throw new InvalidOperationException("Dead players cannot activate Psychic Probe.");
+        }
+
+        if (!actor.HasKeepCard(KnownCardIds.PsychicProbe))
+        {
+            throw new InvalidOperationException("Player cannot use Psychic Probe right now.");
+        }
+
+        if (command.TargetDieIndex < 0 || command.TargetDieIndex >= gameState.CurrentTurn.DicePool.Dice.Count)
+        {
+            throw new InvalidOperationException("Selected die index is invalid.");
+        }
     }
 
     private static PendingDecision? CreateRerollDecisionIfAvailable(KingOfTokyo.Core.Domain.Entities.TurnState currentTurn)
