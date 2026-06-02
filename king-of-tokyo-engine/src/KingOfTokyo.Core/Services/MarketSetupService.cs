@@ -26,8 +26,8 @@ public sealed class MarketSetupService
         {
             new(KnownCardIds.GiantBrain, "Giant Brain", "You have 1 extra reroll each turn.", 5, MarketCardType.Keep),
             new(KnownCardIds.Heal, "Heal", "Heal 2 damage.", 3, MarketCardType.Discard, new CardPurchaseEffect { Heal = 2 }),
-            new(KnownCardIds.HealingRay, "Healing Ray", "Your heart dice may heal other monsters. They pay you 2 energy per damage healed, or all remaining energy if they cannot pay enough.", 4, MarketCardType.Keep),
             new(KnownCardIds.ApartmentBuilding, "Apartment Building", "+3 victory points.", 5, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 3 }),
+            new(KnownCardIds.HealingRay, "Healing Ray", "Your heart dice may heal other monsters. They pay you 2 energy per damage healed, or all remaining energy if they cannot pay enough.", 4, MarketCardType.Keep),
             new(KnownCardIds.SpikedTail, "Spiked Tail", "Your attacks deal 1 extra damage.", 5, MarketCardType.Keep),
             new(KnownCardIds.CornerStore, "Corner Store", "+1 victory point.", 3, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 1 }),
             new(KnownCardIds.Energize, "Energize", "+9 energy.", 8, MarketCardType.Discard, new CardPurchaseEffect { GainEnergy = 9 }),
