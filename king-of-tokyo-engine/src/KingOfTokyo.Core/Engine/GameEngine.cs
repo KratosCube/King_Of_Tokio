@@ -144,7 +144,7 @@ public sealed class GameEngine : IGameEngine
         _validator.EnsureCanRollDice(gameState, command);
         var currentTurn = gameState.CurrentTurn!;
         var currentPlayer = gameState.GetCurrentPlayer();
-        _diceRollService.RollAll(currentTurn.DicePool);
+        _diceRollService.RollAll(currentTurn.DicePool, currentPlayer);
         currentTurn.IncrementRollCount();
         var newEvents = new List<GameEventBase> { new DiceRolledEvent(currentPlayer.PlayerId, currentTurn.RollCountUsed, currentTurn.DicePool.Dice.Select(d => d.CurrentFace).ToArray()) };
         var pendingDecision = CreateRerollDecisionIfAvailable(currentTurn);
@@ -158,7 +158,7 @@ public sealed class GameEngine : IGameEngine
         _validator.EnsureCanRerollDice(gameState, command);
         var currentTurn = gameState.CurrentTurn!;
         var currentPlayer = gameState.GetCurrentPlayer();
-        _diceRollService.RerollSelected(currentTurn.DicePool, command.DiceIndexesToReroll);
+        _diceRollService.RerollSelected(currentTurn.DicePool, command.DiceIndexesToReroll, currentPlayer);
         currentTurn.IncrementRollCount();
         var newEvents = new List<GameEventBase> { new DiceRolledEvent(currentPlayer.PlayerId, currentTurn.RollCountUsed, currentTurn.DicePool.Dice.Select(d => d.CurrentFace).ToArray()) };
         var pendingDecision = CreateRerollDecisionIfAvailable(currentTurn);
