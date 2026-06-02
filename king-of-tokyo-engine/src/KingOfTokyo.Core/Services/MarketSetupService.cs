@@ -78,7 +78,8 @@ public sealed class MarketSetupService
             new(KnownCardIds.SmokeCloud, "Smoke Cloud", "Starts with 3 charges. Spend 1 charge to gain 1 extra reroll. Discard after all charges are used.", 4, MarketCardType.Keep, counters: 3),
             new(KnownCardIds.MonsterBatteries, "Monster Batteries", "Starts with 6 stored energy. At the end of each turn, lose 2 stored energy. Discard when empty.", 5, MarketCardType.Keep, storedEnergy: 6),
             new(KnownCardIds.FreezeTime, "Freeze Time", "After a turn in which you score three 1s, take one extra turn with one fewer die.", 5, MarketCardType.Keep),
-            new(KnownCardIds.Frenzy, "Frenzy", "After buying this card, immediately take one extra turn.", 7, MarketCardType.Discard)
+            new(KnownCardIds.Frenzy, "Frenzy", "After buying this card, immediately take one extra turn.", 7, MarketCardType.Discard),
+            new(KnownCardIds.PsychicProbe, "Psychic Probe", "Once during each other player's turn, reroll one of that player's dice. If the rerolled die is energy, discard this card.", 3, MarketCardType.Keep)
         };
     }
 }
