@@ -80,6 +80,38 @@ public sealed class GameStateDtoMapperTests
     }
 
     [Fact]
+    public void ToDto_Should_MapOpportunistPurchasePendingDecision()
+    {
+        var gameState = CreateGameState(4);
+        gameState.SetPendingDecision(new PendingDecision
+        {
+            DecisionType = DecisionType.OpportunistPurchase,
+            PlayerId = 2,
+            Payload = new MarketCardRevealDecisionData
+            {
+                SlotIndex = 1,
+                CardId = "card-revealed",
+                CardName = "Revealed Card",
+                Cost = 5,
+                EligiblePlayerIds = new[] { 2, 3 }
+            }
+        });
+
+        var dto = gameState.ToDto();
+
+        Assert.NotNull(dto.PendingDecision);
+        Assert.Equal(DecisionType.OpportunistPurchase, dto.PendingDecision!.DecisionType);
+        Assert.Equal(2, dto.PendingDecision.PlayerId);
+
+        var payload = Assert.IsType<MarketCardRevealDecisionData>(dto.PendingDecision.Payload);
+        Assert.Equal(1, payload.SlotIndex);
+        Assert.Equal("card-revealed", payload.CardId);
+        Assert.Equal("Revealed Card", payload.CardName);
+        Assert.Equal(5, payload.Cost);
+        Assert.Equal(new[] { 2, 3 }, payload.EligiblePlayerIds);
+    }
+
+    [Fact]
     public void ToDto_Should_MapPlayerKeepCards()
     {
         var gameState = CreateGameState(4);
