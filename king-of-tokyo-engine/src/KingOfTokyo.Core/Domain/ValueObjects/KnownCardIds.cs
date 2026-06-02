@@ -44,6 +44,7 @@ public static class KnownCardIds
     public const string WereOnlyMakingItStronger = "card-were-only-making-it-stronger";
     public const string NuclearPowerPlant = "card-nuclear-power-plant";
     public const string DropFromHighAltitude = "card-drop-from-high-altitude";
+    public const string ItHasAChild = "card-it-has-a-child";
 
     public const string FireBlast = "card-fire-blast";
     public const string HighAltitudeBombing = "card-high-altitude-bombing";
