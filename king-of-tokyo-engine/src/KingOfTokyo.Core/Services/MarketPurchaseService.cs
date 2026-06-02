@@ -68,6 +68,40 @@ public sealed class MarketPurchaseService
         return new EngineStepResult(events, pendingDecision);
     }
 
+    public EngineStepResult BuyOpportunistRevealedCard(GameState gameState, int actorPlayerId, int slotIndex, int effectiveCost)
+    {
+        ArgumentNullException.ThrowIfNull(gameState);
+
+        var currentTurn = gameState.CurrentTurn
+            ?? throw new InvalidOperationException("Cannot buy a card without an active turn.");
+
+        var player = gameState.GetPlayerById(actorPlayerId);
+        var card = gameState.Market.FaceUpCards[slotIndex];
+
+        if (card is null)
+        {
+            throw new InvalidOperationException("Selected market slot is empty.");
+        }
+
+        var paymentEvents = _energyPaymentService.SpendEnergy(
+            gameState,
+            player,
+            effectiveCost,
+            "Keep card: Monster Batteries.");
+
+        var boughtCard = gameState.Market.RemoveFaceUpCardAt(slotIndex);
+
+        var events = FinalizePurchasedCard(gameState, currentTurn, player, boughtCard, effectiveCost);
+        events.InsertRange(0, paymentEvents);
+
+        currentTurn.Flags.BoughtCard = true;
+
+        var pendingDecision = CreateOpportunistDecisionForSlot(gameState, slotIndex);
+        gameState.SetPendingDecision(pendingDecision);
+
+        return new EngineStepResult(events, pendingDecision);
+    }
+
     public EngineStepResult BuyTopDeckCard(GameState gameState, int effectiveCost)
     {
         ArgumentNullException.ThrowIfNull(gameState);
@@ -324,7 +358,7 @@ public sealed class MarketPurchaseService
         var eligiblePlayerIds = gameState.Players
             .Where(player => player.IsAlive &&
                              player.HasKeepCard(KnownCardIds.Opportunist) &&
-                             player.Energy >= revealedCard.Cost)
+                             _energyPaymentService.GetAvailableEnergy(player) >= _keepCardRulesService.GetEffectivePurchaseCost(player, revealedCard))
             .Select(player => player.PlayerId)
             .ToArray();
 
@@ -342,7 +376,7 @@ public sealed class MarketPurchaseService
                 SlotIndex = slotIndex,
                 CardId = revealedCard.CardId,
                 CardName = revealedCard.Name,
-                Cost = revealedCard.Cost,
+                Cost = _keepCardRulesService.GetEffectivePurchaseCost(gameState.GetPlayerById(eligiblePlayerIds[0]), revealedCard),
                 EligiblePlayerIds = eligiblePlayerIds
             }
         };
