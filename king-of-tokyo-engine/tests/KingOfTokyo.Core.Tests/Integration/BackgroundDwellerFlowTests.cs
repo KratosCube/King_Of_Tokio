@@ -61,7 +61,7 @@ public sealed class BackgroundDwellerFlowTests
         engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
         engine.Execute(gameState, new RollDiceCommand(player.PlayerId));
 
-        var result = engine.Execute(gameState, new RerollDiceCommand(player.PlayerId, new[] { 0, 1 }));
+        var result = engine.Execute(gameState, new RerollDiceCommand(new[] { 0, 1 }, player.PlayerId));
 
         Assert.True(result.Success, result.Error);
         Assert.DoesNotContain(gameState.CurrentTurn!.DicePool.Dice, die => die.CurrentFace == DieFace.Three);
