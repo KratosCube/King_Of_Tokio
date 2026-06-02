@@ -37,6 +37,7 @@ public static class KnownCardIds
     public const string Jets = "card-jets";
     public const string Wings = "card-wings";
     public const string Camouflage = "card-camouflage";
+    public const string FireBreathing = "card-fire-breathing";
 
     public const string ArmorPlating = "card-armor-plating";
     public const string EvenBigger = "card-even-bigger";
