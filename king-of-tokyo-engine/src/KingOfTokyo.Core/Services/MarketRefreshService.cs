@@ -1,5 +1,7 @@
 using KingOfTokyo.Core.Abstractions;
+using KingOfTokyo.Core.Decisions;
 using KingOfTokyo.Core.Domain.State;
+using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Engine;
 using KingOfTokyo.Core.Events;
 
@@ -31,6 +33,49 @@ public sealed class MarketRefreshService
                 refreshedCards.Select(card => card.CardId).ToArray())
         };
 
-        return new EngineStepResult(events);
+        var pendingDecision = CreateOpportunistDecisionForFirstRevealedCard(gameState);
+        gameState.SetPendingDecision(pendingDecision);
+
+        return new EngineStepResult(events, pendingDecision);
+    }
+
+    private static PendingDecision? CreateOpportunistDecisionForFirstRevealedCard(GameState gameState)
+    {
+        for (var slotIndex = 0; slotIndex < gameState.Market.FaceUpCards.Count; slotIndex++)
+        {
+            var revealedCard = gameState.Market.FaceUpCards[slotIndex];
+            if (revealedCard is null)
+            {
+                continue;
+            }
+
+            var eligiblePlayerIds = gameState.Players
+                .Where(player => player.IsAlive &&
+                                 player.HasKeepCard(KnownCardIds.Opportunist) &&
+                                 player.Energy >= revealedCard.Cost)
+                .Select(player => player.PlayerId)
+                .ToArray();
+
+            if (eligiblePlayerIds.Length == 0)
+            {
+                continue;
+            }
+
+            return new PendingDecision
+            {
+                DecisionType = DecisionType.OpportunistPurchase,
+                PlayerId = eligiblePlayerIds[0],
+                Payload = new MarketCardRevealDecisionData
+                {
+                    SlotIndex = slotIndex,
+                    CardId = revealedCard.CardId,
+                    CardName = revealedCard.Name,
+                    Cost = revealedCard.Cost,
+                    EligiblePlayerIds = eligiblePlayerIds
+                }
+            };
+        }
+
+        return null;
     }
 }
