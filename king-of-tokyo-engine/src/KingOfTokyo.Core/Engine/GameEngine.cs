@@ -104,6 +104,7 @@ public sealed class GameEngine : IGameEngine
     private CommandResult ExecuteBeginTurn(GameState gameState, BeginTurnCommand command)
     {
         _validator.EnsureCanBeginTurn(gameState, command);
+        ResetPsychicProbeUsage(gameState);
         var currentPlayer = gameState.GetCurrentPlayer();
         var scheduledTurn = gameState.ConsumeNextScheduledTurnForCurrentPlayer();
         var diceCountModifier = scheduledTurn?.DiceCountModifier ?? 0;
@@ -244,6 +245,8 @@ public sealed class GameEngine : IGameEngine
 
         var currentTurn = gameState.CurrentTurn!;
         var actor = gameState.GetPlayerById(command.ActorPlayerId!.Value);
+        var psychicProbe = actor.KeepCards.Single(card => card.CardId == KnownCardIds.PsychicProbe);
+        psychicProbe.AddCounters(1);
 
         _diceRollService.RerollSelected(currentTurn.DicePool, new[] { command.TargetDieIndex });
         var rerolledFace = currentTurn.DicePool.Dice[command.TargetDieIndex].CurrentFace;
@@ -379,14 +382,29 @@ public sealed class GameEngine : IGameEngine
             throw new InvalidOperationException("Dead players cannot activate Psychic Probe.");
         }
 
-        if (!actor.HasKeepCard(KnownCardIds.PsychicProbe))
+        var psychicProbe = actor.KeepCards.SingleOrDefault(card => card.CardId == KnownCardIds.PsychicProbe);
+        if (psychicProbe is null)
         {
             throw new InvalidOperationException("Player cannot use Psychic Probe right now.");
+        }
+
+        if (psychicProbe.Counters > 0)
+        {
+            throw new InvalidOperationException("Psychic Probe can only be used once during each other player's turn.");
         }
 
         if (command.TargetDieIndex < 0 || command.TargetDieIndex >= gameState.CurrentTurn.DicePool.Dice.Count)
         {
             throw new InvalidOperationException("Selected die index is invalid.");
+        }
+    }
+
+    private static void ResetPsychicProbeUsage(GameState gameState)
+    {
+        foreach (var card in gameState.Players.SelectMany(player => player.KeepCards)
+                     .Where(card => card.CardId == KnownCardIds.PsychicProbe && card.Counters > 0))
+        {
+            card.ResetCounters();
         }
     }
 
