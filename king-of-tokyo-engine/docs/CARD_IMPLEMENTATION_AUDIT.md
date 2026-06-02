@@ -2,7 +2,7 @@
 
 This document tracks how far the headless engine is from supporting the full card set before building the online Blazor UI.
 
-Last verified locally by user after Fire Breathing fixes: `dotnet test KingOfTokyo.Engine.slnx` succeeded.
+Last verified locally by user after Background Dweller flow-test fixes: `dotnet test KingOfTokyo.Engine.slnx` succeeded.
 
 Source of truth for this audit:
 
@@ -33,13 +33,14 @@ The codebase now has stable foundations for the online UI boundary:
 | Server-facing DTO projection | Implemented | `GameStateDtoMapper` maps game id, version, players, Tokyo, market, turn state, dice, flags, pending decisions, card counters, stored energy, and scheduled turns. |
 | DTO mapper coverage | Implemented | Mapper tests cover setup state, running turn, pending reroll decision payload, keep cards, card-local state, status tokens, Tokyo slots, market cards/counts, dice, flags, and scheduled turns. |
 | Representative game flow | Implemented | Integration test covers multiple turns, Tokyo entry/leave/stay decisions, card purchase, healing, scoring, start-in-Tokyo VP, versioning, and event log consistency. |
-| Damage prevention/cancellation | Partial | Static prevention, Wings cancellation, and Camouflage random prevention exist. Still needs fuller replacement hooks for It Has a Child and some lethal/timing edge cases. |
+| Damage prevention/cancellation | Partial | Static prevention, Wings cancellation, Camouflage random prevention, and It Has a Child elimination replacement exist. Still needs more lethal/timing edge-case regression tests. |
 | Player status tokens | Implemented | Poison/shrink token state exists; attack-token application, heart-based token removal, shrink dice reduction, and poison end-of-turn damage are covered. More edge cases can still be added as regression tests. |
-| Owned keep-card lifecycle | Partial | Player-owned keep cards can be added/removed/discarded; Plot Twist, Metamorph, Smoke Cloud, Monster Batteries, and Psychic Probe use this. Generic lifecycle hooks/transfers are still missing. |
+| Owned keep-card lifecycle | Partial | Player-owned keep cards can be added/removed/discarded; Plot Twist, Metamorph, Smoke Cloud, Monster Batteries, Psychic Probe, and It Has a Child use this. Generic lifecycle hooks/transfers are still missing. |
 | Card-local counters / stored energy | Partial | Smoke Cloud counters, Monster Batteries stored energy, and Psychic Probe once-per-turn marker exist and are exposed through DTOs. Mimic/copying and generic lifecycle events are still missing. |
 | Extra-turn scheduling | Implemented | Freeze Time and Frenzy use scheduled extra turns; scheduled turns are exposed through DTOs and consumed when beginning turns. |
 | Out-of-turn card activation | Partial | Psychic Probe can be used during another player's rolling phase and is limited to once per other player's turn. Opportunist still needs a proper market reaction window. |
 | Seating / adjacency effects | Implemented | Fire Breathing uses current alive player order to resolve neighbors and only adds damage to neighbors who are already attack targets. |
+| Forced dice result handling | Implemented | Background Dweller rerolls rolled/rerolled `Three` results until none remain during the owning player's normal roll/reroll flow. |
 
 ## Currently represented in code
 
@@ -52,6 +53,7 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Alpha Monster | Implemented | VP when attacking. |
 | Apartment Building | Implemented | Simple discard VP gain. |
 | Armor Plating | Implemented | Damage reduction. |
+| Background Dweller | Implemented | Automatically rerolls `Three` results until none remain for the owning player's normal roll/reroll flow; covered by service and GameEngine flow tests. |
 | Burrowing | Implemented | Extra damage when attacking Tokyo and damage when leaving Tokyo. |
 | Camouflage | Implemented | Rolls one die per remaining incoming damage after static prevention; each heart prevents 1 damage. Covered by prevention tests and attack-flow test. |
 | Commuter Train | Implemented | Simple discard VP gain. |
@@ -59,7 +61,7 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Corner Store | Implemented | Simple discard VP gain. |
 | Dedicated News Team | Implemented | VP when buying cards. |
 | Drop from High Altitude | Partial | VP + enter Tokyo effect exists. Needs exact rule confirmation for forcing Tokyo control when occupied, especially with Bay. |
-| Eater of the Dead | Implemented | VP when a monster is eliminated. |
+| Eater of the Dead | Implemented | VP when a monster is eliminated, including the It Has a Child replacement case. |
 | Energize | Implemented | Simple discard energy gain. |
 | Energy Hoarder | Implemented | End-turn VP from stored energy. |
 | Even Bigger | Partial | Gain effect exists; loss effect is applied through Metamorph discard path. Still needs generic `OnCardLost` lifecycle for all future removal paths. |
@@ -77,6 +79,7 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Herbivore | Implemented | End-turn VP when no damage dealt. |
 | Herd Culler | Implemented | Activated once-per-turn die change to `One`. |
 | High Altitude Bombing | Implemented | Damage to everyone. |
+| It Has a Child | Implemented | Death replacement: discards all owned keep cards, loses all energy, heals to 10, leaves Tokyo, and still counts as elimination for Eater of the Dead. |
 | Jet Fighters | Implemented | VP + self damage. |
 | Jets | Partial | Leave-Tokyo damage recovery is represented and Wings can zero the pending leave damage. Still needs edge-case check for prevention timing versus lethal damage. |
 | Made in a Lab | Implemented | Peek and optionally buy top deck card through pending decision. |
@@ -110,9 +113,7 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Card | Status | Main engine need |
 | --- | --- | --- |
 | Opportunist | Missing / Needs engine concept | Reaction to newly revealed market card; out-of-turn purchase window. |
-| Background Dweller | Missing | Always reroll a specific result; needs dice modification hook or card-specific reroll rule. |
 | Healing Ray | Missing / Needs engine concept | Heal other monsters using healing dice and transfer energy/payment. |
-| It Has a Child | Missing / Needs engine concept | Death replacement: discard cards, lose energy, reset to 10 health. |
 | Mimic | Missing / Needs engine concept | Copy another keep card; retarget by spending energy. |
 | Omnivore | Missing / Needs engine concept | Special scoring with pairs; dice can still be used in other combinations. |
 | Parasitic Tentacles | Missing / Needs engine concept | Buy cards from other players. Needs ownership transfer and payment to another player. |
@@ -121,9 +122,9 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 
 ### Must-have before online UI
 
-- Finish the missing/incomplete card mechanics that affect public game state.
-- Add out-of-turn reaction windows for Opportunist and possibly future reaction cards.
-- Add card ownership transfer/copy/replacement concepts for Mimic, Parasitic Tentacles, Healing Ray, and It Has a Child.
+- Finish the remaining missing/incomplete card mechanics that affect public game state.
+- Add out-of-turn reaction windows for Opportunist.
+- Add card ownership transfer/copy concepts for Mimic, Parasitic Tentacles, and Healing Ray.
 - Add end-to-end tests around elimination, victory timing, and a longer representative full-game path.
 - Keep DTO/event-log coverage synchronized whenever new state is introduced.
 
@@ -149,7 +150,7 @@ Required capabilities:
 
 ### 2. Owned-card lifecycle and transfer hooks
 
-Needed for Even Bigger follow-ups, Mimic, Parasitic Tentacles, Healing Ray, It Has a Child, and future richer keep cards.
+Needed for Even Bigger follow-ups, Mimic, Parasitic Tentacles, Healing Ray, and future richer keep cards.
 
 Required operations:
 
@@ -162,20 +163,18 @@ Required operations:
 
 ### 3. Special scoring extensions
 
-Needed for Omnivore and Background Dweller.
+Needed for Omnivore.
 
 Required capabilities:
 
 - score special combinations without consuming dice that other scoring rules need,
-- support forced/automatic rerolls or result-modification hooks,
 - keep scoring tests deterministic.
 
 ## Proposed implementation order
 
 1. Implement Opportunist reaction window for newly revealed market cards.
-2. Implement It Has a Child death replacement flow.
-3. Implement Healing Ray / Parasitic Tentacles ownership and payment flows.
-4. Implement Mimic copy/retarget behavior.
-5. Implement Omnivore and Background Dweller scoring/dice extensions.
-6. Add one longer end-to-end full-game regression flow.
-7. Start SignalR server and Blazor client only after the headless engine can complete representative games.
+2. Implement Healing Ray / Parasitic Tentacles ownership and payment flows.
+3. Implement Mimic copy/retarget behavior.
+4. Implement Omnivore scoring extension.
+5. Add one longer end-to-end full-game regression flow.
+6. Start SignalR server and Blazor client only after the headless engine can complete representative games.
