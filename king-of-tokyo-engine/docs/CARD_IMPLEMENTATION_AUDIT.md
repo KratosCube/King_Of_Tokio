@@ -2,7 +2,7 @@
 
 This document tracks how far the headless engine is from supporting the full card set before building the online Blazor UI.
 
-Last verified locally by user after Psychic Probe test fixes: `dotnet test KingOfTokyo.Engine.slnx` succeeded.
+Last verified locally by user after Fire Breathing fixes: `dotnet test KingOfTokyo.Engine.slnx` succeeded.
 
 Source of truth for this audit:
 
@@ -39,6 +39,7 @@ The codebase now has stable foundations for the online UI boundary:
 | Card-local counters / stored energy | Partial | Smoke Cloud counters, Monster Batteries stored energy, and Psychic Probe once-per-turn marker exist and are exposed through DTOs. Mimic/copying and generic lifecycle events are still missing. |
 | Extra-turn scheduling | Implemented | Freeze Time and Frenzy use scheduled extra turns; scheduled turns are exposed through DTOs and consumed when beginning turns. |
 | Out-of-turn card activation | Partial | Psychic Probe can be used during another player's rolling phase and is limited to once per other player's turn. Opportunist still needs a proper market reaction window. |
+| Seating / adjacency effects | Implemented | Fire Breathing uses current alive player order to resolve neighbors and only adds damage to neighbors who are already attack targets. |
 
 ## Currently represented in code
 
@@ -65,6 +66,7 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Evacuation Orders | Implemented | Damage to all other monsters. |
 | Extra Head | Implemented | Extra die. |
 | Fire Blast | Implemented | Damage to all other monsters. |
+| Fire Breathing | Implemented | Adds +1 attack damage only to neighboring monsters that are already valid attack targets; does not create new damage packets for unattacked neighbors. |
 | Freeze Time | Implemented | Extra turn with one fewer die after scoring three 1s. Uses scheduled extra-turn queue and has integration coverage. |
 | Frenzy | Implemented | Discard card that schedules an immediate extra turn after purchase. |
 | Friend of Children | Implemented | Bonus energy gain. |
@@ -109,7 +111,6 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | --- | --- | --- |
 | Opportunist | Missing / Needs engine concept | Reaction to newly revealed market card; out-of-turn purchase window. |
 | Background Dweller | Missing | Always reroll a specific result; needs dice modification hook or card-specific reroll rule. |
-| Fire Breathing | Missing / Needs engine concept | Neighbor damage when dealing damage; needs seating/adjacency model. |
 | Healing Ray | Missing / Needs engine concept | Heal other monsters using healing dice and transfer energy/payment. |
 | It Has a Child | Missing / Needs engine concept | Death replacement: discard cards, lose energy, reset to 10 health. |
 | Mimic | Missing / Needs engine concept | Copy another keep card; retarget by spending energy. |
@@ -122,7 +123,6 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 
 - Finish the missing/incomplete card mechanics that affect public game state.
 - Add out-of-turn reaction windows for Opportunist and possibly future reaction cards.
-- Add seating/adjacency model for Fire Breathing.
 - Add card ownership transfer/copy/replacement concepts for Mimic, Parasitic Tentacles, Healing Ray, and It Has a Child.
 - Add end-to-end tests around elimination, victory timing, and a longer representative full-game path.
 - Keep DTO/event-log coverage synchronized whenever new state is introduced.
@@ -147,13 +147,7 @@ Required capabilities:
 - allow one of them to buy the new card before normal play continues,
 - handle decline/timeout and online ordering.
 
-### 2. Seating/adjacency model
-
-Needed for Fire Breathing.
-
-A minimal model can be player order based, but tests should cover eliminated players and wrap-around neighbors.
-
-### 3. Owned-card lifecycle and transfer hooks
+### 2. Owned-card lifecycle and transfer hooks
 
 Needed for Even Bigger follow-ups, Mimic, Parasitic Tentacles, Healing Ray, It Has a Child, and future richer keep cards.
 
@@ -166,7 +160,7 @@ Required operations:
 - Run `OnCardLost` / `OnCardDiscarded` effects from every removal path
 - Recalculate copied / transferred effects consistently
 
-### 4. Special scoring extensions
+### 3. Special scoring extensions
 
 Needed for Omnivore and Background Dweller.
 
@@ -179,10 +173,9 @@ Required capabilities:
 ## Proposed implementation order
 
 1. Implement Opportunist reaction window for newly revealed market cards.
-2. Add seating/adjacency support and implement Fire Breathing.
-3. Implement It Has a Child death replacement flow.
-4. Implement Healing Ray / Parasitic Tentacles ownership and payment flows.
-5. Implement Mimic copy/retarget behavior.
-6. Implement Omnivore and Background Dweller scoring/dice extensions.
-7. Add one longer end-to-end full-game regression flow.
-8. Start SignalR server and Blazor client only after the headless engine can complete representative games.
+2. Implement It Has a Child death replacement flow.
+3. Implement Healing Ray / Parasitic Tentacles ownership and payment flows.
+4. Implement Mimic copy/retarget behavior.
+5. Implement Omnivore and Background Dweller scoring/dice extensions.
+6. Add one longer end-to-end full-game regression flow.
+7. Start SignalR server and Blazor client only after the headless engine can complete representative games.
