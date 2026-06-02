@@ -4,6 +4,7 @@ public static class KnownCardIds
 {
     public const string GiantBrain = "card-giant-brain";
     public const string Heal = "card-heal";
+    public const string HealingRay = "card-healing-ray";
     public const string ApartmentBuilding = "card-apartment-building";
     public const string SpikedTail = "card-spiked-tail";
     public const string CornerStore = "card-corner-store";
