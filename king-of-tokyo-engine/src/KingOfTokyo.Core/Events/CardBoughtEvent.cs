@@ -9,6 +9,7 @@ public sealed class CardBoughtEvent : GameEventBase
     public string CardId { get; }
     public string CardName { get; }
     public int Cost { get; }
+    public int CostSpent => Cost;
     public MarketCardType CardType { get; }
 
     public CardBoughtEvent(int playerId, string cardId, string cardName, int cost, MarketCardType cardType)
