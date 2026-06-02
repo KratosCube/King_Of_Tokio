@@ -67,4 +67,5 @@ public static class KnownCardIds
     public const string MonsterBatteries = "card-monster-batteries";
     public const string FreezeTime = "card-freeze-time";
     public const string Frenzy = "card-frenzy";
+    public const string PsychicProbe = "card-psychic-probe";
 }
