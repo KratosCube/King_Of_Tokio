@@ -60,6 +60,7 @@ public sealed class MarketSetupService
             new(KnownCardIds.WereOnlyMakingItStronger, "We're Only Making It Stronger", "When you lose 2 or more health, gain 1 victory point.", 3, MarketCardType.Keep),
             new(KnownCardIds.NuclearPowerPlant, "Nuclear Power Plant", "+2 victory points and heal 3 damage.", 6, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 2, Heal = 3 }),
             new(KnownCardIds.DropFromHighAltitude, "Drop from High Altitude", "+2 victory points and enter Tokyo if a slot is available.", 5, MarketCardType.Discard, new CardPurchaseEffect { GainVictoryPoints = 2, EnterTokyo = true }),
+            new(KnownCardIds.ItHasAChild, "It Has a Child", "When you are eliminated, discard all your cards, lose all energy, heal to 10 health, and start again.", 7, MarketCardType.Keep),
             new(KnownCardIds.FireBlast, "Fire Blast", "All other monsters lose 2 health.", 3, MarketCardType.Discard, new CardPurchaseEffect { DamageAllOthers = 2 }),
             new(KnownCardIds.HighAltitudeBombing, "High Altitude Bombing", "All monsters lose 3 health.", 4, MarketCardType.Discard, new CardPurchaseEffect { DamageAllIncludingSelf = 3 }),
             new(KnownCardIds.EvacuationOrders, "Evacuation Orders", "All other monsters lose 5 health.", 7, MarketCardType.Discard, new CardPurchaseEffect { DamageAllOthers = 5 }),
