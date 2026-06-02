@@ -64,8 +64,8 @@ public sealed class DiceRollServiceBackgroundDwellerTests
         service.RerollSelected(dicePool, new[] { 0, 1 }, player);
 
         Assert.DoesNotContain(dicePool.Dice, die => die.CurrentFace == DieFace.Three);
-        Assert.Equal(DieFace.Heart, dicePool.Dice[0].CurrentFace);
-        Assert.Equal(DieFace.Attack, dicePool.Dice[1].CurrentFace);
+        Assert.Equal(DieFace.Attack, dicePool.Dice[0].CurrentFace);
+        Assert.Equal(DieFace.Heart, dicePool.Dice[1].CurrentFace);
     }
 
     private static MarketCardState CreateBackgroundDweller()
