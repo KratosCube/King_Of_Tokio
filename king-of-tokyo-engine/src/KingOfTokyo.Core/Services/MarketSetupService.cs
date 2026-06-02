@@ -54,6 +54,7 @@ public sealed class MarketSetupService
             new(KnownCardIds.Jets, "Jets", "When you leave Tokyo after taking damage, heal that damage.", 5, MarketCardType.Keep),
             new(KnownCardIds.Wings, "Wings", "Spend 2 energy to cancel damage you took this turn.", 6, MarketCardType.Keep),
             new(KnownCardIds.Camouflage, "Camouflage", "When you take damage, roll a die for each damage. Each heart prevents 1 damage.", 3, MarketCardType.Keep),
+            new(KnownCardIds.FireBreathing, "Fire Breathing", "Whenever you deal attack damage to a neighboring monster, deal 1 extra damage to that attacked neighbor.", 4, MarketCardType.Keep),
             new(KnownCardIds.ArmorPlating, "Armor Plating", "Ignore 1 damage.", 4, MarketCardType.Keep),
             new(KnownCardIds.EvenBigger, "Even Bigger", "Your maximum health is increased by 2. When you gain this card, heal 2. When you lose this card, lose 2 health.", 8, MarketCardType.Keep, new CardPurchaseEffect { IncreaseMaxHealth = 2, Heal = 2 }),
             new(KnownCardIds.WereOnlyMakingItStronger, "We're Only Making It Stronger", "When you lose 2 or more health, gain 1 victory point.", 3, MarketCardType.Keep),
