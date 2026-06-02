@@ -44,16 +44,43 @@ public sealed class AttackResolver
                     p.PlayerId != attacker.PlayerId &&
                     p.TokyoSlot == TokyoSlot.None);
 
+        var neighboringPlayerIds = GetAliveNeighborPlayerIds(gameState, attacker.PlayerId);
+        var hasFireBreathing = attacker.HasKeepCard(KnownCardIds.FireBreathing);
+
         return targets
             .Select(target => new DamagePacket
             {
                 SourcePlayerId = attacker.PlayerId,
                 TargetPlayerId = target.PlayerId,
-                Amount = totalAttackDamage,
+                Amount = totalAttackDamage + (hasFireBreathing && neighboringPlayerIds.Contains(target.PlayerId) ? 1 : 0),
                 DamageKind = DamageKind.Attack,
                 CountsAsAttack = true,
                 AllowsTokyoLeave = attacker.TokyoSlot == TokyoSlot.None && target.TokyoSlot != TokyoSlot.None
             })
             .ToArray();
+    }
+
+    private static IReadOnlySet<int> GetAliveNeighborPlayerIds(GameState gameState, int playerId)
+    {
+        var alivePlayers = gameState.Players
+            .Where(player => player.IsAlive)
+            .OrderBy(player => player.PlayerId)
+            .ToArray();
+
+        if (alivePlayers.Length <= 1)
+        {
+            return new HashSet<int>();
+        }
+
+        var playerIndex = Array.FindIndex(alivePlayers, player => player.PlayerId == playerId);
+        if (playerIndex < 0)
+        {
+            return new HashSet<int>();
+        }
+
+        var previousPlayerId = alivePlayers[(playerIndex - 1 + alivePlayers.Length) % alivePlayers.Length].PlayerId;
+        var nextPlayerId = alivePlayers[(playerIndex + 1) % alivePlayers.Length].PlayerId;
+
+        return new HashSet<int> { previousPlayerId, nextPlayerId };
     }
 }
