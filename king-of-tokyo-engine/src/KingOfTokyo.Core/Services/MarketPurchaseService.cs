@@ -1,4 +1,5 @@
 using KingOfTokyo.Core.Abstractions;
+using KingOfTokyo.Core.Decisions;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
@@ -61,7 +62,10 @@ public sealed class MarketPurchaseService
 
         currentTurn.Flags.BoughtCard = true;
 
-        return new EngineStepResult(events);
+        var pendingDecision = CreateOpportunistDecisionForSlot(gameState, slotIndex);
+        gameState.SetPendingDecision(pendingDecision);
+
+        return new EngineStepResult(events, pendingDecision);
     }
 
     public EngineStepResult BuyTopDeckCard(GameState gameState, int effectiveCost)
@@ -307,6 +311,41 @@ public sealed class MarketPurchaseService
                 AwardEaterOfTheDeadPoints(gameState, events);
             }
         }
+    }
+
+    private PendingDecision? CreateOpportunistDecisionForSlot(GameState gameState, int slotIndex)
+    {
+        var revealedCard = gameState.Market.FaceUpCards[slotIndex];
+        if (revealedCard is null)
+        {
+            return null;
+        }
+
+        var eligiblePlayerIds = gameState.Players
+            .Where(player => player.IsAlive &&
+                             player.HasKeepCard(KnownCardIds.Opportunist) &&
+                             player.Energy >= revealedCard.Cost)
+            .Select(player => player.PlayerId)
+            .ToArray();
+
+        if (eligiblePlayerIds.Length == 0)
+        {
+            return null;
+        }
+
+        return new PendingDecision
+        {
+            DecisionType = DecisionType.OpportunistPurchase,
+            PlayerId = eligiblePlayerIds[0],
+            Payload = new MarketCardRevealDecisionData
+            {
+                SlotIndex = slotIndex,
+                CardId = revealedCard.CardId,
+                CardName = revealedCard.Name,
+                Cost = revealedCard.Cost,
+                EligiblePlayerIds = eligiblePlayerIds
+            }
+        };
     }
 
     private void AwardEaterOfTheDeadPoints(GameState gameState, List<GameEventBase> events)
