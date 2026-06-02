@@ -1,14 +1,12 @@
-using KingOfTokyo.Core.Abstractions;
-
 namespace KingOfTokyo.Core.Commands;
 
-public sealed class ActivateHealingRayCommand : CommandBase
+public sealed class ActivateHealingRayCommand
 {
+    public int? ActorPlayerId { get; }
     public int TargetPlayerId { get; }
     public int HealingAmount { get; }
 
     public ActivateHealingRayCommand(int targetPlayerId, int healingAmount, int? actorPlayerId = null)
-        : base(actorPlayerId)
     {
         if (targetPlayerId < 0)
         {
@@ -20,6 +18,7 @@ public sealed class ActivateHealingRayCommand : CommandBase
             throw new ArgumentOutOfRangeException(nameof(healingAmount));
         }
 
+        ActorPlayerId = actorPlayerId;
         TargetPlayerId = targetPlayerId;
         HealingAmount = healingAmount;
     }
