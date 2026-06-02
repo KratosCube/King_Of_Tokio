@@ -82,6 +82,7 @@ public sealed class GameEngine : IGameEngine
                 PeekTopDeckCardCommand peekTopDeckCardCommand => ExecutePeekTopDeckCard(gameState, peekTopDeckCardCommand),
                 BuyPeekedTopDeckCardCommand buyPeekedTopDeckCardCommand => ExecuteBuyPeekedTopDeckCard(gameState, buyPeekedTopDeckCardCommand),
                 DeclinePeekedTopDeckCardCommand declinePeekedTopDeckCardCommand => ExecuteDeclinePeekedTopDeckCard(gameState, declinePeekedTopDeckCardCommand),
+                BuyOpportunistRevealedCardCommand buyOpportunistRevealedCardCommand => ExecuteBuyOpportunistRevealedCard(gameState, buyOpportunistRevealedCardCommand),
                 DeclineOpportunistRevealedCardCommand declineOpportunistRevealedCardCommand => ExecuteDeclineOpportunistRevealedCard(gameState, declineOpportunistRevealedCardCommand),
                 EndTurnCommand endTurnCommand => ExecuteEndTurn(gameState, endTurnCommand),
                 AdvanceToNextPlayerCommand advanceToNextPlayerCommand => ExecuteAdvanceToNextPlayer(gameState, advanceToNextPlayerCommand),
@@ -324,6 +325,22 @@ public sealed class GameEngine : IGameEngine
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
 
+    private CommandResult ExecuteBuyOpportunistRevealedCard(GameState gameState, BuyOpportunistRevealedCardCommand command)
+    {
+        var payload = EnsureCanBuyOpportunistRevealedCard(gameState, command);
+        var actor = gameState.GetPlayerById(command.ActorPlayerId!.Value);
+        var card = gameState.Market.FaceUpCards[payload.SlotIndex]
+            ?? throw new InvalidOperationException("Selected market slot is empty.");
+        var effectiveCost = _keepCardRulesService.GetEffectivePurchaseCost(actor, card);
+        var stepResult = _marketPurchaseService.BuyOpportunistRevealedCard(
+            gameState,
+            actor.PlayerId,
+            payload.SlotIndex,
+            effectiveCost);
+        PublishEvents(stepResult.Events);
+        return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
+    }
+
     private CommandResult ExecuteDeclineOpportunistRevealedCard(GameState gameState, DeclineOpportunistRevealedCardCommand command)
     {
         EnsureCanDeclineOpportunistRevealedCard(gameState, command);
@@ -344,6 +361,68 @@ public sealed class GameEngine : IGameEngine
         _validator.EnsureCanAdvanceToNextPlayer(gameState, command);
         _turnLifecycleService.AdvanceToNextPlayer(gameState);
         return CommandResult.Successful(gameState);
+    }
+
+    private static MarketCardRevealDecisionData EnsureCanBuyOpportunistRevealedCard(GameState gameState, BuyOpportunistRevealedCardCommand command)
+    {
+        if (gameState.Status != GameStatus.Running)
+        {
+            throw new InvalidOperationException("Cannot buy Opportunist card when game is not running.");
+        }
+
+        if (gameState.PendingDecision is null)
+        {
+            throw new InvalidOperationException("There is no pending decision.");
+        }
+
+        if (gameState.PendingDecision.DecisionType != DecisionType.OpportunistPurchase)
+        {
+            throw new InvalidOperationException("Current pending decision is not an Opportunist purchase decision.");
+        }
+
+        if (!command.ActorPlayerId.HasValue)
+        {
+            throw new InvalidOperationException("BuyOpportunistRevealedCardCommand requires an actor player id.");
+        }
+
+        if (gameState.PendingDecision.PlayerId != command.ActorPlayerId.Value)
+        {
+            throw new InvalidOperationException("Actor does not match the pending Opportunist player.");
+        }
+
+        var actor = gameState.GetPlayerById(command.ActorPlayerId.Value);
+        if (!actor.IsAlive)
+        {
+            throw new InvalidOperationException("Dead players cannot buy Opportunist cards.");
+        }
+
+        if (!actor.HasKeepCard(KnownCardIds.Opportunist))
+        {
+            throw new InvalidOperationException("Player does not have Opportunist.");
+        }
+
+        var payload = gameState.PendingDecision.Payload as MarketCardRevealDecisionData
+            ?? throw new InvalidOperationException("Opportunist purchase payload is invalid.");
+
+        if (payload.SlotIndex < 0 || payload.SlotIndex >= gameState.Market.FaceUpCards.Count)
+        {
+            throw new InvalidOperationException("Selected market slot is invalid.");
+        }
+
+        var card = gameState.Market.FaceUpCards[payload.SlotIndex];
+        if (card is null || card.CardId != payload.CardId)
+        {
+            throw new InvalidOperationException("Revealed market card is no longer available.");
+        }
+
+        var effectiveCost = new KeepCardRulesService().GetEffectivePurchaseCost(actor, card);
+        var availableEnergy = new EnergyPaymentService().GetAvailableEnergy(actor);
+        if (availableEnergy < effectiveCost)
+        {
+            throw new InvalidOperationException("Player does not have enough energy to buy this card.");
+        }
+
+        return payload;
     }
 
     private static void EnsureCanDeclineOpportunistRevealedCard(GameState gameState, DeclineOpportunistRevealedCardCommand command)
