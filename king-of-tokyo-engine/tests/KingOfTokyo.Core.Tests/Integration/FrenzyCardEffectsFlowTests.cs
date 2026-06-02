@@ -52,7 +52,7 @@ public sealed class FrenzyCardEffectsFlowTests
         Assert.Contains(buyResult.NewEvents, e => e is CardBoughtEvent bought &&
                                                   bought.PlayerId == currentPlayer.PlayerId &&
                                                   bought.CardId == KnownCardIds.Frenzy &&
-                                                  bought.CostSpent == 7);
+                                                  bought.Cost == 7);
 
         var scheduledTurn = Assert.Single(gameState.ScheduledTurns);
         Assert.Equal(currentPlayer.PlayerId, scheduledTurn.PlayerId);
