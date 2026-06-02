@@ -23,7 +23,7 @@ public sealed class PsychicProbeCardEffectsFlowTests
         var engine = CreateEngine(
             DieFace.One, DieFace.Two, DieFace.Three,
             DieFace.Heart, DieFace.Attack, DieFace.Attack,
-            DieFace.Four);
+            DieFace.Heart);
 
         engine.Execute(gameState, new InitializeGameCommand());
         engine.Execute(gameState, new BeginTurnCommand(activePlayer.PlayerId));
@@ -32,12 +32,12 @@ public sealed class PsychicProbeCardEffectsFlowTests
         var result = engine.Execute(gameState, new ActivatePsychicProbeCommand(psychicPlayer.PlayerId, targetDieIndex: 0));
 
         Assert.True(result.Success, result.Error);
-        Assert.Equal(DieFace.Four, gameState.CurrentTurn!.DicePool.Dice[0].CurrentFace);
+        Assert.Equal(DieFace.Heart, gameState.CurrentTurn!.DicePool.Dice[0].CurrentFace);
         Assert.Contains(psychicPlayer.KeepCards, card => card.CardId == KnownCardIds.PsychicProbe);
         Assert.DoesNotContain(gameState.Market.DiscardPile, card => card.CardId == KnownCardIds.PsychicProbe);
         Assert.Contains(result.NewEvents, e => e is DiceRolledEvent rolled &&
                                                rolled.PlayerId == activePlayer.PlayerId &&
-                                               rolled.Faces[0] == DieFace.Four);
+                                               rolled.Faces[0] == DieFace.Heart);
         Assert.NotNull(result.PendingDecision);
     }
 
@@ -77,7 +77,7 @@ public sealed class PsychicProbeCardEffectsFlowTests
         var engine = CreateEngine(
             DieFace.One, DieFace.Two, DieFace.Three,
             DieFace.Heart, DieFace.Attack, DieFace.Attack,
-            DieFace.Four);
+            DieFace.Heart);
 
         engine.Execute(gameState, new InitializeGameCommand());
         engine.Execute(gameState, new BeginTurnCommand(activePlayer.PlayerId));
