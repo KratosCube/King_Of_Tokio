@@ -63,6 +63,7 @@ public sealed class MarketSetupService
             new(KnownCardIds.ItHasAChild, "It Has a Child", "When you are eliminated, discard all your cards, lose all energy, heal to 10 health, and start again.", 7, MarketCardType.Keep),
             new(KnownCardIds.BackgroundDweller, "Background Dweller", "Whenever you roll any 3s, reroll them until none remain.", 4, MarketCardType.Keep),
             new(KnownCardIds.Opportunist, "Opportunist", "Whenever a new card is revealed, you may buy it immediately.", 4, MarketCardType.Keep),
+            new(KnownCardIds.ParasiticTentacles, "Parasitic Tentacles", "During your purchase phase, you may buy keep cards from other monsters by paying them the card cost in energy.", 4, MarketCardType.Keep),
             new(KnownCardIds.FireBlast, "Fire Blast", "All other monsters lose 2 health.", 3, MarketCardType.Discard, new CardPurchaseEffect { DamageAllOthers = 2 }),
             new(KnownCardIds.HighAltitudeBombing, "High Altitude Bombing", "All monsters lose 3 health.", 4, MarketCardType.Discard, new CardPurchaseEffect { DamageAllIncludingSelf = 3 }),
             new(KnownCardIds.EvacuationOrders, "Evacuation Orders", "All other monsters lose 5 health.", 7, MarketCardType.Discard, new CardPurchaseEffect { DamageAllOthers = 5 }),
