@@ -82,6 +82,7 @@ public sealed class GameEngine : IGameEngine
                 PeekTopDeckCardCommand peekTopDeckCardCommand => ExecutePeekTopDeckCard(gameState, peekTopDeckCardCommand),
                 BuyPeekedTopDeckCardCommand buyPeekedTopDeckCardCommand => ExecuteBuyPeekedTopDeckCard(gameState, buyPeekedTopDeckCardCommand),
                 DeclinePeekedTopDeckCardCommand declinePeekedTopDeckCardCommand => ExecuteDeclinePeekedTopDeckCard(gameState, declinePeekedTopDeckCardCommand),
+                DeclineOpportunistRevealedCardCommand declineOpportunistRevealedCardCommand => ExecuteDeclineOpportunistRevealedCard(gameState, declineOpportunistRevealedCardCommand),
                 EndTurnCommand endTurnCommand => ExecuteEndTurn(gameState, endTurnCommand),
                 AdvanceToNextPlayerCommand advanceToNextPlayerCommand => ExecuteAdvanceToNextPlayer(gameState, advanceToNextPlayerCommand),
                 _ => throw new NotSupportedException($"Command '{command.GetType().Name}' is not supported yet.")
@@ -323,6 +324,13 @@ public sealed class GameEngine : IGameEngine
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
 
+    private CommandResult ExecuteDeclineOpportunistRevealedCard(GameState gameState, DeclineOpportunistRevealedCardCommand command)
+    {
+        EnsureCanDeclineOpportunistRevealedCard(gameState, command);
+        gameState.ClearPendingDecision();
+        return CommandResult.Successful(gameState);
+    }
+
     private CommandResult ExecuteEndTurn(GameState gameState, EndTurnCommand command)
     {
         _validator.EnsureCanEndTurn(gameState, command);
@@ -336,6 +344,34 @@ public sealed class GameEngine : IGameEngine
         _validator.EnsureCanAdvanceToNextPlayer(gameState, command);
         _turnLifecycleService.AdvanceToNextPlayer(gameState);
         return CommandResult.Successful(gameState);
+    }
+
+    private static void EnsureCanDeclineOpportunistRevealedCard(GameState gameState, DeclineOpportunistRevealedCardCommand command)
+    {
+        if (gameState.Status != GameStatus.Running)
+        {
+            throw new InvalidOperationException("Cannot decline Opportunist when game is not running.");
+        }
+
+        if (gameState.PendingDecision is null)
+        {
+            throw new InvalidOperationException("There is no pending decision.");
+        }
+
+        if (gameState.PendingDecision.DecisionType != DecisionType.OpportunistPurchase)
+        {
+            throw new InvalidOperationException("Current pending decision is not an Opportunist purchase decision.");
+        }
+
+        if (!command.ActorPlayerId.HasValue)
+        {
+            throw new InvalidOperationException("DeclineOpportunistRevealedCardCommand requires an actor player id.");
+        }
+
+        if (gameState.PendingDecision.PlayerId != command.ActorPlayerId.Value)
+        {
+            throw new InvalidOperationException("Actor does not match the pending Opportunist player.");
+        }
     }
 
     private static void EnsureCanActivatePsychicProbe(GameState gameState, ActivatePsychicProbeCommand command)
