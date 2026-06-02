@@ -2,7 +2,7 @@
 
 This document tracks how far the headless engine is from supporting the full card set before building the online Blazor UI.
 
-Last verified locally by user after Opportunist buy-flow fix: `dotnet test KingOfTokyo.Engine.slnx` succeeded.
+Last verified locally by user after Parasitic Tentacles flow-test and CardBoughtEvent cost alias fixes: `dotnet test KingOfTokyo.Engine.slnx` succeeded.
 
 Source of truth for this audit:
 
@@ -35,10 +35,11 @@ The codebase now has stable foundations for the online UI boundary:
 | Representative game flow | Implemented | Integration test covers multiple turns, Tokyo entry/leave/stay decisions, card purchase, healing, scoring, start-in-Tokyo VP, versioning, and event log consistency. |
 | Damage prevention/cancellation | Partial | Static prevention, Wings cancellation, Camouflage random prevention, and It Has a Child elimination replacement exist. Still needs more lethal/timing edge-case regression tests. |
 | Player status tokens | Implemented | Poison/shrink token state exists; attack-token application, heart-based token removal, shrink dice reduction, and poison end-of-turn damage are covered. More edge cases can still be added as regression tests. |
-| Owned keep-card lifecycle | Partial | Player-owned keep cards can be added/removed/discarded; Plot Twist, Metamorph, Smoke Cloud, Monster Batteries, Psychic Probe, Opportunist, and It Has a Child use this. Generic lifecycle hooks/transfers are still missing. |
+| Owned keep-card lifecycle | Partial | Player-owned keep cards can be added/removed/discarded/transferred; Plot Twist, Metamorph, Smoke Cloud, Monster Batteries, Psychic Probe, Opportunist, Parasitic Tentacles, and It Has a Child use this. Generic lifecycle hooks are still missing. |
 | Card-local counters / stored energy | Partial | Smoke Cloud counters, Monster Batteries stored energy, and Psychic Probe once-per-turn marker exist and are exposed through DTOs. Mimic/copying and generic lifecycle events are still missing. |
 | Extra-turn scheduling | Implemented | Freeze Time and Frenzy use scheduled extra turns; scheduled turns are exposed through DTOs and consumed when beginning turns. |
 | Out-of-turn card activation | Implemented | Psychic Probe can be used during another player's rolling phase. Opportunist can react to newly revealed market cards, decline, or buy the revealed card out of turn. |
+| Owned-card transfer/payment | Partial | Parasitic Tentacles can transfer keep cards from another living player during purchase phase and pay the seller. Still needs richer event coverage and generic lifecycle hooks for transferred card effects. |
 | Seating / adjacency effects | Implemented | Fire Breathing uses current alive player order to resolve neighbors and only adds damage to neighbors who are already attack targets. |
 | Forced dice result handling | Implemented | Background Dweller rerolls rolled/rerolled `Three` results until none remain during the owning player's normal roll/reroll flow. |
 
@@ -89,6 +90,7 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Nova Breath | Implemented | Attack damages all other monsters regardless of Tokyo position. |
 | Nuclear Power Plant | Implemented | VP + healing. |
 | Opportunist | Implemented | Reacts to newly revealed market cards after purchase/refresh; eligible player can decline or buy the revealed card out of turn. DTO coverage exists for the pending decision payload. |
+| Parasitic Tentacles | Implemented | Current player with this keep card can buy keep cards from another living player during purchase phase, transferring the card and paying the seller the card cost in energy. Covered by service and GameEngine flow tests. |
 | Plot Twist | Implemented | One-use die result change, then discards itself. |
 | Poison Quills | Implemented | Damage when scoring 1s. |
 | Poison Spit | Implemented | Adds poison tokens to damaged attack targets; poison end-of-turn damage and heart-based removal are implemented/tested. |
@@ -116,14 +118,13 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Healing Ray | Missing / Needs engine concept | Heal other monsters using healing dice and transfer energy/payment. |
 | Mimic | Missing / Needs engine concept | Copy another keep card; retarget by spending energy. |
 | Omnivore | Missing / Needs engine concept | Special scoring with pairs; dice can still be used in other combinations. |
-| Parasitic Tentacles | Missing / Needs engine concept | Buy cards from other players. Needs ownership transfer and payment to another player. |
 
 ## Remaining pure-engine work before UI
 
 ### Must-have before online UI
 
 - Finish the remaining missing/incomplete card mechanics that affect public game state.
-- Add card ownership transfer/copy concepts for Mimic, Parasitic Tentacles, and Healing Ray.
+- Add card copy/lifecycle concepts for Mimic and refine generic transfer hooks for Parasitic Tentacles / Healing Ray.
 - Add end-to-end tests around elimination, victory timing, and a longer representative full-game path.
 - Keep DTO/event-log coverage synchronized whenever new state is introduced.
 
@@ -138,7 +139,7 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 
 ### 1. Owned-card lifecycle and transfer hooks
 
-Needed for Even Bigger follow-ups, Mimic, Parasitic Tentacles, Healing Ray, and future richer keep cards.
+Needed for Even Bigger follow-ups, Mimic, Healing Ray, and future richer keep cards.
 
 Required operations:
 
@@ -160,7 +161,7 @@ Required capabilities:
 
 ## Proposed implementation order
 
-1. Implement Healing Ray / Parasitic Tentacles ownership and payment flows.
+1. Implement Healing Ray healing/payment flow.
 2. Implement Mimic copy/retarget behavior.
 3. Implement Omnivore scoring extension.
 4. Add one longer end-to-end full-game regression flow.
