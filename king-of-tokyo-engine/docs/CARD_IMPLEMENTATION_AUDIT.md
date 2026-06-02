@@ -2,7 +2,7 @@
 
 This document tracks how far the headless engine is from supporting the full card set before building the online Blazor UI.
 
-Last verified locally by user after Parasitic Tentacles flow-test and CardBoughtEvent cost alias fixes: `dotnet test KingOfTokyo.Engine.slnx` succeeded.
+Last verified locally by user after Healing Ray extension fix: `dotnet test KingOfTokyo.Engine.slnx` succeeded.
 
 Source of truth for this audit:
 
@@ -35,11 +35,11 @@ The codebase now has stable foundations for the online UI boundary:
 | Representative game flow | Implemented | Integration test covers multiple turns, Tokyo entry/leave/stay decisions, card purchase, healing, scoring, start-in-Tokyo VP, versioning, and event log consistency. |
 | Damage prevention/cancellation | Partial | Static prevention, Wings cancellation, Camouflage random prevention, and It Has a Child elimination replacement exist. Still needs more lethal/timing edge-case regression tests. |
 | Player status tokens | Implemented | Poison/shrink token state exists; attack-token application, heart-based token removal, shrink dice reduction, and poison end-of-turn damage are covered. More edge cases can still be added as regression tests. |
-| Owned keep-card lifecycle | Partial | Player-owned keep cards can be added/removed/discarded/transferred; Plot Twist, Metamorph, Smoke Cloud, Monster Batteries, Psychic Probe, Opportunist, Parasitic Tentacles, and It Has a Child use this. Generic lifecycle hooks are still missing. |
-| Card-local counters / stored energy | Partial | Smoke Cloud counters, Monster Batteries stored energy, and Psychic Probe once-per-turn marker exist and are exposed through DTOs. Mimic/copying and generic lifecycle events are still missing. |
+| Owned keep-card lifecycle | Partial | Player-owned keep cards can be added/removed/discarded/transferred; Plot Twist, Metamorph, Smoke Cloud, Monster Batteries, Psychic Probe, Opportunist, Parasitic Tentacles, Healing Ray, and It Has a Child use this. Generic lifecycle hooks are still missing. |
+| Card-local counters / stored energy | Partial | Smoke Cloud counters, Monster Batteries stored energy, Psychic Probe once-per-turn marker, and Healing Ray spent-heart tracking exist. Mimic/copying and generic lifecycle events are still missing. |
 | Extra-turn scheduling | Implemented | Freeze Time and Frenzy use scheduled extra turns; scheduled turns are exposed through DTOs and consumed when beginning turns. |
 | Out-of-turn card activation | Implemented | Psychic Probe can be used during another player's rolling phase. Opportunist can react to newly revealed market cards, decline, or buy the revealed card out of turn. |
-| Owned-card transfer/payment | Partial | Parasitic Tentacles can transfer keep cards from another living player during purchase phase and pay the seller. Still needs richer event coverage and generic lifecycle hooks for transferred card effects. |
+| Owned-card transfer/payment | Partial | Parasitic Tentacles can transfer keep cards and pay the seller. Healing Ray can heal another living player using heart dice and transfer energy payment from target to healer. Still needs richer event coverage and generic lifecycle hooks. |
 | Seating / adjacency effects | Implemented | Fire Breathing uses current alive player order to resolve neighbors and only adds damage to neighbors who are already attack targets. |
 | Forced dice result handling | Implemented | Background Dweller rerolls rolled/rerolled `Three` results until none remain during the owning player's normal roll/reroll flow. |
 
@@ -77,6 +77,7 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Giant Brain | Implemented | Extra reroll through keep-card rule. |
 | Gourmet | Implemented | Bonus VP when scoring dice. |
 | Heal | Implemented | Simple discard healing. |
+| Healing Ray | Implemented | Current player with this keep card can spend rolled heart dice after dice resolution to heal another living player. The target pays 2 energy per actual healed damage, or all remaining energy if they cannot fully pay. Covered by service and GameEngine flow tests. |
 | Herbivore | Implemented | End-turn VP when no damage dealt. |
 | Herd Culler | Implemented | Activated once-per-turn die change to `One`. |
 | High Altitude Bombing | Implemented | Damage to everyone. |
@@ -115,7 +116,6 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 
 | Card | Status | Main engine need |
 | --- | --- | --- |
-| Healing Ray | Missing / Needs engine concept | Heal other monsters using healing dice and transfer energy/payment. |
 | Mimic | Missing / Needs engine concept | Copy another keep card; retarget by spending energy. |
 | Omnivore | Missing / Needs engine concept | Special scoring with pairs; dice can still be used in other combinations. |
 
@@ -124,31 +124,31 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 ### Must-have before online UI
 
 - Finish the remaining missing/incomplete card mechanics that affect public game state.
-- Add card copy/lifecycle concepts for Mimic and refine generic transfer hooks for Parasitic Tentacles / Healing Ray.
+- Add card copy/lifecycle concepts for Mimic.
+- Add special scoring extension for Omnivore.
 - Add end-to-end tests around elimination, victory timing, and a longer representative full-game path.
 - Keep DTO/event-log coverage synchronized whenever new state is introduced.
 
 ### Nice-to-have before UI
 
 - Refactor card effects out of the growing `KeepCardRulesService` / `GameEngine` branches into effect handlers.
+- Move Healing Ray typed extension into the main `GameEngine` command switch during the next cleanup/refactor.
 - Add snapshot/event cursor DTOs for online resync.
 - Add more regression tests for Bay edge cases and simultaneous eliminations.
 - Decide whether event log should be bounded/snapshot-friendly before persistence.
 
 ## Recommended engine concepts to add next
 
-### 1. Owned-card lifecycle and transfer hooks
+### 1. Card copying / effect delegation
 
-Needed for Even Bigger follow-ups, Mimic, Healing Ray, and future richer keep cards.
+Needed for Mimic.
 
 Required operations:
 
-- Add keep card
-- Remove keep card
-- Discard keep card
-- Transfer keep card
-- Run `OnCardLost` / `OnCardDiscarded` effects from every removal path
-- Recalculate copied / transferred effects consistently
+- Represent copied card target on a keep card
+- Apply copied keep-card effects consistently
+- Retarget copied card by spending energy
+- Avoid recursive/circular copy cases
 
 ### 2. Special scoring extensions
 
@@ -159,10 +159,23 @@ Required capabilities:
 - score special combinations without consuming dice that other scoring rules need,
 - keep scoring tests deterministic.
 
+### 3. Owned-card lifecycle and transfer hooks
+
+Needed for future cleanup and edge cases.
+
+Required operations:
+
+- Add keep card
+- Remove keep card
+- Discard keep card
+- Transfer keep card
+- Run `OnCardLost` / `OnCardDiscarded` effects from every removal path
+- Recalculate copied / transferred effects consistently
+
 ## Proposed implementation order
 
-1. Implement Healing Ray healing/payment flow.
-2. Implement Mimic copy/retarget behavior.
-3. Implement Omnivore scoring extension.
-4. Add one longer end-to-end full-game regression flow.
+1. Implement Mimic copy/retarget behavior.
+2. Implement Omnivore scoring extension.
+3. Add one longer end-to-end full-game regression flow.
+4. Move Healing Ray typed extension into the main `GameEngine` command switch.
 5. Start SignalR server and Blazor client only after the headless engine can complete representative games.
