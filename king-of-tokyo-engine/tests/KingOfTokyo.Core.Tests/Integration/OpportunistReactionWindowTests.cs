@@ -5,6 +5,7 @@ using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Engine;
+using KingOfTokyo.Core.Events;
 using KingOfTokyo.Core.Services;
 using Xunit;
 
@@ -142,6 +143,43 @@ public sealed class OpportunistReactionWindowTests
         Assert.True(declineResult.Success, declineResult.Error);
         Assert.Null(declineResult.PendingDecision);
         Assert.Null(gameState.PendingDecision);
+    }
+
+    [Fact]
+    public void BuyOpportunistRevealedCard_Should_BuyRevealedCardForOpportunistPlayer()
+    {
+        var gameState = CreateGameState(3);
+        var currentPlayer = gameState.GetCurrentPlayer();
+        var opportunistPlayer = gameState.GetPlayerById(1);
+        currentPlayer.GainEnergy(10);
+        opportunistPlayer.GainEnergy(5);
+        opportunistPlayer.AddKeepCard(CreateKeepCard(KnownCardIds.Opportunist, "Opportunist", 4));
+
+        var revealedCard = CreateKeepCard("card-revealed", "Revealed Card", 5);
+        var engine = CreateEngine(
+            CreateDiscardCard("card-slot-0", "Slot 0", 3),
+            CreateDiscardCard("card-slot-1", "Slot 1", 3),
+            CreateDiscardCard("card-slot-2", "Slot 2", 3),
+            revealedCard);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(currentPlayer.PlayerId));
+        gameState.CurrentTurn!.SetPhase(TurnPhase.Purchase);
+        var revealResult = engine.Execute(gameState, new BuyFaceUpCardCommand(0, currentPlayer.PlayerId));
+        Assert.True(revealResult.Success, revealResult.Error);
+        Assert.NotNull(gameState.PendingDecision);
+
+        var buyResult = engine.Execute(gameState, new BuyOpportunistRevealedCardCommand(opportunistPlayer.PlayerId));
+
+        Assert.True(buyResult.Success, buyResult.Error);
+        Assert.Equal(0, opportunistPlayer.Energy);
+        Assert.Contains(opportunistPlayer.KeepCards, card => card.CardId == revealedCard.CardId);
+        Assert.Null(gameState.Market.FaceUpCards[0]);
+        Assert.Null(gameState.PendingDecision);
+        Assert.Contains(buyResult.NewEvents, e => e is CardBoughtEvent bought &&
+                                                  bought.PlayerId == opportunistPlayer.PlayerId &&
+                                                  bought.CardId == revealedCard.CardId &&
+                                                  bought.EffectiveCost == revealedCard.Cost);
     }
 
     private static GameState CreateGameState(int playerCount)
