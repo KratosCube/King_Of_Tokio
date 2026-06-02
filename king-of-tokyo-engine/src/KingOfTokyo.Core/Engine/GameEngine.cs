@@ -103,9 +103,16 @@ public sealed class GameEngine : IGameEngine
     {
         _validator.EnsureCanBeginTurn(gameState, command);
         var currentPlayer = gameState.GetCurrentPlayer();
-        var diceCount = _keepCardRulesService.GetEffectiveDiceCount(currentPlayer);
+        var scheduledTurn = gameState.ConsumeNextScheduledTurnForCurrentPlayer();
+        var diceCountModifier = scheduledTurn?.DiceCountModifier ?? 0;
+        var baseDiceCount = _keepCardRulesService.GetEffectiveDiceCount(currentPlayer);
+        var diceCount = Math.Max(KeepCardRulesService.MinimumDiceCount, baseDiceCount + diceCountModifier);
         var maxRolls = 3 + _keepCardRulesService.GetExtraRerolls(currentPlayer);
-        gameState.StartTurnForCurrentPlayer(diceCount: diceCount, maxRolls: maxRolls);
+        gameState.StartTurnForCurrentPlayer(
+            diceCount: diceCount,
+            maxRolls: maxRolls,
+            isExtraTurn: scheduledTurn is not null,
+            diceCountModifier: diceCountModifier);
         currentPlayer = gameState.GetCurrentPlayer();
         var newEvents = new List<GameEventBase> { new TurnStartedEvent(currentPlayer.PlayerId) };
 
