@@ -159,6 +159,63 @@ public sealed class AttackFlowTests
                                                entered.PlayerId == attacker.PlayerId);
     }
 
+    [Fact]
+    public void FinalizeDice_Should_ResetDefender_WhenItHasAChildPreventsPermanentElimination()
+    {
+        var gameState = CreateGameState(3);
+        var attacker = gameState.GetCurrentPlayer();
+        var defender = gameState.GetPlayerById(1);
+        attacker.AddKeepCard(new MarketCardState(
+            KnownCardIds.EaterOfTheDead,
+            "Eater of the Dead",
+            "Gain 3 victory points whenever any monster reaches 0 health.",
+            4,
+            MarketCardType.Keep));
+        defender.AddKeepCard(new MarketCardState(
+            KnownCardIds.ItHasAChild,
+            "It Has a Child",
+            "When eliminated, discard all cards, lose all energy, heal to 10, and start again.",
+            7,
+            MarketCardType.Keep));
+        defender.AddKeepCard(new MarketCardState(
+            KnownCardIds.GiantBrain,
+            "Giant Brain",
+            "You have 1 extra reroll each turn.",
+            5,
+            MarketCardType.Keep));
+        defender.GainEnergy(4);
+        defender.SetTokyoSlot(TokyoSlot.City);
+        defender.TakeDamage(9);
+        gameState.Tokyo.SetCityOccupant(defender.PlayerId);
+
+        var engine = CreateEngine(
+            DieFace.Attack, DieFace.Heart, DieFace.One,
+            DieFace.Two, DieFace.Three, DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(attacker.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(attacker.PlayerId));
+
+        var result = engine.Execute(gameState, new FinalizeDiceCommand(attacker.PlayerId));
+
+        Assert.True(result.Success, result.Error);
+        Assert.True(defender.IsAlive);
+        Assert.Equal(10, defender.Health);
+        Assert.Equal(0, defender.Energy);
+        Assert.Empty(defender.KeepCards);
+        Assert.Contains(gameState.Market.DiscardPile, card => card.CardId == KnownCardIds.ItHasAChild);
+        Assert.Contains(gameState.Market.DiscardPile, card => card.CardId == KnownCardIds.GiantBrain);
+        Assert.Equal(TokyoSlot.None, defender.TokyoSlot);
+        Assert.Equal(TokyoSlot.City, attacker.TokyoSlot);
+        Assert.Equal(4, attacker.VictoryPoints);
+        Assert.Contains(result.NewEvents, e => e is PlayerEliminatedEvent eliminated &&
+                                               eliminated.EliminatedPlayerId == defender.PlayerId);
+        Assert.Contains(result.NewEvents, e => e is VictoryPointsGainedEvent gained &&
+                                               gained.PlayerId == attacker.PlayerId &&
+                                               gained.Amount == 3 &&
+                                               gained.Reason.Contains("Eater of the Dead"));
+    }
+
     private static GameState CreateGameState(int playerCount)
     {
         var players = Enumerable.Range(0, playerCount)
