@@ -1,6 +1,7 @@
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
+using KingOfTokyo.Core.Domain.ValueObjects;
 
 namespace KingOfTokyo.Core.Rules.Victory;
 
@@ -19,7 +20,28 @@ public sealed class EliminationService
         RemovePlayerFromTokyoIfNeeded(gameState, player);
         DisableBayIfNeeded(gameState);
 
+        if (player.HasKeepCard(KnownCardIds.ItHasAChild))
+        {
+            ApplyItHasAChild(gameState, player);
+        }
+
         return true;
+    }
+
+    private static void ApplyItHasAChild(GameState gameState, PlayerState player)
+    {
+        foreach (var card in player.KeepCards.ToArray())
+        {
+            var removedCard = player.RemoveKeepCard(card.CardId);
+            gameState.Market.Discard(removedCard);
+        }
+
+        if (player.Energy > 0)
+        {
+            player.SpendEnergy(player.Energy);
+        }
+
+        player.Heal(10);
     }
 
     private static void RemovePlayerFromTokyoIfNeeded(GameState gameState, PlayerState player)
