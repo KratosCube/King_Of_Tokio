@@ -114,6 +114,36 @@ public sealed class OpportunistReactionWindowTests
         Assert.Null(gameState.PendingDecision);
     }
 
+    [Fact]
+    public void DeclineOpportunistRevealedCard_Should_ClearPendingDecision_WhenActorOwnsReactionWindow()
+    {
+        var gameState = CreateGameState(3);
+        var currentPlayer = gameState.GetCurrentPlayer();
+        var opportunistPlayer = gameState.GetPlayerById(1);
+        currentPlayer.GainEnergy(10);
+        opportunistPlayer.GainEnergy(5);
+        opportunistPlayer.AddKeepCard(CreateKeepCard(KnownCardIds.Opportunist, "Opportunist", 4));
+
+        var engine = CreateEngine(
+            CreateDiscardCard("card-slot-0", "Slot 0", 3),
+            CreateDiscardCard("card-slot-1", "Slot 1", 3),
+            CreateDiscardCard("card-slot-2", "Slot 2", 3),
+            CreateKeepCard("card-revealed", "Revealed Card", 5));
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(currentPlayer.PlayerId));
+        gameState.CurrentTurn!.SetPhase(TurnPhase.Purchase);
+        var revealResult = engine.Execute(gameState, new BuyFaceUpCardCommand(0, currentPlayer.PlayerId));
+        Assert.True(revealResult.Success, revealResult.Error);
+        Assert.NotNull(gameState.PendingDecision);
+
+        var declineResult = engine.Execute(gameState, new DeclineOpportunistRevealedCardCommand(opportunistPlayer.PlayerId));
+
+        Assert.True(declineResult.Success, declineResult.Error);
+        Assert.Null(declineResult.PendingDecision);
+        Assert.Null(gameState.PendingDecision);
+    }
+
     private static GameState CreateGameState(int playerCount)
     {
         var players = Enumerable.Range(0, playerCount)
