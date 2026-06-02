@@ -179,7 +179,7 @@ public sealed class OpportunistReactionWindowTests
         Assert.Contains(buyResult.NewEvents, e => e is CardBoughtEvent bought &&
                                                   bought.PlayerId == opportunistPlayer.PlayerId &&
                                                   bought.CardId == revealedCard.CardId &&
-                                                  bought.EffectiveCost == revealedCard.Cost);
+                                                  bought.Cost == revealedCard.Cost);
     }
 
     private static GameState CreateGameState(int playerCount)
