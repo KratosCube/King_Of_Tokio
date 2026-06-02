@@ -70,4 +70,5 @@ public static class KnownCardIds
     public const string FreezeTime = "card-freeze-time";
     public const string Frenzy = "card-frenzy";
     public const string PsychicProbe = "card-psychic-probe";
+    public const string BackgroundDweller = "card-background-dweller";
 }
