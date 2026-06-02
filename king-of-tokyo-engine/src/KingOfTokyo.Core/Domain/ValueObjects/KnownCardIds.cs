@@ -72,4 +72,5 @@ public static class KnownCardIds
     public const string PsychicProbe = "card-psychic-probe";
     public const string BackgroundDweller = "card-background-dweller";
     public const string Opportunist = "card-opportunist";
+    public const string ParasiticTentacles = "card-parasitic-tentacles";
 }
