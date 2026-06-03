@@ -103,6 +103,39 @@ public sealed class VictoryEliminationTimingFlowTests
                                              ended.Reason == "All monsters were eliminated.");
     }
 
+    [Fact]
+    public void EndTurn_Should_EndGame_WhenCurrentPlayerReachesTwentyFromEndTurnScoringAndSurvives()
+    {
+        var gameState = CreateGameState(2);
+        var currentPlayer = gameState.GetCurrentPlayer();
+        currentPlayer.GainVictoryPoints(19);
+        currentPlayer.AddKeepCard(CreateKeepCard(KnownCardIds.Herbivore, "Herbivore", 5));
+        var engine = new GameEngine();
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(currentPlayer.PlayerId));
+        gameState.CurrentTurn!.MarkDiceResolved();
+        gameState.CurrentTurn.SetPhase(TurnPhase.Purchase);
+
+        var result = engine.Execute(gameState, new EndTurnCommand(currentPlayer.PlayerId));
+
+        Assert.True(result.Success, result.Error);
+        Assert.True(currentPlayer.IsAlive);
+        Assert.Equal(20, currentPlayer.VictoryPoints);
+        Assert.Equal(GameStatus.Finished, gameState.Status);
+        Assert.NotNull(gameState.WinnerInfo);
+        Assert.True(gameState.WinnerInfo!.HasWinner);
+        Assert.Equal(currentPlayer.PlayerId, gameState.WinnerInfo.WinnerPlayerId);
+        Assert.Equal("Reached 20 victory points.", gameState.WinnerInfo.Reason);
+        Assert.Contains(result.NewEvents, e => e is VictoryPointsGainedEvent gained &&
+                                             gained.PlayerId == currentPlayer.PlayerId &&
+                                             gained.Amount == 1 &&
+                                             gained.Reason == "Keep card: Herbivore.");
+        Assert.Contains(result.NewEvents, e => e is GameEndedEvent ended &&
+                                             ended.WinnerPlayerId == currentPlayer.PlayerId &&
+                                             ended.Reason == "Reached 20 victory points.");
+    }
+
     private static GameState CreateGameState(int playerCount)
     {
         var players = Enumerable.Range(0, playerCount)
@@ -110,5 +143,15 @@ public sealed class VictoryEliminationTimingFlowTests
             .ToArray();
 
         return new GameState(players, new GameOptions(playerCount));
+    }
+
+    private static MarketCardState CreateKeepCard(string cardId, string name, int cost)
+    {
+        return new MarketCardState(
+            cardId,
+            name,
+            "Test keep card.",
+            cost,
+            MarketCardType.Keep);
     }
 }
