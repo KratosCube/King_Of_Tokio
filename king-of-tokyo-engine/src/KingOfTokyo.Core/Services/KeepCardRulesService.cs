@@ -74,7 +74,7 @@ public sealed class KeepCardRulesService
     public bool CanUseHerdCuller(PlayerState player)
     {
         ArgumentNullException.ThrowIfNull(player);
-        return player.HasKeepCard(KnownCardIds.HerdCuller);
+        return HasKeepCardEffect(player, KnownCardIds.HerdCuller);
     }
 
     public bool CanUseMadeInALab(PlayerState player)
