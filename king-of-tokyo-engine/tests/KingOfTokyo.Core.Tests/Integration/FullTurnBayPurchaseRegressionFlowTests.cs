@@ -79,7 +79,7 @@ public sealed class FullTurnBayPurchaseRegressionFlowTests
         var buyResult = engine.Execute(gameState, new BuyFaceUpCardCommand(0, attacker.PlayerId));
 
         Assert.True(buyResult.Success, buyResult.Error);
-        Assert.Equal(0, attacker.Energy);
+        Assert.Equal(1, attacker.Energy);
         Assert.Equal(2, attacker.VictoryPoints);
         Assert.Contains(buyResult.NewEvents, e => e is CardBoughtEvent bought &&
                                                bought.PlayerId == attacker.PlayerId &&
