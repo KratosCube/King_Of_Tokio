@@ -117,6 +117,24 @@ public sealed class TokyoDecisionService
                 }
             }
         }
+        else if (!leaveTokyo &&
+                 defender.IsAlive &&
+                 defender.TokyoSlot != TokyoSlot.None &&
+                 attacker.IsAlive &&
+                 attacker.TokyoSlot == TokyoSlot.None &&
+                 _tokyoResolver.GetPreferredAvailableSlot(gameState) is not null)
+        {
+            var enteredSlot = _tokyoResolver.EnterTokyo(gameState, attacker);
+            attacker.GainVictoryPoints(1);
+            currentTurn.Flags.EnteredTokyo = true;
+            currentTurn.Flags.ScoredVictoryPoints = true;
+
+            newEvents.Add(new TokyoEnteredEvent(attacker.PlayerId, enteredSlot));
+            newEvents.Add(new VictoryPointsGainedEvent(
+                attacker.PlayerId,
+                1,
+                "Entered Tokyo after defender stayed."));
+        }
 
         PendingDecision? nextPendingDecision = null;
 
