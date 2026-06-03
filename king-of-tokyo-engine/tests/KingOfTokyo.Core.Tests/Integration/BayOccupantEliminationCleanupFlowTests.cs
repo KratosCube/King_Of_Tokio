@@ -59,6 +59,62 @@ public sealed class BayOccupantEliminationCleanupFlowTests
                                              eliminated.EliminatedByPlayerId == attacker.PlayerId);
     }
 
+    [Fact]
+    public void ChooseLeaveTokyo_Should_MoveAttackerIntoCity_WhenBayWasDisabledAfterBayOccupantElimination()
+    {
+        var gameState = CreateGameState(5);
+        var attacker = gameState.GetCurrentPlayer();
+        var cityOccupant = gameState.GetPlayerById(1);
+        var bayOccupant = gameState.GetPlayerById(2);
+        cityOccupant.SetTokyoSlot(TokyoSlot.City);
+        bayOccupant.SetTokyoSlot(TokyoSlot.Bay);
+        bayOccupant.TakeDamage(9);
+        gameState.Tokyo.SetCityOccupant(cityOccupant.PlayerId);
+        gameState.Tokyo.SetBayOccupant(bayOccupant.PlayerId);
+
+        var engine = CreateEngine(
+            DieFace.Attack,
+            DieFace.Heart,
+            DieFace.One,
+            DieFace.Two,
+            DieFace.Three,
+            DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(attacker.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(attacker.PlayerId));
+        var finalizeResult = engine.Execute(gameState, new FinalizeDiceCommand(attacker.PlayerId));
+
+        Assert.True(finalizeResult.Success, finalizeResult.Error);
+        Assert.False(gameState.Tokyo.BayEnabled);
+        Assert.NotNull(finalizeResult.PendingDecision);
+        Assert.Equal(cityOccupant.PlayerId, finalizeResult.PendingDecision!.PlayerId);
+
+        var leaveResult = engine.Execute(gameState, new ChooseLeaveTokyoCommand(true, cityOccupant.PlayerId));
+
+        Assert.True(leaveResult.Success, leaveResult.Error);
+        Assert.Null(leaveResult.PendingDecision);
+        Assert.Null(gameState.PendingDecision);
+        Assert.Equal(TurnPhase.Purchase, gameState.CurrentTurn!.Phase);
+        Assert.Equal(TokyoSlot.None, cityOccupant.TokyoSlot);
+        Assert.Equal(TokyoSlot.None, bayOccupant.TokyoSlot);
+        Assert.Equal(TokyoSlot.City, attacker.TokyoSlot);
+        Assert.Equal(attacker.PlayerId, gameState.Tokyo.CityOccupantId);
+        Assert.False(gameState.Tokyo.BayEnabled);
+        Assert.Null(gameState.Tokyo.BayOccupantId);
+        Assert.Equal(1, attacker.VictoryPoints);
+        Assert.Contains(leaveResult.NewEvents, e => e is TokyoLeftEvent left &&
+                                                 left.PlayerId == cityOccupant.PlayerId &&
+                                                 left.Slot == TokyoSlot.City);
+        Assert.Contains(leaveResult.NewEvents, e => e is TokyoEnteredEvent entered &&
+                                                 entered.PlayerId == attacker.PlayerId &&
+                                                 entered.Slot == TokyoSlot.City);
+        Assert.Contains(leaveResult.NewEvents, e => e is VictoryPointsGainedEvent gained &&
+                                                 gained.PlayerId == attacker.PlayerId &&
+                                                 gained.Amount == 1 &&
+                                                 gained.Reason == "Entered Tokyo after defender left.");
+    }
+
     private static GameState CreateGameState(int playerCount)
     {
         var players = Enumerable.Range(0, playerCount)
