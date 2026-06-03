@@ -63,6 +63,7 @@ public static class KnownCardIds
     public const string MadeInALab = "card-made-in-a-lab";
     public const string Metamorph = "card-metamorph";
     public const string Mimic = "card-mimic";
+    public const string Omnivore = "card-omnivore";
     public const string PlotTwist = "card-plot-twist";
     public const string ExtraHead = "card-extra-head";
     public const string Telepath = "card-telepath";
