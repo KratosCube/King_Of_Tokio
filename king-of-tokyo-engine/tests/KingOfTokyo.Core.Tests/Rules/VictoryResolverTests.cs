@@ -1,4 +1,5 @@
 using KingOfTokyo.Core.Domain.Entities;
+using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Rules.Victory;
@@ -44,6 +45,24 @@ public sealed class VictoryResolverTests
         Assert.True(result!.HasWinner);
         Assert.Equal(2, result.WinnerPlayerId);
         Assert.Equal("Reached 20 victory points.", result.Reason);
+    }
+
+    [Fact]
+    public void Resolve_Should_NotReturnTwentyPointWinner_WhenVictoryModeIsLastMonsterStanding()
+    {
+        var players = CreatePlayers(3);
+        var gameState = new GameState(players, new GameOptions(3, VictoryMode.LastMonsterStanding));
+        gameState.StartGame();
+        gameState.StartTurnForCurrentPlayer();
+
+        gameState.GetCurrentPlayer().GainVictoryPoints(20);
+        gameState.GetPlayerById(2).GainVictoryPoints(20);
+
+        var resolver = new VictoryResolver();
+
+        var result = resolver.Resolve(gameState);
+
+        Assert.Null(result);
     }
 
     [Fact]
