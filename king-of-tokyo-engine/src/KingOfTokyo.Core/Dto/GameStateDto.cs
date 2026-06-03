@@ -51,7 +51,13 @@ public sealed record CardDto(
     int Cost,
     MarketCardType CardType,
     int Counters = 0,
-    int StoredEnergy = 0);
+    int StoredEnergy = 0,
+    MimicTargetDto? MimicTarget = null);
+
+public sealed record MimicTargetDto(
+    int OwnerPlayerId,
+    string CardId,
+    string CardName);
 
 public sealed record TurnDto(
     int CurrentPlayerId,
