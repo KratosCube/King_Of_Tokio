@@ -1,5 +1,6 @@
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
+using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Services;
 using Xunit;
@@ -30,6 +31,37 @@ public sealed class KeepCardEffectLookupServiceTests
         var hasEffect = service.HasEffect(player, KnownCardIds.HealingRay);
 
         Assert.True(hasEffect);
+    }
+
+    [Fact]
+    public void HasEffect_WithGameState_Should_ReturnTrue_WhenMimicTargetOwnerStillOwnsCard()
+    {
+        var gameState = CreateGameState();
+        var mimicOwner = gameState.GetPlayerById(0);
+        var targetOwner = gameState.GetPlayerById(1);
+        targetOwner.AddKeepCard(CreateKeepCard(KnownCardIds.HealingRay, "Healing Ray"));
+        mimicOwner.AddKeepCard(CreateMimicCopying(targetOwner.PlayerId, KnownCardIds.HealingRay, "Healing Ray"));
+        var service = new KeepCardEffectLookupService();
+
+        var hasEffect = service.HasEffect(gameState, mimicOwner, KnownCardIds.HealingRay);
+
+        Assert.True(hasEffect);
+    }
+
+    [Fact]
+    public void HasEffect_WithGameState_Should_ReturnFalse_WhenMimicTargetOwnerLostCard()
+    {
+        var gameState = CreateGameState();
+        var mimicOwner = gameState.GetPlayerById(0);
+        var targetOwner = gameState.GetPlayerById(1);
+        targetOwner.AddKeepCard(CreateKeepCard(KnownCardIds.HealingRay, "Healing Ray"));
+        mimicOwner.AddKeepCard(CreateMimicCopying(targetOwner.PlayerId, KnownCardIds.HealingRay, "Healing Ray"));
+        targetOwner.RemoveKeepCard(KnownCardIds.HealingRay);
+        var service = new KeepCardEffectLookupService();
+
+        var hasEffect = service.HasEffect(gameState, mimicOwner, KnownCardIds.HealingRay);
+
+        Assert.False(hasEffect);
     }
 
     [Fact]
@@ -66,6 +98,17 @@ public sealed class KeepCardEffectLookupServiceTests
         Assert.Throws<ArgumentException>(() => service.CountEffects(player, ""));
     }
 
+    private static GameState CreateGameState()
+    {
+        var players = new[]
+        {
+            new PlayerState(0, "Monster 1"),
+            new PlayerState(1, "Monster 2")
+        };
+
+        return new GameState(players, new GameOptions(players.Length));
+    }
+
     private static MarketCardState CreateKeepCard(string cardId, string name)
     {
         return new MarketCardState(
@@ -78,12 +121,17 @@ public sealed class KeepCardEffectLookupServiceTests
 
     private static MarketCardState CreateMimicCopying(string copiedCardId, string copiedCardName)
     {
+        return CreateMimicCopying(1, copiedCardId, copiedCardName);
+    }
+
+    private static MarketCardState CreateMimicCopying(int ownerPlayerId, string copiedCardId, string copiedCardName)
+    {
         return new MarketCardState(
             KnownCardIds.Mimic,
             "Mimic",
             "Copy another keep card.",
             8,
             MarketCardType.Keep,
-            mimicTarget: new MimicTargetState(1, copiedCardId, copiedCardName));
+            mimicTarget: new MimicTargetState(ownerPlayerId, copiedCardId, copiedCardName));
     }
 }
