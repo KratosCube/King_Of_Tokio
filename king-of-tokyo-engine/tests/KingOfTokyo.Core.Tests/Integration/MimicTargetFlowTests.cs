@@ -60,7 +60,6 @@ public sealed class MimicTargetFlowTests
         engine.Execute(gameState, new SetMimicTargetCommand(targetOwner.PlayerId, firstTarget.CardId, mimicOwner.PlayerId));
         engine.Execute(gameState, new EndTurnCommand(mimicOwner.PlayerId));
         gameState.CurrentTurn!.SetPhase(TurnPhase.Finished);
-        gameState.CurrentPlayerIndex.GetType();
 
         gameState.AdvanceToNextAlivePlayer();
         gameState.AdvanceToNextAlivePlayer();
