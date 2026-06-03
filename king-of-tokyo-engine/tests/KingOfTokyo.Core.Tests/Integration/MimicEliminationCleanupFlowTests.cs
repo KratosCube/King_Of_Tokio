@@ -32,6 +32,31 @@ public sealed class MimicEliminationCleanupFlowTests
     }
 
     [Fact]
+    public void TryEliminate_Should_ClearMimicTargets_WhenItHasAChildRevivesOwner()
+    {
+        var gameState = CreateGameState(4);
+        var mimicOwner = gameState.GetPlayerById(0);
+        var defeatedPlayer = gameState.GetPlayerById(1);
+        var mimic = CreateMimicCopying(defeatedPlayer.PlayerId, KnownCardIds.HealingRay, "Healing Ray");
+        mimicOwner.AddKeepCard(mimic);
+        defeatedPlayer.AddKeepCard(CreateKeepCard(KnownCardIds.ItHasAChild, "It Has a Child", 7));
+        defeatedPlayer.AddKeepCard(CreateKeepCard(KnownCardIds.HealingRay, "Healing Ray", 4));
+        defeatedPlayer.GainEnergy(3);
+        defeatedPlayer.TakeDamage(10);
+        var service = new EliminationService();
+
+        var eliminated = service.TryEliminate(gameState, defeatedPlayer);
+
+        Assert.True(eliminated);
+        Assert.True(defeatedPlayer.IsAlive);
+        Assert.Equal(10, defeatedPlayer.Health);
+        Assert.Equal(0, defeatedPlayer.Energy);
+        Assert.Empty(defeatedPlayer.KeepCards);
+        Assert.Null(mimic.MimicTarget);
+        Assert.Equal(2, gameState.Market.DiscardPile.Count);
+    }
+
+    [Fact]
     public void TryEliminate_Should_NotClearMimicTargets_WhenPlayerSurvives()
     {
         var gameState = CreateGameState(4);
@@ -56,6 +81,16 @@ public sealed class MimicEliminationCleanupFlowTests
             .ToArray();
 
         return new GameState(players, new GameOptions(playerCount));
+    }
+
+    private static MarketCardState CreateKeepCard(string cardId, string name, int cost)
+    {
+        return new MarketCardState(
+            cardId,
+            name,
+            "Test keep card.",
+            cost,
+            MarketCardType.Keep);
     }
 
     private static MarketCardState CreateMimicCopying(int ownerPlayerId, string copiedCardId, string copiedCardName)
