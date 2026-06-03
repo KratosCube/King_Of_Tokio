@@ -20,7 +20,7 @@ public sealed class VictoryResolver
 
         return gameState.Options.VictoryMode switch
         {
-            VictoryMode.FirstToTwentyPoints => ResolveFirstToTwenty(gameState),
+            VictoryMode.FirstToTwentyPoints => ResolveFirstToTwenty(gameState, alivePlayers),
             VictoryMode.LastMonsterStanding => ResolveLastMonsterStanding(alivePlayers),
             _ => ResolveStandard(gameState, alivePlayers)
         };
@@ -28,11 +28,9 @@ public sealed class VictoryResolver
 
     private static WinnerInfo? ResolveStandard(GameState gameState, IReadOnlyList<PlayerState> alivePlayers)
     {
-        var currentPlayer = gameState.GetCurrentPlayer();
-
-        if (currentPlayer.IsAlive && currentPlayer.VictoryPoints >= 20)
+        if (ResolveTwentyPointWinner(gameState, alivePlayers) is { } twentyPointWinner)
         {
-            return WinnerInfo.Winner(currentPlayer.PlayerId, "Reached 20 victory points.");
+            return twentyPointWinner;
         }
 
         if (alivePlayers.Count == 1)
@@ -43,7 +41,12 @@ public sealed class VictoryResolver
         return null;
     }
 
-    private static WinnerInfo? ResolveFirstToTwenty(GameState gameState)
+    private static WinnerInfo? ResolveFirstToTwenty(GameState gameState, IReadOnlyList<PlayerState> alivePlayers)
+    {
+        return ResolveTwentyPointWinner(gameState, alivePlayers);
+    }
+
+    private static WinnerInfo? ResolveTwentyPointWinner(GameState gameState, IReadOnlyList<PlayerState> alivePlayers)
     {
         var currentPlayer = gameState.GetCurrentPlayer();
 
@@ -52,7 +55,10 @@ public sealed class VictoryResolver
             return WinnerInfo.Winner(currentPlayer.PlayerId, "Reached 20 victory points.");
         }
 
-        return null;
+        var firstAlivePlayerAtTwenty = alivePlayers.FirstOrDefault(player => player.VictoryPoints >= 20);
+        return firstAlivePlayerAtTwenty is null
+            ? null
+            : WinnerInfo.Winner(firstAlivePlayerAtTwenty.PlayerId, "Reached 20 victory points.");
     }
 
     private static WinnerInfo? ResolveLastMonsterStanding(IReadOnlyList<PlayerState> alivePlayers)
