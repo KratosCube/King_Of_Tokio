@@ -273,6 +273,7 @@ public sealed class GameEngine : IGameEngine
         if (rerolledFace == DieFace.Energy)
         {
             var discardedCard = actor.RemoveKeepCard(KnownCardIds.PsychicProbe);
+            new MimicTargetCleanupService().ClearTargetsForLostCard(gameState, actor.PlayerId, discardedCard.CardId);
             gameState.Market.Discard(discardedCard);
             events.Add(new KeepCardDiscardedEvent(
                 actor.PlayerId,
