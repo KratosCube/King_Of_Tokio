@@ -20,17 +20,17 @@ public static class GameEngineMimicExtensions
         {
             var (mimicOwner, mimicCard, shouldPayRetargetCost) = EnsureCanSetMimicTarget(gameState, command);
 
-            if (shouldPayRetargetCost)
-            {
-                mimicOwner.SpendEnergy(1);
-            }
-
             var mimicService = new MimicService();
             mimicService.SetTarget(
                 gameState,
                 mimicOwner.PlayerId,
                 command.TargetOwnerPlayerId,
                 command.TargetCardId);
+
+            if (shouldPayRetargetCost)
+            {
+                mimicOwner.SpendEnergy(1);
+            }
 
             return CommandResult.Successful(gameState);
         }
