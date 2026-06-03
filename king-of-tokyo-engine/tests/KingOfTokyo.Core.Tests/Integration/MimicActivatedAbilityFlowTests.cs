@@ -1,5 +1,6 @@
 using KingOfTokyo.Core.Abstractions;
 using KingOfTokyo.Core.Commands;
+using KingOfTokyo.Core.Decisions;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
@@ -23,6 +24,84 @@ public sealed class MimicActivatedAbilityFlowTests
         var canUseHerdCuller = service.CanUseHerdCuller(player);
 
         Assert.True(canUseHerdCuller);
+    }
+
+    [Fact]
+    public void CanUseTelepath_Should_ReturnTrue_WhenMimicCopiesTelepathAndPlayerHasEnergy()
+    {
+        var player = new PlayerState(0, "Monster");
+        player.AddKeepCard(CreateMimicCopying(KnownCardIds.Telepath, "Telepath"));
+        player.GainEnergy(1);
+        var service = new KeepCardRulesService();
+
+        var canUseTelepath = service.CanUseTelepath(player);
+
+        Assert.True(canUseTelepath);
+    }
+
+    [Fact]
+    public void CanUseStretchy_Should_ReturnTrue_WhenMimicCopiesStretchyAndPlayerHasEnergy()
+    {
+        var player = new PlayerState(0, "Monster");
+        player.AddKeepCard(CreateMimicCopying(KnownCardIds.Stretchy, "Stretchy"));
+        player.GainEnergy(2);
+        var service = new KeepCardRulesService();
+
+        var canUseStretchy = service.CanUseStretchy(player);
+
+        Assert.True(canUseStretchy);
+    }
+
+    [Fact]
+    public void ActivateTelepath_Should_Work_WhenPlayerMimicsTelepath()
+    {
+        var gameState = CreateGameState(4);
+        var player = gameState.GetCurrentPlayer();
+        player.AddKeepCard(CreateMimicCopying(KnownCardIds.Telepath, "Telepath"));
+        player.GainEnergy(1);
+
+        var engine = CreateEngine(
+            DieFace.Energy, DieFace.One, DieFace.Two,
+            DieFace.Three, DieFace.Heart, DieFace.Heart);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(player.PlayerId));
+
+        var result = engine.Execute(gameState, new ActivateTelepathCommand(player.PlayerId));
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(0, player.Energy);
+        Assert.Equal(4, gameState.CurrentTurn!.MaxRolls);
+        Assert.NotNull(gameState.PendingDecision);
+        Assert.Equal(DecisionType.SelectDiceToReroll, gameState.PendingDecision!.DecisionType);
+        Assert.True(player.HasKeepCard(KnownCardIds.Mimic));
+        Assert.False(player.HasKeepCard(KnownCardIds.Telepath));
+    }
+
+    [Fact]
+    public void ActivateStretchy_Should_Work_WhenPlayerMimicsStretchy()
+    {
+        var gameState = CreateGameState(4);
+        var player = gameState.GetCurrentPlayer();
+        player.AddKeepCard(CreateMimicCopying(KnownCardIds.Stretchy, "Stretchy"));
+        player.GainEnergy(2);
+
+        var engine = CreateEngine(
+            DieFace.Energy, DieFace.Energy, DieFace.One,
+            DieFace.Two, DieFace.Heart, DieFace.Three);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(player.PlayerId));
+
+        var result = engine.Execute(gameState, new ActivateStretchyCommand(2, DieFace.Attack, player.PlayerId));
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(0, player.Energy);
+        Assert.Equal(DieFace.Attack, gameState.CurrentTurn!.DicePool.Dice[2].CurrentFace);
+        Assert.True(player.HasKeepCard(KnownCardIds.Mimic));
+        Assert.False(player.HasKeepCard(KnownCardIds.Stretchy));
     }
 
     [Fact]
