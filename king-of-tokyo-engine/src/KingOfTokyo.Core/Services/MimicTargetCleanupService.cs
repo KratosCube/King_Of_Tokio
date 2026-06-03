@@ -19,19 +19,34 @@ public sealed class MimicTargetCleanupService
             throw new ArgumentException("Lost card id must not be empty.", nameof(lostCardId));
         }
 
+        return ClearMatchingTargets(
+            gameState,
+            target => target.OwnerPlayerId == originalOwnerPlayerId && target.CardId == lostCardId);
+    }
+
+    public int ClearTargetsForOwner(GameState gameState, int originalOwnerPlayerId)
+    {
+        ArgumentNullException.ThrowIfNull(gameState);
+
+        if (originalOwnerPlayerId < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(originalOwnerPlayerId));
+        }
+
+        return ClearMatchingTargets(
+            gameState,
+            target => target.OwnerPlayerId == originalOwnerPlayerId);
+    }
+
+    private static int ClearMatchingTargets(GameState gameState, Func<MimicTargetState, bool> predicate)
+    {
         var clearedCount = 0;
 
         foreach (var player in gameState.Players)
         {
             foreach (var mimic in player.KeepCards.Where(card => card.CardId == KnownCardIds.Mimic))
             {
-                if (mimic.MimicTarget is null)
-                {
-                    continue;
-                }
-
-                if (mimic.MimicTarget.OwnerPlayerId != originalOwnerPlayerId ||
-                    mimic.MimicTarget.CardId != lostCardId)
+                if (mimic.MimicTarget is null || !predicate(mimic.MimicTarget))
                 {
                     continue;
                 }
