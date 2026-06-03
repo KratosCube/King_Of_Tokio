@@ -82,7 +82,8 @@ public static class GameEngineHealingRayExtensions
             throw new InvalidOperationException("Dead players cannot activate Healing Ray.");
         }
 
-        if (!HasHealingRayEffect(healer))
+        var keepCardEffectLookupService = new KeepCardEffectLookupService();
+        if (!keepCardEffectLookupService.HasEffect(healer, KnownCardIds.HealingRay))
         {
             throw new InvalidOperationException("Player does not have Healing Ray.");
         }
@@ -106,12 +107,5 @@ public static class GameEngineHealingRayExtensions
         }
 
         return (healer, target, gameState.CurrentTurn);
-    }
-
-    private static bool HasHealingRayEffect(PlayerState player)
-    {
-        return player.KeepCards.Any(card =>
-            card.CardId == KnownCardIds.HealingRay ||
-            (card.CardId == KnownCardIds.Mimic && card.MimicTarget?.CardId == KnownCardIds.HealingRay));
     }
 }
