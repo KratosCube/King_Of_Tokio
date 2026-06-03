@@ -86,7 +86,7 @@ public sealed class KeepCardRulesService
     public bool CanUseWings(PlayerState player)
     {
         ArgumentNullException.ThrowIfNull(player);
-        return player.HasKeepCard(KnownCardIds.Wings) && player.Energy >= WingsCost;
+        return HasKeepCardEffect(player, KnownCardIds.Wings) && player.Energy >= WingsCost;
     }
 
     public bool CanUseSmokeCloud(PlayerState player)
