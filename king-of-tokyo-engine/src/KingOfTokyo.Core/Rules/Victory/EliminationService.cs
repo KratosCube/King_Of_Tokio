@@ -2,6 +2,7 @@ using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
+using KingOfTokyo.Core.Services;
 
 namespace KingOfTokyo.Core.Rules.Victory;
 
@@ -16,6 +17,8 @@ public sealed class EliminationService
         {
             return false;
         }
+
+        new MimicTargetCleanupService().ClearTargetsForOwner(gameState, player.PlayerId);
 
         RemovePlayerFromTokyoIfNeeded(gameState, player);
         DisableBayIfNeeded(gameState);
