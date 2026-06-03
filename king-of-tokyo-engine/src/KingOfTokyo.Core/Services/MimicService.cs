@@ -22,7 +22,7 @@ public sealed class MimicService
             throw new InvalidOperationException("Dead players cannot use Mimic.");
         }
 
-        var mimicCard = mimicOwner.KeepCards.SingleOrDefault(card => card.CardId == KnownCardIds.Mimic)
+        var mimicCard = mimicOwner.KeepCards.FirstOrDefault(card => card.CardId == KnownCardIds.Mimic)
             ?? throw new InvalidOperationException("Player does not have Mimic.");
 
         var targetOwner = gameState.GetPlayerById(targetOwnerPlayerId);
@@ -31,7 +31,7 @@ public sealed class MimicService
             throw new InvalidOperationException("Mimic cannot copy a card owned by a dead player.");
         }
 
-        var targetCard = targetOwner.KeepCards.SingleOrDefault(card => card.CardId == targetCardId)
+        var targetCard = targetOwner.KeepCards.FirstOrDefault(card => card.CardId == targetCardId)
             ?? throw new InvalidOperationException("Target player does not own the selected keep card.");
 
         if (targetCard.CardType != MarketCardType.Keep)
