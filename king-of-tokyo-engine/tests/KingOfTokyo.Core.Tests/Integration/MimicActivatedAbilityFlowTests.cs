@@ -4,6 +4,7 @@ using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Engine;
+using KingOfTokyo.Core.Rules.Dice;
 using KingOfTokyo.Core.Services;
 using Xunit;
 
