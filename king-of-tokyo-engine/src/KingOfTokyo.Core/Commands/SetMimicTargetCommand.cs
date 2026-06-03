@@ -1,14 +1,12 @@
-using KingOfTokyo.Core.Abstractions;
-
 namespace KingOfTokyo.Core.Commands;
 
-public sealed class SetMimicTargetCommand : CommandBase
+public sealed class SetMimicTargetCommand
 {
+    public int? ActorPlayerId { get; }
     public int TargetOwnerPlayerId { get; }
     public string TargetCardId { get; }
 
     public SetMimicTargetCommand(int targetOwnerPlayerId, string targetCardId, int? actorPlayerId = null)
-        : base(actorPlayerId)
     {
         if (targetOwnerPlayerId < 0)
         {
@@ -20,6 +18,7 @@ public sealed class SetMimicTargetCommand : CommandBase
             throw new ArgumentException("Target card id must not be empty.", nameof(targetCardId));
         }
 
+        ActorPlayerId = actorPlayerId;
         TargetOwnerPlayerId = targetOwnerPlayerId;
         TargetCardId = targetCardId;
     }
