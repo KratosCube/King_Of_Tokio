@@ -33,10 +33,10 @@ public sealed class OmnivoreMultiplePairsScoringFlowTests
 
         Assert.True(result.Success, result.Error);
         Assert.Equal(2, player.VictoryPoints);
-        Assert.Single(result.NewEvents.OfType<VictoryPointsGainedEvent>().Where(gained =>
+        Assert.Single(result.NewEvents.OfType<VictoryPointsGainedEvent>(), gained =>
             gained.PlayerId == player.PlayerId &&
             gained.Amount == 2 &&
-            gained.Reason == "Keep card: Omnivore."));
+            gained.Reason == "Keep card: Omnivore.");
     }
 
     private static GameState CreateGameState(int playerCount)
