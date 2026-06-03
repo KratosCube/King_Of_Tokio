@@ -18,12 +18,6 @@ public sealed class TwoPlayerTokyoLeaveCombatFlowTests
     public void TurnFlow_Should_HandleTokyoLeaveAndEntry_InTwoPlayerCombat()
     {
         var gameState = CreateGameState(2);
-        var tokyoDefender = gameState.GetPlayerById(0);
-        var attacker = gameState.GetPlayerById(1);
-        tokyoDefender.SetTokyoSlot(TokyoSlot.City);
-        gameState.Tokyo.SetCityOccupant(tokyoDefender.PlayerId);
-        gameState.AdvanceToNextAlivePlayer();
-
         var engine = CreateEngine(
             DieFace.Attack,
             DieFace.Attack,
@@ -33,6 +27,12 @@ public sealed class TwoPlayerTokyoLeaveCombatFlowTests
             DieFace.Energy);
 
         var initializeResult = engine.Execute(gameState, new InitializeGameCommand());
+        var tokyoDefender = gameState.GetCurrentPlayer();
+        tokyoDefender.SetTokyoSlot(TokyoSlot.City);
+        gameState.Tokyo.SetCityOccupant(tokyoDefender.PlayerId);
+        gameState.AdvanceToNextAlivePlayer();
+        var attacker = gameState.GetCurrentPlayer();
+
         var beginTurnResult = engine.Execute(gameState, new BeginTurnCommand(attacker.PlayerId));
         var rollResult = engine.Execute(gameState, new RollDiceCommand(attacker.PlayerId));
         var finalizeResult = engine.Execute(gameState, new FinalizeDiceCommand(attacker.PlayerId));
@@ -72,6 +72,101 @@ public sealed class TwoPlayerTokyoLeaveCombatFlowTests
                                                  gained.PlayerId == attacker.PlayerId &&
                                                  gained.Amount == 1 &&
                                                  gained.Reason == "Entered Tokyo after defender left.");
+    }
+
+    [Fact]
+    public void TurnFlow_Should_LeaveAttackerOutside_WhenTokyoDefenderStays_InTwoPlayerCombat()
+    {
+        var gameState = CreateGameState(2);
+        var engine = CreateEngine(
+            DieFace.Attack,
+            DieFace.Attack,
+            DieFace.Heart,
+            DieFace.One,
+            DieFace.Two,
+            DieFace.Energy);
+
+        var initializeResult = engine.Execute(gameState, new InitializeGameCommand());
+        var tokyoDefender = gameState.GetCurrentPlayer();
+        tokyoDefender.SetTokyoSlot(TokyoSlot.City);
+        gameState.Tokyo.SetCityOccupant(tokyoDefender.PlayerId);
+        gameState.AdvanceToNextAlivePlayer();
+        var attacker = gameState.GetCurrentPlayer();
+
+        var beginTurnResult = engine.Execute(gameState, new BeginTurnCommand(attacker.PlayerId));
+        var rollResult = engine.Execute(gameState, new RollDiceCommand(attacker.PlayerId));
+        var finalizeResult = engine.Execute(gameState, new FinalizeDiceCommand(attacker.PlayerId));
+        var stayResult = engine.Execute(gameState, new ChooseLeaveTokyoCommand(false, tokyoDefender.PlayerId));
+
+        Assert.True(initializeResult.Success, initializeResult.Error);
+        Assert.True(beginTurnResult.Success, beginTurnResult.Error);
+        Assert.True(rollResult.Success, rollResult.Error);
+        Assert.True(finalizeResult.Success, finalizeResult.Error);
+        Assert.True(stayResult.Success, stayResult.Error);
+        Assert.Equal(8, tokyoDefender.Health);
+        Assert.Equal(TokyoSlot.City, tokyoDefender.TokyoSlot);
+        Assert.Equal(tokyoDefender.PlayerId, gameState.Tokyo.CityOccupantId);
+        Assert.Equal(TokyoSlot.None, attacker.TokyoSlot);
+        Assert.Null(gameState.Tokyo.BayOccupantId);
+        Assert.Null(stayResult.PendingDecision);
+        Assert.Null(gameState.PendingDecision);
+        Assert.Equal(TurnPhase.Purchase, gameState.CurrentTurn!.Phase);
+        Assert.Equal(0, attacker.VictoryPoints);
+        Assert.Equal(1, attacker.Energy);
+        Assert.DoesNotContain(stayResult.NewEvents, e => e is TokyoEnteredEvent);
+        Assert.DoesNotContain(stayResult.NewEvents, e => e is VictoryPointsGainedEvent);
+    }
+
+    [Fact]
+    public void TurnFlow_Should_EndGame_WhenTokyoDefenderIsEliminated_InTwoPlayerCombat()
+    {
+        var gameState = CreateGameState(2);
+        var engine = CreateEngine(
+            DieFace.Attack,
+            DieFace.Attack,
+            DieFace.Heart,
+            DieFace.One,
+            DieFace.Two,
+            DieFace.Energy);
+
+        var initializeResult = engine.Execute(gameState, new InitializeGameCommand());
+        var tokyoDefender = gameState.GetCurrentPlayer();
+        tokyoDefender.SetTokyoSlot(TokyoSlot.City);
+        tokyoDefender.TakeDamage(8);
+        gameState.Tokyo.SetCityOccupant(tokyoDefender.PlayerId);
+        gameState.AdvanceToNextAlivePlayer();
+        var attacker = gameState.GetCurrentPlayer();
+
+        var beginTurnResult = engine.Execute(gameState, new BeginTurnCommand(attacker.PlayerId));
+        var rollResult = engine.Execute(gameState, new RollDiceCommand(attacker.PlayerId));
+        var finalizeResult = engine.Execute(gameState, new FinalizeDiceCommand(attacker.PlayerId));
+        var endTurnResult = engine.Execute(gameState, new EndTurnCommand(attacker.PlayerId));
+
+        Assert.True(initializeResult.Success, initializeResult.Error);
+        Assert.True(beginTurnResult.Success, beginTurnResult.Error);
+        Assert.True(rollResult.Success, rollResult.Error);
+        Assert.True(finalizeResult.Success, finalizeResult.Error);
+        Assert.True(endTurnResult.Success, endTurnResult.Error);
+        Assert.False(tokyoDefender.IsAlive);
+        Assert.Equal(TokyoSlot.None, tokyoDefender.TokyoSlot);
+        Assert.Equal(TokyoSlot.City, attacker.TokyoSlot);
+        Assert.Equal(attacker.PlayerId, gameState.Tokyo.CityOccupantId);
+        Assert.Null(gameState.Tokyo.BayOccupantId);
+        Assert.Equal(1, attacker.VictoryPoints);
+        Assert.Equal(GameStatus.Finished, gameState.Status);
+        Assert.NotNull(gameState.WinnerInfo);
+        Assert.True(gameState.WinnerInfo!.HasWinner);
+        Assert.Equal(attacker.PlayerId, gameState.WinnerInfo.WinnerPlayerId);
+        Assert.Equal("Last monster standing.", gameState.WinnerInfo.Reason);
+        Assert.Contains(finalizeResult.NewEvents, e => e is PlayerEliminatedEvent eliminated &&
+                                                    eliminated.EliminatedPlayerId == tokyoDefender.PlayerId &&
+                                                    eliminated.EliminatedByPlayerId == attacker.PlayerId);
+        Assert.Contains(finalizeResult.NewEvents, e => e is TokyoEnteredEvent entered &&
+                                                    entered.PlayerId == attacker.PlayerId &&
+                                                    entered.Slot == TokyoSlot.City);
+        Assert.Contains(endTurnResult.NewEvents, e => e is GameEndedEvent ended &&
+                                                    ended.WinnerPlayerId == attacker.PlayerId &&
+                                                    ended.Reason == "Last monster standing.");
     }
 
     private static GameState CreateGameState(int playerCount)
