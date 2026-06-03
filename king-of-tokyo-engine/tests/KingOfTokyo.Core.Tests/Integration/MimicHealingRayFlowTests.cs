@@ -16,8 +16,10 @@ public sealed class MimicHealingRayFlowTests
     {
         var gameState = CreateGameState(3);
         var healer = gameState.GetCurrentPlayer();
-        var target = gameState.GetPlayerById(1);
-        healer.AddKeepCard(CreateMimicCopying(KnownCardIds.HealingRay, "Healing Ray"));
+        var copiedCardOwner = gameState.GetPlayerById(1);
+        var target = gameState.GetPlayerById(2);
+        copiedCardOwner.AddKeepCard(CreateKeepCard(KnownCardIds.HealingRay, "Healing Ray", 4));
+        healer.AddKeepCard(CreateMimicCopying(copiedCardOwner.PlayerId, KnownCardIds.HealingRay, "Healing Ray"));
         target.TakeDamage(2);
         target.GainEnergy(4);
 
@@ -50,7 +52,37 @@ public sealed class MimicHealingRayFlowTests
         var gameState = CreateGameState(3);
         var healer = gameState.GetCurrentPlayer();
         var target = gameState.GetPlayerById(1);
-        healer.AddKeepCard(CreateMimicCopying(KnownCardIds.RapidHealing, "Rapid Healing"));
+        healer.AddKeepCard(CreateMimicCopying(2, KnownCardIds.RapidHealing, "Rapid Healing"));
+        target.TakeDamage(2);
+        target.GainEnergy(4);
+
+        var engine = new GameEngine();
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(healer.PlayerId));
+        gameState.CurrentTurn!.DicePool.SetFace(0, DieFace.Heart);
+        gameState.CurrentTurn.MarkDiceResolved();
+        gameState.CurrentTurn.SetPhase(TurnPhase.Purchase);
+
+        var result = engine.Execute(gameState, new ActivateHealingRayCommand(target.PlayerId, healingAmount: 1, healer.PlayerId));
+
+        Assert.False(result.Success);
+        Assert.Equal("Player does not have Healing Ray.", result.Error);
+        Assert.Equal(8, target.Health);
+        Assert.Equal(4, target.Energy);
+        Assert.Equal(0, healer.Energy);
+        Assert.Equal(0, gameState.CurrentTurn.HealingRayHeartsSpent);
+    }
+
+    [Fact]
+    public void ActivateHealingRay_Should_Fail_WhenCopiedCardOwnerLostHealingRay()
+    {
+        var gameState = CreateGameState(3);
+        var healer = gameState.GetCurrentPlayer();
+        var copiedCardOwner = gameState.GetPlayerById(1);
+        var target = gameState.GetPlayerById(2);
+        copiedCardOwner.AddKeepCard(CreateKeepCard(KnownCardIds.HealingRay, "Healing Ray", 4));
+        healer.AddKeepCard(CreateMimicCopying(copiedCardOwner.PlayerId, KnownCardIds.HealingRay, "Healing Ray"));
+        copiedCardOwner.RemoveKeepCard(KnownCardIds.HealingRay);
         target.TakeDamage(2);
         target.GainEnergy(4);
 
@@ -80,7 +112,17 @@ public sealed class MimicHealingRayFlowTests
         return new GameState(players, new GameOptions(playerCount));
     }
 
-    private static MarketCardState CreateMimicCopying(string copiedCardId, string copiedCardName)
+    private static MarketCardState CreateKeepCard(string cardId, string name, int cost)
+    {
+        return new MarketCardState(
+            cardId,
+            name,
+            "Test keep card.",
+            cost,
+            MarketCardType.Keep);
+    }
+
+    private static MarketCardState CreateMimicCopying(int ownerPlayerId, string copiedCardId, string copiedCardName)
     {
         return new MarketCardState(
             KnownCardIds.Mimic,
@@ -88,6 +130,6 @@ public sealed class MimicHealingRayFlowTests
             "Copy another keep card.",
             8,
             MarketCardType.Keep,
-            mimicTarget: new MimicTargetState(1, copiedCardId, copiedCardName));
+            mimicTarget: new MimicTargetState(ownerPlayerId, copiedCardId, copiedCardName));
     }
 }
