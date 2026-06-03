@@ -59,7 +59,7 @@ public sealed class KeepCardRulesService
     {
         ArgumentNullException.ThrowIfNull(player);
 
-        return player.HasKeepCard(KnownCardIds.Telepath) &&
+        return HasKeepCardEffect(player, KnownCardIds.Telepath) &&
                player.Energy >= 1;
     }
 
@@ -67,7 +67,7 @@ public sealed class KeepCardRulesService
     {
         ArgumentNullException.ThrowIfNull(player);
 
-        return player.HasKeepCard(KnownCardIds.Stretchy) &&
+        return HasKeepCardEffect(player, KnownCardIds.Stretchy) &&
                player.Energy >= 2;
     }
 
