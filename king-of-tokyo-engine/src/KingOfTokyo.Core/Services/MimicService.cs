@@ -31,6 +31,11 @@ public sealed class MimicService
             throw new InvalidOperationException("Mimic cannot copy a card owned by a dead player.");
         }
 
+        if (mimicOwner.PlayerId == targetOwner.PlayerId)
+        {
+            throw new InvalidOperationException("Mimic cannot copy its owner's own cards.");
+        }
+
         var targetCard = targetOwner.KeepCards.FirstOrDefault(card => card.CardId == targetCardId)
             ?? throw new InvalidOperationException("Target player does not own the selected keep card.");
 
