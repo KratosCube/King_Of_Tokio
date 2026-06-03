@@ -80,7 +80,7 @@ public sealed class KeepCardRulesService
     public bool CanUseMadeInALab(PlayerState player)
     {
         ArgumentNullException.ThrowIfNull(player);
-        return player.HasKeepCard(KnownCardIds.MadeInALab);
+        return HasKeepCardEffect(player, KnownCardIds.MadeInALab);
     }
 
     public bool CanUseWings(PlayerState player)
