@@ -324,7 +324,7 @@ public sealed class KeepCardRulesService
     {
         ArgumentNullException.ThrowIfNull(player);
 
-        return player.HasKeepCard(KnownCardIds.RapidHealing) &&
+        return HasKeepCardEffect(player, KnownCardIds.RapidHealing) &&
                player.Energy >= 2 &&
                player.Health < player.MaxHealth;
     }
