@@ -2,7 +2,7 @@
 
 This document tracks how far the headless engine is from supporting the full card set before building the online Blazor UI.
 
-Last verified locally by user after Healing Ray extension fix: `dotnet test KingOfTokyo.Engine.slnx` succeeded.
+Last verified locally by user during Mimic cleanup work: `dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx` succeeded.
 
 Source of truth for this audit:
 
@@ -30,18 +30,19 @@ The codebase now has stable foundations for the online UI boundary:
 | --- | --- | --- |
 | Default deck consistency | Implemented | Tests verify that every `KnownCardIds` entry appears in the default deck and that the deck does not contain unknown ids. |
 | Game event log | Implemented | `GameState` tracks `Version` and `EventLog`; tests cover successful commands, failed commands, exact version increments, event ordering, and returned/logged event identity. |
-| Server-facing DTO projection | Implemented | `GameStateDtoMapper` maps game id, version, players, Tokyo, market, turn state, dice, flags, pending decisions, card counters, stored energy, scheduled turns, and Opportunist reveal decisions. |
-| DTO mapper coverage | Implemented | Mapper tests cover setup state, running turn, pending reroll decision payload, Opportunist purchase payload, keep cards, card-local state, status tokens, Tokyo slots, market cards/counts, dice, flags, and scheduled turns. |
+| Server-facing DTO projection | Implemented | `GameStateDtoMapper` maps game id, version, players, Tokyo, market, turn state, dice, flags, pending decisions, card counters, stored energy, scheduled turns, Opportunist reveal decisions, and Mimic targets. |
+| DTO mapper coverage | Implemented | Mapper tests cover setup state, running turn, pending reroll decision payload, Opportunist purchase payload, keep cards, card-local state, Mimic targets, status tokens, Tokyo slots, market cards/counts, dice, flags, and scheduled turns. |
 | Representative game flow | Implemented | Integration test covers multiple turns, Tokyo entry/leave/stay decisions, card purchase, healing, scoring, start-in-Tokyo VP, versioning, and event log consistency. |
 | Damage prevention/cancellation | Partial | Static prevention, Wings cancellation, Camouflage random prevention, and It Has a Child elimination replacement exist. Still needs more lethal/timing edge-case regression tests. |
 | Player status tokens | Implemented | Poison/shrink token state exists; attack-token application, heart-based token removal, shrink dice reduction, and poison end-of-turn damage are covered. More edge cases can still be added as regression tests. |
-| Owned keep-card lifecycle | Partial | Player-owned keep cards can be added/removed/discarded/transferred; Plot Twist, Metamorph, Smoke Cloud, Monster Batteries, Psychic Probe, Opportunist, Parasitic Tentacles, Healing Ray, and It Has a Child use this. Generic lifecycle hooks are still missing. |
-| Card-local counters / stored energy | Partial | Smoke Cloud counters, Monster Batteries stored energy, Psychic Probe once-per-turn marker, and Healing Ray spent-heart tracking exist. Mimic/copying and generic lifecycle events are still missing. |
+| Owned keep-card lifecycle | Partial | Player-owned keep cards can be added/removed/discarded/transferred; Plot Twist, Metamorph, Smoke Cloud, Monster Batteries, Psychic Probe, Opportunist, Parasitic Tentacles, Healing Ray, and It Has a Child use this. Mimic target cleanup exists for major transfer/discard/elimination paths, but there is still no single generic `OnCardLost` pipeline. |
+| Card-local counters / stored energy | Partial | Smoke Cloud counters, Monster Batteries stored energy, Psychic Probe once-per-turn marker, Healing Ray spent-heart tracking, and Mimic copied target state exist. Stateful/counter self-discard cards are intentionally not copy-activated through Mimic yet. |
 | Extra-turn scheduling | Implemented | Freeze Time and Frenzy use scheduled extra turns; scheduled turns are exposed through DTOs and consumed when beginning turns. |
 | Out-of-turn card activation | Implemented | Psychic Probe can be used during another player's rolling phase. Opportunist can react to newly revealed market cards, decline, or buy the revealed card out of turn. |
-| Owned-card transfer/payment | Partial | Parasitic Tentacles can transfer keep cards and pay the seller. Healing Ray can heal another living player using heart dice and transfer energy payment from target to healer. Still needs richer event coverage and generic lifecycle hooks. |
+| Owned-card transfer/payment | Partial | Parasitic Tentacles can transfer keep cards and pay the seller. Healing Ray can heal another living player using heart dice and transfer energy payment from target to healer. Mimic targets are cleaned when copied cards are transferred. Still needs richer event coverage and a generic lifecycle hook. |
 | Seating / adjacency effects | Implemented | Fire Breathing uses current alive player order to resolve neighbors and only adds damage to neighbors who are already attack targets. |
 | Forced dice result handling | Implemented | Background Dweller rerolls rolled/rerolled `Three` results until none remain during the owning player's normal roll/reroll flow. |
+| Mimic copy infrastructure | Partial | Mimic card id/deck entry, target state, DTO mapping, retarget command/service/tests, keep-card effect lookup, copied passive/activated effects, and stale-target cleanup service exist. Remaining work is mostly final review, possible cleanup around `GameEngine`-local Psychic Probe discard cleanup, and deciding whether any stateful/self-discard effects should become copy-activatable. |
 
 ## Currently represented in code
 
@@ -77,46 +78,47 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 | Giant Brain | Implemented | Extra reroll through keep-card rule. |
 | Gourmet | Implemented | Bonus VP when scoring dice. |
 | Heal | Implemented | Simple discard healing. |
-| Healing Ray | Implemented | Current player with this keep card can spend rolled heart dice after dice resolution to heal another living player. The target pays 2 energy per actual healed damage, or all remaining energy if they cannot fully pay. Covered by service and GameEngine flow tests. |
+| Healing Ray | Implemented | Current player with this keep card, or a valid Mimic copy target, can spend rolled heart dice after dice resolution to heal another living player. The target pays 2 energy per actual healed damage, or all remaining energy if they cannot fully pay. Covered by service and GameEngine flow tests. |
 | Herbivore | Implemented | End-turn VP when no damage dealt. |
-| Herd Culler | Implemented | Activated once-per-turn die change to `One`. |
+| Herd Culler | Implemented | Activated once-per-turn die change to `One`; usable through valid Mimic copy. |
 | High Altitude Bombing | Implemented | Damage to everyone. |
-| It Has a Child | Implemented | Death replacement: discards all owned keep cards, loses all energy, heals to 10, leaves Tokyo, and still counts as elimination for Eater of the Dead. |
+| It Has a Child | Implemented | Death replacement: discards all owned keep cards, loses all energy, heals to 10, leaves Tokyo, and still counts as elimination for Eater of the Dead. Mimic targets pointing to the defeated owner are cleaned. |
 | Jet Fighters | Implemented | VP + self damage. |
 | Jets | Partial | Leave-Tokyo damage recovery is represented and Wings can zero the pending leave damage. Still needs edge-case check for prevention timing versus lethal damage. |
-| Made in a Lab | Implemented | Peek and optionally buy top deck card through pending decision. |
-| Metamorph | Implemented | Activated in purchase phase; discards an owned keep card and grants energy equal to cost. |
-| Monster Batteries | Implemented | Starts with stored energy, can pay card/refresh costs from stored energy, drains at end of turn, and discards when empty. |
+| Made in a Lab | Implemented | Peek and optionally buy top deck card through pending decision; usable through valid Mimic copy. |
+| Metamorph | Implemented | Activated in purchase phase; discards an owned keep card and grants energy equal to cost. Mimic can target it for state display, but activating Metamorph through Mimic is intentionally unsupported until self-discard semantics are decided. |
+| Mimic | Partial | Card id/deck entry, target state, DTO mapping, retargeting, copied passive effects, several copied activated effects, stale-target validation, and cleanup on transfer/discard/elimination paths are implemented. Stateful/self-discard targets are intentionally blocked for now. |
+| Monster Batteries | Implemented | Starts with stored energy, can pay card/refresh costs from stored energy, drains at end of turn, discards when empty, and cleans Mimic targets when discarded. |
 | National Guard | Implemented | VP + self damage. |
 | Nova Breath | Implemented | Attack damages all other monsters regardless of Tokyo position. |
 | Nuclear Power Plant | Implemented | VP + healing. |
 | Opportunist | Implemented | Reacts to newly revealed market cards after purchase/refresh; eligible player can decline or buy the revealed card out of turn. DTO coverage exists for the pending decision payload. |
-| Parasitic Tentacles | Implemented | Current player with this keep card can buy keep cards from another living player during purchase phase, transferring the card and paying the seller the card cost in energy. Covered by service and GameEngine flow tests. |
-| Plot Twist | Implemented | One-use die result change, then discards itself. |
+| Parasitic Tentacles | Implemented | Current player with this keep card can buy keep cards from another living player during purchase phase, transferring the card and paying the seller the card cost in energy. Mimic targets are cleaned when the copied card leaves the seller. Covered by service and GameEngine flow tests. |
+| Plot Twist | Implemented | One-use die result change, then discards itself. Mimic can target it for state display, but activating Plot Twist through Mimic is intentionally unsupported until self-discard semantics are decided. |
 | Poison Quills | Implemented | Damage when scoring 1s. |
 | Poison Spit | Implemented | Adds poison tokens to damaged attack targets; poison end-of-turn damage and heart-based removal are implemented/tested. |
-| Psychic Probe | Implemented | Out-of-turn activation during another player's rolling phase; rerolls one die, discards on energy, and is limited to once during each other player's turn. |
-| Rapid Healing | Implemented | Activated keep-card healing. |
+| Psychic Probe | Implemented | Out-of-turn activation during another player's rolling phase; rerolls one die, discards on energy, and is limited to once during each other player's turn. Mimic activation is intentionally unsupported for now because the effect uses stateful counters/self-discard behavior in `GameEngine`. |
+| Rapid Healing | Implemented | Activated keep-card healing; usable through valid Mimic copy. |
 | Regeneration | Implemented | Bonus healing. |
 | Rooting for the Underdog | Implemented | End-turn VP if tied/fewest VP; keep tie behavior covered/confirmed. |
 | Shrink Ray | Implemented | Adds shrink tokens to damaged attack targets; shrink tokens reduce dice count and hearts can remove tokens. |
 | Skyscraper | Implemented | Simple discard VP gain. |
-| Smoke Cloud | Implemented | Starts with charges, spends one charge for an extra reroll, and discards itself when exhausted. |
+| Smoke Cloud | Implemented | Starts with charges, spends one charge for an extra reroll, and discards itself when exhausted. Mimic can target it for state display, but activating Smoke Cloud through Mimic is intentionally unsupported until counter semantics are decided. |
 | Solar Powered | Implemented | End-turn energy if empty. |
 | Spiked Tail | Implemented | Extra attack damage. |
-| Stretchy | Implemented | Activated die face change. |
+| Stretchy | Implemented | Activated die face change; usable through valid Mimic copy. |
 | Tanks | Implemented | VP + self damage. |
-| Telepath | Implemented | Activated extra reroll. |
+| Telepath | Implemented | Activated extra reroll; usable through valid Mimic copy. |
 | Urbavore | Implemented | Tokyo start-turn VP and Tokyo damage bonus. |
 | Vast Storm | Implemented | VP + damage based on opponents' energy. |
 | We're Only Making It Stronger | Implemented | VP when losing 2+ health. |
-| Wings | Implemented | Explicit activation after damage taken this turn; spends 2 energy, cancels/heals that damage, emits `DamageCanceledEvent`, and preserves/updates pending Tokyo leave decisions. |
+| Wings | Implemented | Explicit activation after damage taken this turn; spends 2 energy, cancels/heals that damage, emits `DamageCanceledEvent`, and preserves/updates pending Tokyo leave decisions. Usable through valid Mimic copy. |
 
 ## Missing or incomplete cards from the uploaded card reference
 
 | Card | Status | Main engine need |
 | --- | --- | --- |
-| Mimic | Missing / Needs engine concept | Copy another keep card; retarget by spending energy. |
+| Mimic | Partial | Finalize copied-effect support policy, review stale-target cleanup coverage, and decide whether stateful/self-discard targets remain blocked or need special semantics. |
 | Omnivore | Missing / Needs engine concept | Special scoring with pairs; dice can still be used in other combinations. |
 
 ## Remaining pure-engine work before UI
@@ -124,7 +126,7 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 ### Must-have before online UI
 
 - Finish the remaining missing/incomplete card mechanics that affect public game state.
-- Add card copy/lifecycle concepts for Mimic.
+- Finalize Mimic copy/retarget behavior and document the blocked stateful/self-discard target policy.
 - Add special scoring extension for Omnivore.
 - Add end-to-end tests around elimination, victory timing, and a longer representative full-game path.
 - Keep DTO/event-log coverage synchronized whenever new state is introduced.
@@ -141,14 +143,14 @@ The current codebase represents these cards in `KnownCardIds` and `MarketSetupSe
 
 ### 1. Card copying / effect delegation
 
-Needed for Mimic.
+Mostly implemented for Mimic.
 
-Required operations:
+Remaining operations:
 
-- Represent copied card target on a keep card
-- Apply copied keep-card effects consistently
-- Retarget copied card by spending energy
-- Avoid recursive/circular copy cases
+- Finish review of all copied keep-card effects.
+- Keep stateful/self-discard Mimic targets blocked unless explicit semantics are added.
+- Avoid recursive/circular copy cases in retargeting.
+- Eventually replace scattered cleanup calls with a generic `OnCardLost` lifecycle hook.
 
 ### 2. Special scoring extensions
 
@@ -174,7 +176,7 @@ Required operations:
 
 ## Proposed implementation order
 
-1. Implement Mimic copy/retarget behavior.
+1. Finish Mimic policy/cleanup review and close remaining small gaps.
 2. Implement Omnivore scoring extension.
 3. Add one longer end-to-end full-game regression flow.
 4. Move Healing Ray typed extension into the main `GameEngine` command switch.
