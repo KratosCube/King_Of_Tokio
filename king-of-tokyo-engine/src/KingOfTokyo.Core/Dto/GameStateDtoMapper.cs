@@ -67,7 +67,16 @@ public static class GameStateDtoMapper
             card.Cost,
             card.CardType,
             card.Counters,
-            card.StoredEnergy);
+            card.StoredEnergy,
+            card.MimicTarget is null ? null : ToDto(card.MimicTarget));
+    }
+
+    private static MimicTargetDto ToDto(MimicTargetState mimicTarget)
+    {
+        return new MimicTargetDto(
+            mimicTarget.OwnerPlayerId,
+            mimicTarget.CardId,
+            mimicTarget.CardName);
     }
 
     private static TurnDto ToDto(TurnState turn)
