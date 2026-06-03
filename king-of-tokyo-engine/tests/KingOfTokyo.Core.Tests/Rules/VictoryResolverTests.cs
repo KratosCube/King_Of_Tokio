@@ -47,6 +47,25 @@ public sealed class VictoryResolverTests
     }
 
     [Fact]
+    public void Resolve_Should_NotReturnTwentyPointWinner_WhenNonCurrentPlayerHasTwentyPointsButIsDead()
+    {
+        var players = CreatePlayers(3);
+        var gameState = new GameState(players, new GameOptions(3));
+        gameState.StartGame();
+        gameState.StartTurnForCurrentPlayer();
+
+        var deadPlayer = gameState.GetPlayerById(2);
+        deadPlayer.GainVictoryPoints(20);
+        deadPlayer.TakeDamage(10);
+
+        var resolver = new VictoryResolver();
+
+        var result = resolver.Resolve(gameState);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void Resolve_Should_PrioritizeCurrentPlayer_WhenCurrentAndOtherAlivePlayersHaveTwentyPoints()
     {
         var players = CreatePlayers(3);
