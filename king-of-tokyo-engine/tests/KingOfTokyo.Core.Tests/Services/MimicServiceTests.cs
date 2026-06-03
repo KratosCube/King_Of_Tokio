@@ -68,6 +68,46 @@ public sealed class MimicServiceTests
     }
 
     [Fact]
+    public void SetTarget_Should_Throw_WhenMimicOwnerIsDead()
+    {
+        var gameState = CreateGameState();
+        var mimicOwner = gameState.GetPlayerById(0);
+        var targetOwner = gameState.GetPlayerById(1);
+        var mimic = CreateKeepCard(KnownCardIds.Mimic, "Mimic", 8);
+        var target = CreateKeepCard(KnownCardIds.GiantBrain, "Giant Brain", 5);
+        mimicOwner.AddKeepCard(mimic);
+        targetOwner.AddKeepCard(target);
+        mimicOwner.TakeDamage(10);
+        var service = new MimicService();
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            service.SetTarget(gameState, mimicOwner.PlayerId, targetOwner.PlayerId, target.CardId));
+
+        Assert.Equal("Dead players cannot use Mimic.", exception.Message);
+        Assert.Null(mimic.MimicTarget);
+    }
+
+    [Fact]
+    public void SetTarget_Should_Throw_WhenTargetOwnerIsDead()
+    {
+        var gameState = CreateGameState();
+        var mimicOwner = gameState.GetPlayerById(0);
+        var targetOwner = gameState.GetPlayerById(1);
+        var mimic = CreateKeepCard(KnownCardIds.Mimic, "Mimic", 8);
+        var target = CreateKeepCard(KnownCardIds.GiantBrain, "Giant Brain", 5);
+        mimicOwner.AddKeepCard(mimic);
+        targetOwner.AddKeepCard(target);
+        targetOwner.TakeDamage(10);
+        var service = new MimicService();
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            service.SetTarget(gameState, mimicOwner.PlayerId, targetOwner.PlayerId, target.CardId));
+
+        Assert.Equal("Mimic cannot copy a card owned by a dead player.", exception.Message);
+        Assert.Null(mimic.MimicTarget);
+    }
+
+    [Fact]
     public void SetTarget_Should_Throw_WhenTargetOwnerIsMimicOwner()
     {
         var gameState = CreateGameState();
