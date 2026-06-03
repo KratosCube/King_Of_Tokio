@@ -204,6 +204,7 @@ public sealed class SpecialCardActivationService
 
         var player = gameState.GetCurrentPlayer();
         var card = player.RemoveKeepCard(cardIdToDiscard);
+        new MimicTargetCleanupService().ClearTargetsForLostCard(gameState, player.PlayerId, card.CardId);
 
         ApplyKeepCardLostEffect(player, card);
         player.GainEnergy(card.Cost);
@@ -258,41 +259,29 @@ public sealed class SpecialCardActivationService
         ArgumentNullException.ThrowIfNull(gameState);
 
         gameState.ClearPendingDecision();
-
-        return EngineStepResult.Empty;
+        return new EngineStepResult(Array.Empty<GameEventBase>());
     }
 
     private static PendingDecision? UpdatePendingTokyoLeaveDamageTaken(GameState gameState, int playerId)
     {
         if (gameState.PendingDecision is null ||
             gameState.PendingDecision.DecisionType != DecisionType.LeaveTokyo ||
-            gameState.PendingDecision.PlayerId != playerId)
+            gameState.PendingDecision.PlayerId != playerId ||
+            gameState.PendingDecision.Payload is not LeaveTokyoDecisionData payload)
         {
             return gameState.PendingDecision;
         }
 
-        if (gameState.PendingDecision.Payload is not LeaveTokyoDecisionData payload)
-        {
-            return gameState.PendingDecision;
-        }
-
-        var pendingDecision = new PendingDecision
+        var updatedPayload = payload with { DamageTaken = 0 };
+        var updatedDecision = new PendingDecision
         {
             DecisionType = DecisionType.LeaveTokyo,
             PlayerId = playerId,
-            Payload = payload with { DamageTaken = 0 }
+            Payload = updatedPayload
         };
 
-        gameState.SetPendingDecision(pendingDecision);
-        return pendingDecision;
-    }
-
-    private static void ApplyKeepCardLostEffect(PlayerState player, MarketCardState card)
-    {
-        if (card.CardId == KnownCardIds.EvenBigger)
-        {
-            player.DecreaseMaxHealth(2);
-        }
+        gameState.SetPendingDecision(updatedDecision);
+        return updatedDecision;
     }
 
     private static PendingDecision? CreateRerollDecisionIfAvailable(TurnState currentTurn)
@@ -308,16 +297,19 @@ public sealed class SpecialCardActivationService
             PlayerId = currentTurn.CurrentPlayerId,
             Payload = new RerollDecisionData
             {
-                CurrentLockedDiceIndexes = currentTurn.DicePool.Dice
-                    .Where(d => d.IsLocked)
-                    .Select(d => d.Index)
-                    .ToArray(),
-                CurrentFaces = currentTurn.DicePool.Dice
-                    .Select(d => d.CurrentFace)
-                    .ToArray(),
+                CurrentLockedDiceIndexes = currentTurn.DicePool.Dice.Where(d => d.IsLocked).Select(d => d.Index).ToArray(),
+                CurrentFaces = currentTurn.DicePool.Dice.Select(d => d.CurrentFace).ToArray(),
                 RollCountUsed = currentTurn.RollCountUsed,
                 MaxRolls = currentTurn.MaxRolls
             }
         };
+    }
+
+    private static void ApplyKeepCardLostEffect(PlayerState player, MarketCardState card)
+    {
+        if (card.CardId == KnownCardIds.ExtraHead)
+        {
+            player.ClampPendingDiceCountAdjustment(-1);
+        }
     }
 }
