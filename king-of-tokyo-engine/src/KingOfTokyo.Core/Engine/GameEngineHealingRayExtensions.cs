@@ -1,5 +1,6 @@
 using KingOfTokyo.Core.Abstractions;
 using KingOfTokyo.Core.Commands;
+using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
@@ -40,7 +41,7 @@ public static class GameEngineHealingRayExtensions
         }
     }
 
-    private static (KingOfTokyo.Core.Domain.Entities.PlayerState Healer, KingOfTokyo.Core.Domain.Entities.PlayerState Target, KingOfTokyo.Core.Domain.Entities.TurnState CurrentTurn) EnsureCanActivateHealingRay(
+    private static (PlayerState Healer, PlayerState Target, TurnState CurrentTurn) EnsureCanActivateHealingRay(
         GameState gameState,
         ActivateHealingRayCommand command)
     {
@@ -81,7 +82,7 @@ public static class GameEngineHealingRayExtensions
             throw new InvalidOperationException("Dead players cannot activate Healing Ray.");
         }
 
-        if (!healer.HasKeepCard(KnownCardIds.HealingRay))
+        if (!HasHealingRayEffect(healer))
         {
             throw new InvalidOperationException("Player does not have Healing Ray.");
         }
@@ -105,5 +106,12 @@ public static class GameEngineHealingRayExtensions
         }
 
         return (healer, target, gameState.CurrentTurn);
+    }
+
+    private static bool HasHealingRayEffect(PlayerState player)
+    {
+        return player.KeepCards.Any(card =>
+            card.CardId == KnownCardIds.HealingRay ||
+            (card.CardId == KnownCardIds.Mimic && card.MimicTarget?.CardId == KnownCardIds.HealingRay));
     }
 }
