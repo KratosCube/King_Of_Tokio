@@ -10,9 +10,9 @@ public sealed record GameOptions
 
     public GameOptions(int playerCount, VictoryMode victoryMode = VictoryMode.Standard)
     {
-        if (playerCount is < 3 or > 6)
+        if (playerCount is < 2 or > 6)
         {
-            throw new ArgumentOutOfRangeException(nameof(playerCount), "Player count must be between 3 and 6.");
+            throw new ArgumentOutOfRangeException(nameof(playerCount), "Player count must be between 2 and 6.");
         }
 
         PlayerCount = playerCount;
