@@ -100,7 +100,7 @@ public sealed class MimicUnsupportedStatefulCardFlowTests
         engine.Execute(gameState, new BeginTurnCommand(currentPlayer.PlayerId));
         engine.Execute(gameState, new RollDiceCommand(currentPlayer.PlayerId));
 
-        var result = engine.Execute(gameState, new ActivatePsychicProbeCommand(0, mimicOwner.PlayerId));
+        var result = engine.Execute(gameState, new ActivatePsychicProbeCommand(mimicOwner.PlayerId, 0));
 
         Assert.False(result.Success);
         Assert.Equal("Player cannot use Psychic Probe right now.", result.Error);
