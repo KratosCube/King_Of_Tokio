@@ -50,10 +50,7 @@ public sealed class KeepCardRulesService
 
         var discount = 0;
 
-        if (player.HasKeepCard(KnownCardIds.AlienMetabolism))
-        {
-            discount += 1;
-        }
+        discount += CountKeepCardEffects(player, KnownCardIds.AlienMetabolism);
 
         return Math.Max(0, card.Cost - discount);
     }
@@ -101,7 +98,7 @@ public sealed class KeepCardRulesService
     public bool HasNovaBreath(PlayerState player)
     {
         ArgumentNullException.ThrowIfNull(player);
-        return player.HasKeepCard(KnownCardIds.NovaBreath);
+        return HasKeepCardEffect(player, KnownCardIds.NovaBreath);
     }
 
     public int GetIgnoredDamage(PlayerState player, DamageKind damageKind)
@@ -110,10 +107,7 @@ public sealed class KeepCardRulesService
 
         var ignoredDamage = 0;
 
-        if (player.HasKeepCard(KnownCardIds.ArmorPlating))
-        {
-            ignoredDamage += 1;
-        }
+        ignoredDamage += CountKeepCardEffects(player, KnownCardIds.ArmorPlating);
 
         return ignoredDamage;
     }
@@ -156,12 +150,7 @@ public sealed class KeepCardRulesService
             return 0;
         }
 
-        if (player.HasKeepCard(KnownCardIds.AlphaMonster))
-        {
-            return 1;
-        }
-
-        return 0;
+        return CountKeepCardEffects(player, KnownCardIds.AlphaMonster);
     }
 
     public int GetVictoryPointsWhenTakingDamage(PlayerState player, int actualDamage)
@@ -173,14 +162,14 @@ public sealed class KeepCardRulesService
             return 0;
         }
 
-        return player.HasKeepCard(KnownCardIds.WereOnlyMakingItStronger) ? 1 : 0;
+        return CountKeepCardEffects(player, KnownCardIds.WereOnlyMakingItStronger);
     }
 
     public int GetHealingWhenLeavingTokyo(PlayerState player, int damageTaken)
     {
         ArgumentNullException.ThrowIfNull(player);
 
-        if (damageTaken <= 0 || !player.HasKeepCard(KnownCardIds.Jets))
+        if (damageTaken <= 0 || !HasKeepCardEffect(player, KnownCardIds.Jets))
         {
             return 0;
         }
@@ -199,10 +188,7 @@ public sealed class KeepCardRulesService
 
         var bonusVictoryPoints = 0;
 
-        if (player.HasKeepCard(KnownCardIds.Gourmet))
-        {
-            bonusVictoryPoints += 2;
-        }
+        bonusVictoryPoints += 2 * CountKeepCardEffects(player, KnownCardIds.Gourmet);
 
         return bonusVictoryPoints;
     }
@@ -211,7 +197,7 @@ public sealed class KeepCardRulesService
     {
         ArgumentNullException.ThrowIfNull(player);
 
-        if (!player.HasKeepCard(KnownCardIds.CompleteDestruction))
+        if (!HasKeepCardEffect(player, KnownCardIds.CompleteDestruction))
         {
             return 0;
         }
@@ -228,36 +214,37 @@ public sealed class KeepCardRulesService
     {
         ArgumentNullException.ThrowIfNull(player);
 
-        if (!player.HasKeepCard(KnownCardIds.PoisonQuills))
+        var effectCount = CountKeepCardEffects(player, KnownCardIds.PoisonQuills);
+        if (effectCount == 0)
         {
             return 0;
         }
 
-        return oneCount >= 3 ? 2 : 0;
+        return oneCount >= 3 ? 2 * effectCount : 0;
     }
 
     public int GetPoisonTokensToApply(PlayerState player, int attackCount)
     {
         ArgumentNullException.ThrowIfNull(player);
 
-        if (attackCount <= 0 || !player.HasKeepCard(KnownCardIds.PoisonSpit))
+        if (attackCount <= 0)
         {
             return 0;
         }
 
-        return 1;
+        return CountKeepCardEffects(player, KnownCardIds.PoisonSpit);
     }
 
     public int GetShrinkTokensToApply(PlayerState player, int attackCount)
     {
         ArgumentNullException.ThrowIfNull(player);
 
-        if (attackCount <= 0 || !player.HasKeepCard(KnownCardIds.ShrinkRay))
+        if (attackCount <= 0)
         {
             return 0;
         }
 
-        return 1;
+        return CountKeepCardEffects(player, KnownCardIds.ShrinkRay);
     }
 
     public bool HasBurrowing(PlayerState player)
@@ -277,10 +264,7 @@ public sealed class KeepCardRulesService
 
         var bonusHealing = 0;
 
-        if (player.HasKeepCard(KnownCardIds.Regeneration))
-        {
-            bonusHealing += 1;
-        }
+        bonusHealing += CountKeepCardEffects(player, KnownCardIds.Regeneration);
 
         return bonusHealing;
     }
@@ -296,10 +280,7 @@ public sealed class KeepCardRulesService
 
         var bonusVictoryPoints = 0;
 
-        if (player.HasKeepCard(KnownCardIds.Herbivore))
-        {
-            bonusVictoryPoints += 1;
-        }
+        bonusVictoryPoints += CountKeepCardEffects(player, KnownCardIds.Herbivore);
 
         return bonusVictoryPoints;
     }
@@ -315,10 +296,7 @@ public sealed class KeepCardRulesService
 
         var bonusEnergy = 0;
 
-        if (player.HasKeepCard(KnownCardIds.FriendOfChildren))
-        {
-            bonusEnergy += 1;
-        }
+        bonusEnergy += CountKeepCardEffects(player, KnownCardIds.FriendOfChildren);
 
         return bonusEnergy;
     }
@@ -355,48 +333,35 @@ public sealed class KeepCardRulesService
     {
         ArgumentNullException.ThrowIfNull(player);
 
-        if (!player.HasKeepCard(KnownCardIds.SolarPowered))
+        if (player.Energy != 0)
         {
             return 0;
         }
 
-        return player.Energy == 0 ? 1 : 0;
+        return CountKeepCardEffects(player, KnownCardIds.SolarPowered);
     }
 
     public int GetEndTurnVictoryPointsFromStoredEnergy(PlayerState player)
     {
         ArgumentNullException.ThrowIfNull(player);
 
-        if (!player.HasKeepCard(KnownCardIds.EnergyHoarder))
-        {
-            return 0;
-        }
-
-        return player.Energy / 6;
+        return (player.Energy / 6) * CountKeepCardEffects(player, KnownCardIds.EnergyHoarder);
     }
 
     public int GetEndTurnUnderdogVictoryPoints(PlayerState player, bool hasFewestVictoryPoints)
     {
         ArgumentNullException.ThrowIfNull(player);
 
-        if (!player.HasKeepCard(KnownCardIds.RootingForTheUnderdog))
-        {
-            return 0;
-        }
-
-        return hasFewestVictoryPoints ? 1 : 0;
+        return hasFewestVictoryPoints
+            ? CountKeepCardEffects(player, KnownCardIds.RootingForTheUnderdog)
+            : 0;
     }
 
     public int GetCardPurchaseVictoryPoints(PlayerState player)
     {
         ArgumentNullException.ThrowIfNull(player);
 
-        if (player.HasKeepCard(KnownCardIds.DedicatedNewsTeam))
-        {
-            return 1;
-        }
-
-        return 0;
+        return CountKeepCardEffects(player, KnownCardIds.DedicatedNewsTeam);
     }
 
     public int GetVictoryPointsWhenMonsterEliminated(PlayerState player)
@@ -408,12 +373,7 @@ public sealed class KeepCardRulesService
             return 0;
         }
 
-        if (player.HasKeepCard(KnownCardIds.EaterOfTheDead))
-        {
-            return 3;
-        }
-
-        return 0;
+        return 3 * CountKeepCardEffects(player, KnownCardIds.EaterOfTheDead);
     }
 
     private static bool HasKeepCardEffect(PlayerState player, string cardId)
