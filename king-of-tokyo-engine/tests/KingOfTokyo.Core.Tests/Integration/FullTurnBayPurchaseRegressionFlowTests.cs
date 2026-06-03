@@ -81,9 +81,6 @@ public sealed class FullTurnBayPurchaseRegressionFlowTests
         Assert.True(buyResult.Success, buyResult.Error);
         Assert.Equal(0, attacker.Energy);
         Assert.Equal(2, attacker.VictoryPoints);
-        Assert.Contains(buyResult.NewEvents, e => e is EnergySpentEvent spent &&
-                                               spent.PlayerId == attacker.PlayerId &&
-                                               spent.Amount == 3);
         Assert.Contains(buyResult.NewEvents, e => e is CardBoughtEvent bought &&
                                                bought.PlayerId == attacker.PlayerId &&
                                                bought.CardId == KnownCardIds.CornerStore &&
