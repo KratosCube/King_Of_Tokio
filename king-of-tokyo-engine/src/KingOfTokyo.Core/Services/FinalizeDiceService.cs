@@ -111,6 +111,26 @@ public sealed class FinalizeDiceService
                 "Keep card: Complete Destruction."));
         }
 
+        var omnivoreBonus = _keepCardRulesService.GetOmnivoreVictoryPoints(
+            currentPlayer,
+            summary.AttackCount,
+            summary.EnergyCount,
+            summary.HeartCount,
+            summary.OneCount,
+            summary.TwoCount,
+            summary.ThreeCount);
+
+        if (omnivoreBonus > 0)
+        {
+            currentPlayer.GainVictoryPoints(omnivoreBonus);
+            currentTurn.Flags.ScoredVictoryPoints = true;
+
+            newEvents.Add(new VictoryPointsGainedEvent(
+                currentPlayer.PlayerId,
+                omnivoreBonus,
+                "Keep card: Omnivore."));
+        }
+
         var baseEnergy = _energyResolver.ResolveEnergy(summary);
         var bonusEnergy = _keepCardRulesService.GetBonusEnergyGain(currentPlayer, baseEnergy);
         var totalEnergy = baseEnergy + bonusEnergy;
@@ -259,104 +279,28 @@ public sealed class FinalizeDiceService
             currentTurn.ClearTokyoLeaveDecisions();
             currentTurn.EnqueueTokyoLeaveDecisions(tokyoLeaveContexts);
 
-            var pendingDecision = CreateTokyoLeavePendingDecision(currentTurn.PeekTokyoLeaveDecision());
-            gameState.SetPendingDecision(pendingDecision);
+            var firstDecision = tokyoLeaveContexts[0];
+            var pendingDecision = new PendingDecision
+            {
+                DecisionType = DecisionType.LeaveTokyo,
+                PlayerId = firstDecision.DefenderPlayerId,
+                Payload = new LeaveTokyoDecisionData
+                {
+                    AttackerPlayerId = firstDecision.AttackerPlayerId,
+                    DamageTaken = firstDecision.DamageTaken,
+                    RemainingDefenderPlayerIds = tokyoLeaveContexts
+                        .Select(context => context.DefenderPlayerId)
+                        .ToArray()
+                }
+            };
 
+            gameState.SetPendingDecision(pendingDecision);
+            currentTurn.SetPhase(TurnPhase.WaitingForTokyoDecision);
             return new EngineStepResult(newEvents, pendingDecision);
         }
 
         currentTurn.SetPhase(TurnPhase.Purchase);
-        gameState.ClearPendingDecision();
-
         return new EngineStepResult(newEvents);
-    }
-
-    private static void ScheduleFreezeTimeExtraTurnIfEligible(
-        GameState gameState,
-        PlayerState currentPlayer,
-        DiceResolutionSummary summary,
-        int scoredVictoryPointsFromNumbers)
-    {
-        if (scoredVictoryPointsFromNumbers <= 0 || summary.OneCount < 3)
-        {
-            return;
-        }
-
-        if (!currentPlayer.HasKeepCard(KnownCardIds.FreezeTime))
-        {
-            return;
-        }
-
-        gameState.ScheduleExtraTurn(currentPlayer.PlayerId, diceCountModifier: -1);
-    }
-
-    private void ApplyAttackStatusTokens(
-        PlayerState currentPlayer,
-        PlayerState target,
-        int attackCount,
-        List<GameEventBase> newEvents)
-    {
-        var poisonTokens = _keepCardRulesService.GetPoisonTokensToApply(currentPlayer, attackCount);
-        var shrinkTokens = _keepCardRulesService.GetShrinkTokensToApply(currentPlayer, attackCount);
-
-        if (poisonTokens <= 0 && shrinkTokens <= 0)
-        {
-            return;
-        }
-
-        if (poisonTokens > 0)
-        {
-            target.Status.AddPoisonTokens(poisonTokens);
-        }
-
-        if (shrinkTokens > 0)
-        {
-            target.Status.AddShrinkTokens(shrinkTokens);
-        }
-
-        newEvents.Add(new StatusTokensAddedEvent(
-            currentPlayer.PlayerId,
-            target.PlayerId,
-            poisonTokens,
-            shrinkTokens));
-    }
-
-    private static int RemoveStatusTokensWithHearts(
-        PlayerState player,
-        int heartCount,
-        List<GameEventBase> newEvents)
-    {
-        if (heartCount <= 0)
-        {
-            return 0;
-        }
-
-        var heartsRemaining = heartCount;
-        var poisonTokensRemoved = Math.Min(player.Status.PoisonTokens, heartsRemaining);
-        if (poisonTokensRemoved > 0)
-        {
-            player.Status.RemovePoisonTokens(poisonTokensRemoved);
-            heartsRemaining -= poisonTokensRemoved;
-        }
-
-        var shrinkTokensRemoved = Math.Min(player.Status.ShrinkTokens, heartsRemaining);
-        if (shrinkTokensRemoved > 0)
-        {
-            player.Status.RemoveShrinkTokens(shrinkTokensRemoved);
-            heartsRemaining -= shrinkTokensRemoved;
-        }
-
-        var heartsSpent = poisonTokensRemoved + shrinkTokensRemoved;
-        if (heartsSpent > 0)
-        {
-            newEvents.Add(new StatusTokensRemovedEvent(
-                player.PlayerId,
-                poisonTokensRemoved,
-                shrinkTokensRemoved,
-                heartsSpent));
-        }
-
-        return heartsRemaining;
     }
 
     private void ApplyPoisonQuillsDamage(
@@ -366,27 +310,19 @@ public sealed class FinalizeDiceService
         List<GameEventBase> newEvents,
         DiceResolutionSummary summary)
     {
-        var poisonDamage = _keepCardRulesService.GetPoisonQuillsDamage(currentPlayer, summary.OneCount);
-        if (poisonDamage <= 0)
+        var poisonQuillsDamage = _keepCardRulesService.GetPoisonQuillsDamage(currentPlayer, summary.OneCount);
+        if (poisonQuillsDamage <= 0)
         {
             return;
         }
 
-        var targets = ResolvePositionalTargets(gameState, currentPlayer);
+        var targets = currentPlayer.TokyoSlot == TokyoSlot.None
+            ? gameState.GetAlivePlayers().Where(player => player.TokyoSlot != TokyoSlot.None)
+            : gameState.GetAlivePlayers().Where(player => player.PlayerId != currentPlayer.PlayerId && player.TokyoSlot == TokyoSlot.None);
 
-        foreach (var target in targets)
+        foreach (var target in targets.ToArray())
         {
-            var packet = new DamagePacket
-            {
-                SourcePlayerId = currentPlayer.PlayerId,
-                TargetPlayerId = target.PlayerId,
-                Amount = poisonDamage,
-                DamageKind = DamageKind.CardEffect,
-                CountsAsAttack = false,
-                AllowsTokyoLeave = false
-            };
-
-            var actualDamage = _damageApplier.ApplyDamage(target, packet);
+            var actualDamage = target.TakeDamage(poisonQuillsDamage);
             if (actualDamage <= 0)
             {
                 continue;
@@ -395,10 +331,10 @@ public sealed class FinalizeDiceService
             currentTurn.Flags.DealtDamage = true;
 
             newEvents.Add(new DamageDealtEvent(
-                packet.SourcePlayerId,
-                packet.TargetPlayerId,
+                currentPlayer.PlayerId,
+                target.PlayerId,
                 actualDamage,
-                packet.DamageKind));
+                DamageKind.CardEffect));
 
             if (!target.IsAlive && _eliminationService.TryEliminate(gameState, target))
             {
@@ -407,40 +343,35 @@ public sealed class FinalizeDiceService
                 newEvents.Add(new PlayerEliminatedEvent(
                     target.PlayerId,
                     currentPlayer.PlayerId,
-                    "Keep card: Poison Quills."));
+                    "Poison Quills."));
 
                 AwardEaterOfTheDeadPoints(gameState, newEvents);
             }
         }
     }
 
-    private static IReadOnlyList<PlayerState> ResolvePositionalTargets(GameState gameState, PlayerState sourcePlayer)
+    private void ApplyAttackStatusTokens(
+        PlayerState attacker,
+        PlayerState target,
+        int attackCount,
+        List<GameEventBase> newEvents)
     {
-        if (sourcePlayer.TokyoSlot == TokyoSlot.None)
+        var poisonTokens = _keepCardRulesService.GetPoisonTokensToApply(attacker, attackCount);
+        var shrinkTokens = _keepCardRulesService.GetShrinkTokensToApply(attacker, attackCount);
+
+        if (poisonTokens <= 0 && shrinkTokens <= 0)
         {
-            return gameState.Players
-                .Where(player => player.IsAlive && player.TokyoSlot != TokyoSlot.None)
-                .ToArray();
+            return;
         }
 
-        return gameState.Players
-            .Where(player => player.IsAlive && player.PlayerId != sourcePlayer.PlayerId && player.TokyoSlot == TokyoSlot.None)
-            .ToArray();
-    }
+        target.Status.AddPoisonTokens(poisonTokens);
+        target.Status.AddShrinkTokens(shrinkTokens);
 
-    private static PendingDecision CreateTokyoLeavePendingDecision(TokyoLeaveDecisionContext context)
-    {
-        return new PendingDecision
-        {
-            DecisionType = DecisionType.LeaveTokyo,
-            PlayerId = context.DefenderPlayerId,
-            Payload = new LeaveTokyoDecisionData
-            {
-                AttackerPlayerId = context.AttackerPlayerId,
-                DefenderPlayerId = context.DefenderPlayerId,
-                DamageTaken = context.DamageTaken
-            }
-        };
+        newEvents.Add(new StatusTokensAddedEvent(
+            attacker.PlayerId,
+            target.PlayerId,
+            poisonTokens,
+            shrinkTokens));
     }
 
     private void AwardEaterOfTheDeadPoints(GameState gameState, List<GameEventBase> newEvents)
@@ -460,5 +391,47 @@ public sealed class FinalizeDiceService
                 bonusVictoryPoints,
                 "Keep card: Eater of the Dead."));
         }
+    }
+
+    private static void ScheduleFreezeTimeExtraTurnIfEligible(
+        GameState gameState,
+        PlayerState currentPlayer,
+        DiceResolutionSummary summary,
+        int scoredVictoryPoints)
+    {
+        if (summary.OneCount < 3 ||
+            scoredVictoryPoints <= 0 ||
+            !currentPlayer.HasKeepCard(KnownCardIds.FreezeTime))
+        {
+            return;
+        }
+
+        gameState.ScheduleExtraTurnAfterCurrentPlayer(currentPlayer.PlayerId, KnownCardIds.FreezeTime, -1);
+    }
+
+    private static int RemoveStatusTokensWithHearts(
+        PlayerState currentPlayer,
+        int heartCount,
+        List<GameEventBase> newEvents)
+    {
+        var heartsRemaining = heartCount;
+
+        while (heartsRemaining > 0 && currentPlayer.Status.PoisonTokens > 0)
+        {
+            currentPlayer.Status.RemovePoisonTokens(1);
+            heartsRemaining--;
+
+            newEvents.Add(new StatusTokensRemovedEvent(currentPlayer.PlayerId, 1, 0));
+        }
+
+        while (heartsRemaining > 0 && currentPlayer.Status.ShrinkTokens > 0)
+        {
+            currentPlayer.Status.RemoveShrinkTokens(1);
+            heartsRemaining--;
+
+            newEvents.Add(new StatusTokensRemovedEvent(currentPlayer.PlayerId, 0, 1));
+        }
+
+        return heartsRemaining;
     }
 }
