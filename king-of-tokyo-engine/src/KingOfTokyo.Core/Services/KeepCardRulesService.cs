@@ -210,6 +210,33 @@ public sealed class KeepCardRulesService
         return 0;
     }
 
+    public int GetOmnivoreVictoryPoints(
+        PlayerState player,
+        int attackCount,
+        int energyCount,
+        int heartCount,
+        int oneCount,
+        int twoCount,
+        int threeCount)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+
+        var effectCount = CountKeepCardEffects(player, KnownCardIds.Omnivore);
+        if (effectCount == 0)
+        {
+            return 0;
+        }
+
+        var hasPair = attackCount >= 2 ||
+                      energyCount >= 2 ||
+                      heartCount >= 2 ||
+                      oneCount >= 2 ||
+                      twoCount >= 2 ||
+                      threeCount >= 2;
+
+        return hasPair ? 2 * effectCount : 0;
+    }
+
     public int GetPoisonQuillsDamage(PlayerState player, int oneCount)
     {
         ArgumentNullException.ThrowIfNull(player);
