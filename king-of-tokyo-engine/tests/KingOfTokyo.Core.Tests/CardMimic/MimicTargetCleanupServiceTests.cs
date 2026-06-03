@@ -67,6 +67,46 @@ public sealed class MimicTargetCleanupServiceTests
         Assert.Null(untargetedMimic.MimicTarget);
     }
 
+    [Fact]
+    public void ClearTargetsForOwner_Should_ClearAllTargetsPointingToOwner()
+    {
+        var gameState = CreateGameState();
+        var mimicOwner = gameState.GetPlayerById(0);
+        var originalOwner = gameState.GetPlayerById(1);
+        var healingRayMimic = CreateMimicCopying(originalOwner.PlayerId, KnownCardIds.HealingRay, "Healing Ray");
+        var rapidHealingMimic = CreateMimicCopying(originalOwner.PlayerId, KnownCardIds.RapidHealing, "Rapid Healing");
+        mimicOwner.AddKeepCard(healingRayMimic);
+        mimicOwner.AddKeepCard(rapidHealingMimic);
+        var service = new MimicTargetCleanupService();
+
+        var clearedCount = service.ClearTargetsForOwner(gameState, originalOwner.PlayerId);
+
+        Assert.Equal(2, clearedCount);
+        Assert.Null(healingRayMimic.MimicTarget);
+        Assert.Null(rapidHealingMimic.MimicTarget);
+    }
+
+    [Fact]
+    public void ClearTargetsForOwner_Should_NotClearTargetsPointingToDifferentOwner()
+    {
+        var gameState = CreateGameState();
+        var mimicOwner = gameState.GetPlayerById(0);
+        var originalOwner = gameState.GetPlayerById(1);
+        var otherOwner = gameState.GetPlayerById(2);
+        var matchingMimic = CreateMimicCopying(originalOwner.PlayerId, KnownCardIds.HealingRay, "Healing Ray");
+        var differentOwnerMimic = CreateMimicCopying(otherOwner.PlayerId, KnownCardIds.RapidHealing, "Rapid Healing");
+        mimicOwner.AddKeepCard(matchingMimic);
+        mimicOwner.AddKeepCard(differentOwnerMimic);
+        var service = new MimicTargetCleanupService();
+
+        var clearedCount = service.ClearTargetsForOwner(gameState, originalOwner.PlayerId);
+
+        Assert.Equal(1, clearedCount);
+        Assert.Null(matchingMimic.MimicTarget);
+        Assert.NotNull(differentOwnerMimic.MimicTarget);
+        Assert.Equal(otherOwner.PlayerId, differentOwnerMimic.MimicTarget!.OwnerPlayerId);
+    }
+
     private static GameState CreateGameState()
     {
         var players = new[]
