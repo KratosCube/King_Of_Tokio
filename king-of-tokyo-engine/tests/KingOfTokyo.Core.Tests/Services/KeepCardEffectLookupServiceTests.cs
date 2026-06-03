@@ -4,7 +4,7 @@ using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Services;
 using Xunit;
 
-namespace KingOfTokyo.Core.Tests.Services;
+namespace KingOfTokyo.Core.Tests.CardMimic;
 
 public sealed class KeepCardEffectLookupServiceTests
 {
