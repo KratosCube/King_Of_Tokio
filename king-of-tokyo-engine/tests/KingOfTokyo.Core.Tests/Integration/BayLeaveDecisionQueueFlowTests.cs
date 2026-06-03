@@ -44,7 +44,7 @@ public sealed class BayLeaveDecisionQueueFlowTests
         var firstPayload = Assert.IsType<LeaveTokyoDecisionData>(finalizeResult.PendingDecision!.Payload);
         Assert.Equal(cityOccupant.PlayerId, firstPayload.DefenderPlayerId);
 
-        var firstDecisionResult = engine.Execute(gameState, new ChooseLeaveTokyoCommand(cityOccupant.PlayerId, true));
+        var firstDecisionResult = engine.Execute(gameState, new ChooseLeaveTokyoCommand(true, cityOccupant.PlayerId));
 
         Assert.True(firstDecisionResult.Success, firstDecisionResult.Error);
         Assert.Equal(TokyoSlot.City, attacker.TokyoSlot);
@@ -63,7 +63,7 @@ public sealed class BayLeaveDecisionQueueFlowTests
                                                          entered.PlayerId == attacker.PlayerId &&
                                                          entered.Slot == TokyoSlot.City);
 
-        var secondDecisionResult = engine.Execute(gameState, new ChooseLeaveTokyoCommand(bayOccupant.PlayerId, true));
+        var secondDecisionResult = engine.Execute(gameState, new ChooseLeaveTokyoCommand(true, bayOccupant.PlayerId));
 
         Assert.True(secondDecisionResult.Success, secondDecisionResult.Error);
         Assert.Null(secondDecisionResult.PendingDecision);
