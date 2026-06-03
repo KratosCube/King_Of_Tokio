@@ -13,6 +13,7 @@ public sealed class MarketCardState
     public CardPurchaseEffect PurchaseEffect { get; }
     public int Counters { get; private set; }
     public int StoredEnergy { get; private set; }
+    public MimicTargetState? MimicTarget { get; private set; }
 
     public MarketCardState(
         string cardId,
@@ -22,7 +23,8 @@ public sealed class MarketCardState
         MarketCardType cardType,
         CardPurchaseEffect? purchaseEffect = null,
         int counters = 0,
-        int storedEnergy = 0)
+        int storedEnergy = 0,
+        MimicTargetState? mimicTarget = null)
     {
         if (string.IsNullOrWhiteSpace(cardId))
         {
@@ -62,6 +64,7 @@ public sealed class MarketCardState
         PurchaseEffect = purchaseEffect ?? CardPurchaseEffect.None;
         Counters = counters;
         StoredEnergy = storedEnergy;
+        MimicTarget = mimicTarget;
     }
 
     public void AddCounters(int amount)
@@ -117,5 +120,56 @@ public sealed class MarketCardState
         }
 
         StoredEnergy -= amount;
+    }
+
+    public void SetMimicTarget(MimicTargetState target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+
+        if (CardId != KnownCardIds.Mimic)
+        {
+            throw new InvalidOperationException("Only Mimic cards can copy another card.");
+        }
+
+        MimicTarget = target;
+    }
+
+    public void ClearMimicTarget()
+    {
+        if (CardId != KnownCardIds.Mimic)
+        {
+            throw new InvalidOperationException("Only Mimic cards can clear a copied card target.");
+        }
+
+        MimicTarget = null;
+    }
+}
+
+public sealed record MimicTargetState
+{
+    public int OwnerPlayerId { get; }
+    public string CardId { get; }
+    public string CardName { get; }
+
+    public MimicTargetState(int ownerPlayerId, string cardId, string cardName)
+    {
+        if (ownerPlayerId < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ownerPlayerId));
+        }
+
+        if (string.IsNullOrWhiteSpace(cardId))
+        {
+            throw new ArgumentException("Copied card id must not be empty.", nameof(cardId));
+        }
+
+        if (string.IsNullOrWhiteSpace(cardName))
+        {
+            throw new ArgumentException("Copied card name must not be empty.", nameof(cardName));
+        }
+
+        OwnerPlayerId = ownerPlayerId;
+        CardId = cardId;
+        CardName = cardName;
     }
 }
