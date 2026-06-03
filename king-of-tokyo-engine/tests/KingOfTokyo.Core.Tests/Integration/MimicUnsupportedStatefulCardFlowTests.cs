@@ -84,6 +84,31 @@ public sealed class MimicUnsupportedStatefulCardFlowTests
         Assert.Empty(gameState.Market.DiscardPile);
     }
 
+    [Fact]
+    public void ActivatePsychicProbe_Should_Fail_WhenPlayerOnlyMimicsPsychicProbe()
+    {
+        var gameState = CreateGameState(4);
+        var currentPlayer = gameState.GetCurrentPlayer();
+        var mimicOwner = gameState.GetPlayerById(1);
+        mimicOwner.AddKeepCard(CreateMimicCopying(KnownCardIds.PsychicProbe, "Psychic Probe"));
+
+        var engine = CreateEngine(
+            DieFace.Energy, DieFace.One, DieFace.Two,
+            DieFace.Three, DieFace.Heart, DieFace.Heart);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(currentPlayer.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(currentPlayer.PlayerId));
+
+        var result = engine.Execute(gameState, new ActivatePsychicProbeCommand(0, mimicOwner.PlayerId));
+
+        Assert.False(result.Success);
+        Assert.Equal("Player cannot use Psychic Probe right now.", result.Error);
+        Assert.True(mimicOwner.HasKeepCard(KnownCardIds.Mimic));
+        Assert.False(mimicOwner.HasKeepCard(KnownCardIds.PsychicProbe));
+        Assert.Empty(gameState.Market.DiscardPile);
+    }
+
     private static GameState CreateGameState(int playerCount)
     {
         var players = Enumerable.Range(0, playerCount)
