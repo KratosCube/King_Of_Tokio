@@ -27,6 +27,47 @@ public sealed class VictoryResolverTests
     }
 
     [Fact]
+    public void Resolve_Should_ReturnWinner_WhenNonCurrentAlivePlayerHasTwentyPoints()
+    {
+        var players = CreatePlayers(3);
+        var gameState = new GameState(players, new GameOptions(3));
+        gameState.StartGame();
+        gameState.StartTurnForCurrentPlayer();
+
+        gameState.GetPlayerById(2).GainVictoryPoints(20);
+
+        var resolver = new VictoryResolver();
+
+        var result = resolver.Resolve(gameState);
+
+        Assert.NotNull(result);
+        Assert.True(result!.HasWinner);
+        Assert.Equal(2, result.WinnerPlayerId);
+        Assert.Equal("Reached 20 victory points.", result.Reason);
+    }
+
+    [Fact]
+    public void Resolve_Should_PrioritizeCurrentPlayer_WhenCurrentAndOtherAlivePlayersHaveTwentyPoints()
+    {
+        var players = CreatePlayers(3);
+        var gameState = new GameState(players, new GameOptions(3));
+        gameState.StartGame();
+        gameState.StartTurnForCurrentPlayer();
+
+        gameState.GetCurrentPlayer().GainVictoryPoints(20);
+        gameState.GetPlayerById(2).GainVictoryPoints(20);
+
+        var resolver = new VictoryResolver();
+
+        var result = resolver.Resolve(gameState);
+
+        Assert.NotNull(result);
+        Assert.True(result!.HasWinner);
+        Assert.Equal(0, result.WinnerPlayerId);
+        Assert.Equal("Reached 20 victory points.", result.Reason);
+    }
+
+    [Fact]
     public void Resolve_Should_ReturnWinner_WhenOnlyOnePlayerIsAlive()
     {
         var players = CreatePlayers(3);
