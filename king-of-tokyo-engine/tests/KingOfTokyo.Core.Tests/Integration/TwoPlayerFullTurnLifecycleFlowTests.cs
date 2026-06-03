@@ -17,8 +17,6 @@ public sealed class TwoPlayerFullTurnLifecycleFlowTests
     public void TurnFlow_Should_HandleTokyoEntryEndTurnAndNextPlayerTurn_InTwoPlayerGame()
     {
         var gameState = CreateGameState(2);
-        var firstPlayer = gameState.GetCurrentPlayer();
-        var secondPlayer = gameState.GetPlayerById(1);
         var engine = CreateEngine(
             DieFace.Attack,
             DieFace.Heart,
@@ -28,10 +26,13 @@ public sealed class TwoPlayerFullTurnLifecycleFlowTests
             DieFace.Energy);
 
         var initializeResult = engine.Execute(gameState, new InitializeGameCommand());
+        var firstPlayer = gameState.GetCurrentPlayer();
         var beginFirstTurnResult = engine.Execute(gameState, new BeginTurnCommand(firstPlayer.PlayerId));
         var rollResult = engine.Execute(gameState, new RollDiceCommand(firstPlayer.PlayerId));
         var finalizeResult = engine.Execute(gameState, new FinalizeDiceCommand(firstPlayer.PlayerId));
         var endTurnResult = engine.Execute(gameState, new EndTurnCommand(firstPlayer.PlayerId));
+        var advanceResult = engine.Execute(gameState, new AdvanceToNextPlayerCommand());
+        var secondPlayer = gameState.GetCurrentPlayer();
         var beginSecondTurnResult = engine.Execute(gameState, new BeginTurnCommand(secondPlayer.PlayerId));
 
         Assert.True(initializeResult.Success, initializeResult.Error);
@@ -39,6 +40,7 @@ public sealed class TwoPlayerFullTurnLifecycleFlowTests
         Assert.True(rollResult.Success, rollResult.Error);
         Assert.True(finalizeResult.Success, finalizeResult.Error);
         Assert.True(endTurnResult.Success, endTurnResult.Error);
+        Assert.True(advanceResult.Success, advanceResult.Error);
         Assert.True(beginSecondTurnResult.Success, beginSecondTurnResult.Error);
 
         Assert.False(gameState.Tokyo.BayEnabled);
@@ -47,6 +49,7 @@ public sealed class TwoPlayerFullTurnLifecycleFlowTests
         Assert.Null(gameState.Tokyo.BayOccupantId);
         Assert.Equal(1, firstPlayer.VictoryPoints);
         Assert.Equal(1, firstPlayer.Energy);
+        Assert.NotEqual(firstPlayer.PlayerId, secondPlayer.PlayerId);
         Assert.Equal(secondPlayer.PlayerId, gameState.CurrentTurn!.CurrentPlayerId);
         Assert.Equal(TurnPhase.Rolling, gameState.CurrentTurn.Phase);
         Assert.Equal(GameStatus.Running, gameState.Status);
