@@ -48,7 +48,7 @@ public sealed class DtoSnapshotRegressionFlowTests
         Assert.Equal(gameState.Version, decisionDto.Version);
         Assert.Equal(GameStatus.Running, decisionDto.Status);
         Assert.Equal(attacker.PlayerId, decisionDto.CurrentTurn!.CurrentPlayerId);
-        Assert.Equal(TurnPhase.Rolling, decisionDto.CurrentTurn.Phase);
+        Assert.Equal(TurnPhase.DiceResolved, decisionDto.CurrentTurn.Phase);
         Assert.Equal(1, decisionDto.CurrentTurn.RollCountUsed);
         Assert.True(decisionDto.CurrentTurn.DiceResolved);
         Assert.Equal(6, decisionDto.CurrentTurn.Dice.Count);
