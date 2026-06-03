@@ -48,6 +48,44 @@ public sealed class VictoryResolverTests
     }
 
     [Fact]
+    public void Resolve_Should_ReturnWinner_WhenVictoryModeIsFirstToTwentyAndAlivePlayerHasTwentyPoints()
+    {
+        var players = CreatePlayers(3);
+        var gameState = new GameState(players, new GameOptions(3, VictoryMode.FirstToTwentyPoints));
+        gameState.StartGame();
+        gameState.StartTurnForCurrentPlayer();
+
+        gameState.GetPlayerById(2).GainVictoryPoints(20);
+
+        var resolver = new VictoryResolver();
+
+        var result = resolver.Resolve(gameState);
+
+        Assert.NotNull(result);
+        Assert.True(result!.HasWinner);
+        Assert.Equal(2, result.WinnerPlayerId);
+        Assert.Equal("Reached 20 victory points.", result.Reason);
+    }
+
+    [Fact]
+    public void Resolve_Should_NotReturnLastMonsterStandingWinner_WhenVictoryModeIsFirstToTwenty()
+    {
+        var players = CreatePlayers(3);
+        var gameState = new GameState(players, new GameOptions(3, VictoryMode.FirstToTwentyPoints));
+        gameState.StartGame();
+        gameState.StartTurnForCurrentPlayer();
+
+        gameState.GetPlayerById(1).TakeDamage(10);
+        gameState.GetPlayerById(2).TakeDamage(10);
+
+        var resolver = new VictoryResolver();
+
+        var result = resolver.Resolve(gameState);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void Resolve_Should_NotReturnTwentyPointWinner_WhenVictoryModeIsLastMonsterStanding()
     {
         var players = CreatePlayers(3);
