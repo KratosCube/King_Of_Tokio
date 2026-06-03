@@ -1,5 +1,6 @@
 using System.Reflection;
 using KingOfTokyo.Core.Domain.Entities;
+using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Services;
@@ -34,6 +35,17 @@ public sealed class DefaultDeckTests
     }
 
     [Fact]
+    public void DefaultDeck_Should_IncludeMimicAsKeepCard()
+    {
+        var mimic = GetDefaultDeckCards().Single(card => card.CardId == KnownCardIds.Mimic);
+
+        Assert.Equal("Mimic", mimic.Name);
+        Assert.Equal(8, mimic.Cost);
+        Assert.Equal(MarketCardType.Keep, mimic.CardType);
+        Assert.Contains("copy", mimic.Description, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void DefaultDeck_Should_InitializeMarketWithThreeFaceUpCards()
     {
         var gameState = CreateGameState();
@@ -58,6 +70,13 @@ public sealed class DefaultDeckTests
 
     private static IReadOnlyList<string> GetDefaultDeckCardIds()
     {
+        return GetDefaultDeckCards()
+            .Select(card => card.CardId)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<MarketCardState> GetDefaultDeckCards()
+    {
         var gameState = CreateGameState();
         var marketSetupService = new MarketSetupService();
 
@@ -65,8 +84,8 @@ public sealed class DefaultDeckTests
 
         return gameState.Market.FaceUpCards
             .Where(card => card is not null)
-            .Select(card => card!.CardId)
-            .Concat(gameState.Market.DrawPile.Select(card => card.CardId))
+            .Select(card => card!)
+            .Concat(gameState.Market.DrawPile)
             .ToArray();
     }
 
