@@ -68,6 +68,24 @@ public sealed class MimicServiceTests
     }
 
     [Fact]
+    public void SetTarget_Should_Throw_WhenTargetOwnerIsMimicOwner()
+    {
+        var gameState = CreateGameState();
+        var mimicOwner = gameState.GetPlayerById(0);
+        var mimic = CreateKeepCard(KnownCardIds.Mimic, "Mimic", 8);
+        var ownTarget = CreateKeepCard(KnownCardIds.GiantBrain, "Giant Brain", 5);
+        mimicOwner.AddKeepCard(mimic);
+        mimicOwner.AddKeepCard(ownTarget);
+        var service = new MimicService();
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            service.SetTarget(gameState, mimicOwner.PlayerId, mimicOwner.PlayerId, ownTarget.CardId));
+
+        Assert.Equal("Mimic cannot copy its owner's own cards.", exception.Message);
+        Assert.Null(mimic.MimicTarget);
+    }
+
+    [Fact]
     public void SetTarget_Should_Throw_WhenTargetIsMimic()
     {
         var gameState = CreateGameState();
