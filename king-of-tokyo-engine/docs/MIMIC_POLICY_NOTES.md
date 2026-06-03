@@ -78,14 +78,15 @@ Currently covered cleanup paths include:
 - copied Smoke Cloud self-discard,
 - copied Monster Batteries discarded after payment,
 - copied Monster Batteries discarded after end-turn drain,
+- copied Psychic Probe self-discard,
 - target owner eliminated,
 - target owner defeated but revived by It Has a Child.
 
-## Known remaining cleanup risk
+## Remaining cleanup risk
 
-Real Psychic Probe can discard itself from inside `GameEngine.cs` when the rerolled die is energy. Mimic target cleanup for that exact discard path is still a known follow-up.
+No known Mimic-specific stale-target cleanup gap remains after the Psychic Probe discard path was covered.
 
-Because `GameEngine.cs` is large and connector edits replace the full file, prefer a local patch or an especially careful targeted edit for that change.
+The remaining structural risk is that cleanup calls are still scattered across the engine and services instead of flowing through one generic owned-card lifecycle hook.
 
 ## Future cleanup direction
 
