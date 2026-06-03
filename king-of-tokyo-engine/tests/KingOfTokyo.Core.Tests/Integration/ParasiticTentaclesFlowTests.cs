@@ -39,6 +39,34 @@ public sealed class ParasiticTentaclesFlowTests
         Assert.Null(gameState.PendingDecision);
     }
 
+    [Fact]
+    public void BuyOwnedKeepCard_Should_ClearMimicTarget_WhenCopiedCardLeavesOriginalOwner()
+    {
+        var gameState = CreateGameState(3);
+        var buyer = gameState.GetCurrentPlayer();
+        var seller = gameState.GetPlayerById(1);
+        var mimicOwner = gameState.GetPlayerById(2);
+        var transferredCard = CreateKeepCard(KnownCardIds.GiantBrain, "Giant Brain", 5);
+        var mimic = CreateMimicCopying(seller.PlayerId, KnownCardIds.GiantBrain, "Giant Brain");
+
+        buyer.AddKeepCard(CreateKeepCard(KnownCardIds.ParasiticTentacles, "Parasitic Tentacles", 4));
+        buyer.GainEnergy(5);
+        seller.AddKeepCard(transferredCard);
+        mimicOwner.AddKeepCard(mimic);
+
+        var engine = new GameEngine();
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(buyer.PlayerId));
+        gameState.CurrentTurn!.SetPhase(TurnPhase.Purchase);
+
+        var result = engine.Execute(gameState, new BuyOwnedKeepCardCommand(seller.PlayerId, transferredCard.CardId, buyer.PlayerId));
+
+        Assert.True(result.Success, result.Error);
+        Assert.Null(mimic.MimicTarget);
+        Assert.Contains(buyer.KeepCards, card => card.CardId == transferredCard.CardId);
+        Assert.DoesNotContain(seller.KeepCards, card => card.CardId == transferredCard.CardId);
+    }
+
     private static GameState CreateGameState(int playerCount)
     {
         var players = Enumerable.Range(0, playerCount)
@@ -56,5 +84,16 @@ public sealed class ParasiticTentaclesFlowTests
             "Test keep card.",
             cost,
             MarketCardType.Keep);
+    }
+
+    private static MarketCardState CreateMimicCopying(int ownerPlayerId, string copiedCardId, string copiedCardName)
+    {
+        return new MarketCardState(
+            KnownCardIds.Mimic,
+            "Mimic",
+            "Copy another keep card.",
+            8,
+            MarketCardType.Keep,
+            mimicTarget: new MimicTargetState(ownerPlayerId, copiedCardId, copiedCardName));
     }
 }
