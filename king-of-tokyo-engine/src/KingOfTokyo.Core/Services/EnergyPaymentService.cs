@@ -67,6 +67,7 @@ public sealed class EnergyPaymentService
             if (battery.StoredEnergy == 0)
             {
                 var discardedCard = player.RemoveKeepCard(KnownCardIds.MonsterBatteries);
+                new MimicTargetCleanupService().ClearTargetsForLostCard(gameState, player.PlayerId, discardedCard.CardId);
                 gameState.Market.Discard(discardedCard);
 
                 events.Add(new KeepCardDiscardedEvent(
