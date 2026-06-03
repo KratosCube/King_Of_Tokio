@@ -129,6 +129,7 @@ public sealed class GameStateDtoMapperTests
         Assert.Equal(KnownCardIds.ExtraHead, dto.Players[0].KeepCards[0].CardId);
         Assert.Equal(0, dto.Players[0].KeepCards[0].Counters);
         Assert.Equal(0, dto.Players[0].KeepCards[0].StoredEnergy);
+        Assert.Null(dto.Players[0].KeepCards[0].MimicTarget);
     }
 
     [Fact]
@@ -151,6 +152,28 @@ public sealed class GameStateDtoMapperTests
         Assert.Equal("card-stateful", cardDto.CardId);
         Assert.Equal(2, cardDto.Counters);
         Assert.Equal(5, cardDto.StoredEnergy);
+    }
+
+    [Fact]
+    public void ToDto_Should_MapMimicTargetState()
+    {
+        var gameState = CreateGameState(4);
+        var player = gameState.GetPlayerById(0);
+        player.AddKeepCard(new MarketCardState(
+            KnownCardIds.Mimic,
+            "Mimic",
+            "Copy another keep card.",
+            8,
+            MarketCardType.Keep,
+            mimicTarget: new MimicTargetState(1, KnownCardIds.GiantBrain, "Giant Brain")));
+
+        var dto = gameState.ToDto();
+
+        var cardDto = Assert.Single(dto.Players[0].KeepCards);
+        Assert.NotNull(cardDto.MimicTarget);
+        Assert.Equal(1, cardDto.MimicTarget!.OwnerPlayerId);
+        Assert.Equal(KnownCardIds.GiantBrain, cardDto.MimicTarget.CardId);
+        Assert.Equal("Giant Brain", cardDto.MimicTarget.CardName);
     }
 
     [Fact]
