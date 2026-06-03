@@ -2,7 +2,7 @@
 
 This document tracks the remaining headless-engine work before starting the online web UI.
 
-The engine is already in the late stabilization phase. Most major systems and cards are implemented. The remaining work is mostly edge-case regression coverage, small rule-policy fixes, cleanup/refactor work, and online-sync preparation.
+The engine is in the late stabilization phase. Most major systems and cards are implemented. The remaining work is mostly card-interaction regression coverage, small rule-policy fixes, cleanup/refactor work, and online-sync preparation.
 
 Run this before continuing any new block:
 
@@ -18,26 +18,65 @@ dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
 4. Avoid large `GameEngine.cs` rewrites unless necessary.
 5. Keep work focused on headless logic; no UI yet.
 
-## 1. Bay / Tokyo edge cases
+## Recently completed stabilization work
 
-Priority: high.
+### Bay / Tokyo edge cases
 
-Reason: Tokyo and Bay state will be visible and interactive in the online UI, so edge cases need to be locked before frontend work.
+Status: mostly complete for current engine policy.
 
-Planned coverage:
+Covered:
 
 - 5-player game uses Bay.
 - 2-4 player games do not use Bay.
-- When alive player count falls below 5, Bay is no longer usable.
-- If Bay is occupied when alive player count falls below 5, Bay occupant must leave Tokyo and Bay must be cleared.
+- When alive player count falls below 5, Bay is disabled.
+- If Bay is occupied when alive player count falls below 5, Bay occupant leaves Tokyo and Bay is cleared.
 - Outside attacker targets both City and Bay occupants.
 - Tokyo leave decisions work correctly for City and Bay occupants.
-- If both City and Bay are empty in a Bay game, outside attack does not damage anyone and attacker enters City first.
-- If City is occupied and Bay is empty in a Bay game, outside attacker can enter Bay after attack when rules require it.
-- A monster cannot occupy both City and Bay.
-- Drop from High Altitude behavior in Bay games needs explicit policy coverage.
+- City and Bay leave decisions are queued and resolved sequentially.
+- City leaves / Bay leaves.
+- City stays / Bay leaves.
+- City stays / Bay stays.
+- City leaves / Bay stays.
+- Empty Tokyo in a Bay game enters City first.
+- City occupied + Bay empty: if City defender stays, attacker enters Bay.
+- City occupied + Bay empty: if City defender leaves, attacker enters City.
+- Bay-only occupant can be attacked; if Bay occupant leaves, attacker enters City first.
+- Bay occupant elimination clears Bay.
+- Bay occupant elimination that drops alive count below 5 disables Bay.
+- After Bay is disabled, later City leave decisions still send attacker to City, not Bay.
 
-## 2. Combined card edge cases
+Still useful later:
+
+- Drop from High Altitude behavior in Bay games needs explicit policy coverage.
+- A direct invariant/unit test could verify a monster cannot occupy both City and Bay if not already enforced elsewhere.
+
+### Full-flow / API-readiness regression tests
+
+Status: mostly complete for current headless engine shape.
+
+Covered:
+
+- 5-player Bay attack -> queued leave decisions -> City entry -> Bay occupant stays -> purchase.
+- 5-player Bay occupant elimination -> Bay cleanup/disable -> City decision -> purchase.
+- 2-player lifecycle: initialize -> begin turn -> roll -> finalize -> enter Tokyo -> end turn -> advance -> next player begins.
+- 2-player combat where Tokyo defender leaves and attacker enters City.
+- 2-player combat where Tokyo defender stays and attacker remains outside.
+- 2-player combat where defender is eliminated and game ends by last monster standing.
+- EventLog and Version increment across multi-command combat/purchase flow.
+- DTO snapshot after combat pending decision and after purchase state.
+- CommandResult success, pending-decision, and failure paths.
+- Turn lifecycle start-in-Tokyo VP scoring.
+- Failed command state safety for wrong phase, pending decisions, and wrong actor.
+- Full-game victory through 20 VP.
+- Full-game victory through last monster standing.
+- No invalid victory when a current player has 20 VP but is eliminated before surviving the turn.
+
+Still useful later:
+
+- API adapter tests once a real server layer exists.
+- Event cursor / incremental sync tests if a cursor API is added on top of EventLog.
+
+## 1. Combined card edge cases
 
 Priority: high.
 
@@ -125,7 +164,7 @@ Planned coverage:
 - Wings after Poison Quills or other card-effect damage, if allowed by policy.
 - Jets with Tokyo leave damage and Burrowing.
 
-## 3. Victory and elimination timing
+## 2. Victory and elimination timing
 
 Priority: medium-high.
 
@@ -138,6 +177,7 @@ Already expanded:
 - Dead player with 20 VP cannot win.
 - VictoryMode.Standard, FirstToTwentyPoints, and LastMonsterStanding have targeted resolver tests.
 - Eater of the Dead can trigger a non-current 20 VP win.
+- Full-game regression covers 20 VP victory, last-monster-standing victory, and dead 20 VP non-victory.
 
 Still useful to cover:
 
@@ -146,9 +186,9 @@ Still useful to cover:
 - All monsters eliminated while one or more players reached 20 VP earlier in same turn.
 - LastMonsterStanding mode with all eliminated should still produce no winner.
 
-## 4. Healing Ray command cleanup
+## 3. Healing Ray command cleanup
 
-Priority: medium.
+Priority: high before online API.
 
 Current state:
 
@@ -162,7 +202,7 @@ Planned work:
 - Add regression tests ensuring generic `IGameCommand` dispatch works.
 - Verify Mimic -> Healing Ray still works.
 
-## 5. Generic owned-card lifecycle hook
+## 4. Generic owned-card lifecycle hook
 
 Priority: medium, but bigger refactor.
 
@@ -195,44 +235,23 @@ Approach:
 - First add a small service method and test it.
 - Then migrate one discard/transfer path at a time.
 
-## 6. DTO / online sync readiness
+## 5. DTO / online sync readiness
 
 Priority: medium before frontend.
 
-Planned checks:
+Current state:
 
-- DTO includes all state needed by a client:
-  - game status,
-  - winner info,
-  - players,
-  - health/max health,
-  - energy,
-  - VP,
-  - keep cards,
-  - counters,
-  - stored energy,
-  - Mimic target,
-  - status tokens,
-  - Tokyo/Bay occupants,
-  - current turn,
-  - dice pool,
-  - pending decisions,
-  - scheduled turns,
-  - event log/version.
-- EventLog supports client sync from version/cursor.
-- Command result shape is enough for online API responses.
-- Important UI animation events exist:
-  - dice rolled/finalized,
-  - damage dealt,
-  - healing,
-  - energy gained/spent,
-  - VP gained,
-  - card bought/discarded,
-  - Tokyo enter/leave,
-  - player eliminated,
-  - game ended.
+- DTO snapshot coverage exists for core game status, players, Tokyo, current turn, dice, pending decisions, market changes, and purchase flags.
+- CommandResult regression coverage exists for success, pending decisions, and failures.
+- EventLog/Version regression coverage exists across multi-command combat/purchase flow.
 
-## 7. Documentation and audit cleanup
+Still useful later:
+
+- Add event cursor / incremental sync helper if needed by the server.
+- Add API adapter tests once the online layer exists.
+- Consider exposing a richer event DTO if UI animations need strongly typed serialized events.
+
+## 6. Documentation and audit cleanup
 
 Priority: medium-low, but useful for future handoff.
 
@@ -247,6 +266,8 @@ Documents to keep updated:
 Recent changes that should be reflected in handoff/audit:
 
 - 2-player game support.
+- Expanded Bay/Tokyo regression coverage.
+- Expanded full-flow/API-readiness regression coverage.
 - VictoryResolver now handles non-current alive 20 VP winners.
 - Eater of the Dead victory timing coverage.
 - It Has a Child + Eater victory timing coverage.
@@ -255,16 +276,20 @@ Recent changes that should be reflected in handoff/audit:
 
 ## Suggested next step
 
-Start with Bay/Tokyo edge cases.
-
-First small test target:
+Recommended next block:
 
 ```text
-In a 5-player game, when the alive player count drops below 5 and Bay is occupied, the Bay occupant leaves Tokyo and Bay is cleared.
+Healing Ray command cleanup: move ActivateHealingRayCommand into the main GameEngine.Execute(...) switch and add generic-command regression tests.
 ```
 
-Then continue with:
+After that, continue with either:
 
 ```text
-Outside attack behavior against City + Bay occupants.
+Even Bigger / owned-card lifecycle cleanup
+```
+
+or:
+
+```text
+Combined card edge-case regression coverage
 ```
