@@ -124,7 +124,7 @@ public sealed class KeepCardRulesService
         var bonusDamage = 0;
 
         bonusDamage += CountKeepCardEffects(player, KnownCardIds.SpikedTail);
-        bonusDamage += CountKeepCardEffects(player, KnownCardIds.AcidAttack);
+        bonusDamage += GetAcidAttackBonusDamage(player, rolledAttackCount);
 
         if (player.TokyoSlot != TokyoSlot.None &&
             HasKeepCardEffect(player, KnownCardIds.Urbavore))
@@ -139,6 +139,18 @@ public sealed class KeepCardRulesService
         }
 
         return bonusDamage;
+    }
+
+    public int GetAcidAttackBonusDamage(PlayerState player, int baseDamageAmount)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+
+        if (baseDamageAmount <= 0)
+        {
+            return 0;
+        }
+
+        return CountKeepCardEffects(player, KnownCardIds.AcidAttack);
     }
 
     public int GetAttackRewardVictoryPoints(PlayerState player, int rolledAttackCount)
