@@ -114,10 +114,10 @@ public sealed class FullGameVictoryRegressionFlowTests
     {
         var gameState = CreateGameState(3);
         var engine = CreateEngine(
-            DieFace.Heart,
             DieFace.One,
             DieFace.Two,
             DieFace.Three,
+            DieFace.Energy,
             DieFace.Energy,
             DieFace.Energy);
         var initializeResult = engine.Execute(gameState, new InitializeGameCommand());
