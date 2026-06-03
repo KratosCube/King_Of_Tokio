@@ -47,7 +47,7 @@ public sealed class OmnivoreScoringFlowTests
 
         var engine = CreateEngine(
             DieFace.One, DieFace.One, DieFace.One,
-            DieFace.Heart, DieFace.Energy, DieFace.Attack);
+            DieFace.Heart, DieFace.Energy, DieFace.Two);
 
         engine.Execute(gameState, new InitializeGameCommand());
         engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
@@ -85,7 +85,11 @@ public sealed class OmnivoreScoringFlowTests
         var result = engine.Execute(gameState, new FinalizeDiceCommand(player.PlayerId));
 
         Assert.True(result.Success, result.Error);
-        Assert.Equal(0, player.VictoryPoints);
+        Assert.Equal(1, player.VictoryPoints);
+        Assert.Contains(result.NewEvents, e => e is VictoryPointsGainedEvent gained &&
+                                             gained.PlayerId == player.PlayerId &&
+                                             gained.Amount == 1 &&
+                                             gained.Reason == "Entered Tokyo.");
         Assert.DoesNotContain(result.NewEvents, e => e is VictoryPointsGainedEvent gained &&
                                                     gained.Reason == "Keep card: Omnivore.");
     }
