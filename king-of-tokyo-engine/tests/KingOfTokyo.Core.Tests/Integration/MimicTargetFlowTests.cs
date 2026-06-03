@@ -99,6 +99,43 @@ public sealed class MimicTargetFlowTests
     }
 
     [Fact]
+    public void SetMimicTarget_Should_FailRetargetToOwnCardWithoutSpendingEnergyOrChangingTarget()
+    {
+        var gameState = CreateGameState(3);
+        var mimicOwner = gameState.GetCurrentPlayer();
+        var targetOwner = gameState.GetPlayerById(1);
+        var mimic = CreateKeepCard(KnownCardIds.Mimic, "Mimic", 8);
+        var firstTarget = CreateKeepCard(KnownCardIds.GiantBrain, "Giant Brain", 5);
+        var ownTarget = CreateKeepCard(KnownCardIds.SpikedTail, "Spiked Tail", 5);
+        mimicOwner.AddKeepCard(mimic);
+        mimicOwner.AddKeepCard(ownTarget);
+        mimicOwner.GainEnergy(2);
+        targetOwner.AddKeepCard(firstTarget);
+
+        var engine = new GameEngine();
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(mimicOwner.PlayerId));
+        gameState.CurrentTurn!.MarkDiceResolved();
+        gameState.CurrentTurn.SetPhase(TurnPhase.Purchase);
+        engine.Execute(gameState, new SetMimicTargetCommand(targetOwner.PlayerId, firstTarget.CardId, mimicOwner.PlayerId));
+        engine.Execute(gameState, new EndTurnCommand(mimicOwner.PlayerId));
+        gameState.CurrentTurn!.SetPhase(TurnPhase.Finished);
+
+        gameState.AdvanceToNextAlivePlayer();
+        gameState.AdvanceToNextAlivePlayer();
+        gameState.AdvanceToNextAlivePlayer();
+        engine.Execute(gameState, new BeginTurnCommand(mimicOwner.PlayerId));
+
+        var result = engine.Execute(gameState, new SetMimicTargetCommand(mimicOwner.PlayerId, ownTarget.CardId, mimicOwner.PlayerId));
+
+        Assert.False(result.Success);
+        Assert.Equal("Mimic cannot copy its owner's own cards.", result.Error);
+        Assert.Equal(2, mimicOwner.Energy);
+        Assert.NotNull(mimic.MimicTarget);
+        Assert.Equal(firstTarget.CardId, mimic.MimicTarget!.CardId);
+    }
+
+    [Fact]
     public void SetMimicTarget_Should_FailRetargetAfterRollingStarted()
     {
         var gameState = CreateGameState(3);
