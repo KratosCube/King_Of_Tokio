@@ -307,9 +307,9 @@ public sealed class SpecialCardActivationService
 
     private static void ApplyKeepCardLostEffect(PlayerState player, MarketCardState card)
     {
-        if (card.CardId == KnownCardIds.ExtraHead)
+        if (card.CardId == KnownCardIds.EvenBigger)
         {
-            player.ClampPendingDiceCountAdjustment(-1);
+            player.DecreaseMaxHealth(2);
         }
     }
 }
