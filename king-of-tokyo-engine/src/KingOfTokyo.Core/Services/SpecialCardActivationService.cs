@@ -93,6 +93,7 @@ public sealed class SpecialCardActivationService
         if (smokeCloud.Counters == 0)
         {
             var discardedCard = player.RemoveKeepCard(KnownCardIds.SmokeCloud);
+            new MimicTargetCleanupService().ClearTargetsForLostCard(gameState, player.PlayerId, discardedCard.CardId);
             gameState.Market.Discard(discardedCard);
             events.Add(new KeepCardDiscardedEvent(
                 player.PlayerId,
@@ -181,6 +182,7 @@ public sealed class SpecialCardActivationService
         die.SetFace(targetFace);
 
         var card = player.RemoveKeepCard(KnownCardIds.PlotTwist);
+        new MimicTargetCleanupService().ClearTargetsForLostCard(gameState, player.PlayerId, card.CardId);
         gameState.Market.Discard(card);
 
         var pendingDecision = CreateRerollDecisionIfAvailable(currentTurn);
