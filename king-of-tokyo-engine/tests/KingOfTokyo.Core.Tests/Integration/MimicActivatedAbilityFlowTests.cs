@@ -1,3 +1,4 @@
+using KingOfTokyo.Core.Abstractions;
 using KingOfTokyo.Core.Commands;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
@@ -94,5 +95,25 @@ public sealed class MimicActivatedAbilityFlowTests
             8,
             MarketCardType.Keep,
             mimicTarget: new MimicTargetState(1, copiedCardId, copiedCardName));
+    }
+
+    private sealed class SequenceRandomSource : IRandomSource
+    {
+        private readonly Queue<DieFace> _faces;
+
+        public SequenceRandomSource(IEnumerable<DieFace> faces)
+        {
+            _faces = new Queue<DieFace>(faces);
+        }
+
+        public DieFace RollDieFace()
+        {
+            if (_faces.Count == 0)
+            {
+                throw new InvalidOperationException("No more queued die faces in SequenceRandomSource.");
+            }
+
+            return _faces.Dequeue();
+        }
     }
 }
