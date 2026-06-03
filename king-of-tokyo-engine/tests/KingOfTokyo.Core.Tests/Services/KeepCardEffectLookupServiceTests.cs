@@ -103,7 +103,8 @@ public sealed class KeepCardEffectLookupServiceTests
         var players = new[]
         {
             new PlayerState(0, "Monster 1"),
-            new PlayerState(1, "Monster 2")
+            new PlayerState(1, "Monster 2"),
+            new PlayerState(2, "Monster 3")
         };
 
         return new GameState(players, new GameOptions(players.Length));
