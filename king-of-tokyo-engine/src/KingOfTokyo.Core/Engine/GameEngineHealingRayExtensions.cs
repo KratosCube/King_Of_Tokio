@@ -83,7 +83,7 @@ public static class GameEngineHealingRayExtensions
         }
 
         var keepCardEffectLookupService = new KeepCardEffectLookupService();
-        if (!keepCardEffectLookupService.HasEffect(healer, KnownCardIds.HealingRay))
+        if (!keepCardEffectLookupService.HasEffect(gameState, healer, KnownCardIds.HealingRay))
         {
             throw new InvalidOperationException("Player does not have Healing Ray.");
         }
