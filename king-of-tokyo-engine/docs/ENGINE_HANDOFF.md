@@ -8,16 +8,22 @@ Repository path:
 king-of-tokyo-engine
 ```
 
-Primary solution command:
+Important: there was previously an accidental wrong folder path with `tokio` instead of `tokyo`/`tokio` confusion. Continue using only:
+
+```text
+king-of-tokyo-engine
+```
+
+Primary solution command from repository root:
 
 ```bash
-dotnet test KingOfTokyo.Engine.slnx
+dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
 ```
 
 Latest user-reported status before this handoff update:
 
 ```text
-Tests were green after the Healing Ray extension build fix.
+Tests were green after the Mimic unsupported Psychic Probe test argument fix.
 ```
 
 If there is any doubt, start by running the full test suite locally.
@@ -32,6 +38,7 @@ If there is any doubt, start by running the full test suite locally.
 - Do not work on UI yet.
 - Prefer existing command pattern, services, validators, domain state, DTOs, and events.
 - After every change, report what changed, commit SHA, and the local command to run.
+- Be careful with `GameEngine.cs`: the GitHub connector only supports full-file updates, and full rewrites have broken imports/structure before. Prefer smaller service/test changes unless a local patch is available.
 
 ## Files to read first
 
@@ -45,7 +52,11 @@ src/KingOfTokyo.Core/Engine/GameEngineHealingRayExtensions.cs
 src/KingOfTokyo.Core/Domain/State/GameState.cs
 src/KingOfTokyo.Core/Domain/Entities/TurnState.cs
 src/KingOfTokyo.Core/Domain/Entities/PlayerState.cs
+src/KingOfTokyo.Core/Domain/Entities/MarketCardState.cs
 src/KingOfTokyo.Core/Domain/ValueObjects/KnownCardIds.cs
+src/KingOfTokyo.Core/Services/KeepCardRulesService.cs
+src/KingOfTokyo.Core/Services/KeepCardEffectLookupService.cs
+src/KingOfTokyo.Core/Services/MimicTargetCleanupService.cs
 src/KingOfTokyo.Core/Services/MarketSetupService.cs
 src/KingOfTokyo.Core/Dto/GameStateDto.cs
 src/KingOfTokyo.Core/Dto/GameStateDtoMapper.cs
@@ -100,6 +111,7 @@ Implemented and stabilized.
 - pending decisions,
 - card counters,
 - stored energy,
+- Mimic target state,
 - scheduled turns,
 - Opportunist reveal decisions.
 
@@ -121,7 +133,65 @@ tests/KingOfTokyo.Core.Tests/Integration/RepresentativeGameFlowTests.cs
 
 ## Recently implemented / important cards
 
-The following cards were implemented or stabilized during the latest work sequence:
+The following cards were implemented or stabilized during the latest work sequence.
+
+### Mimic
+
+Status: Partial, but now substantially implemented.
+
+Implemented pieces:
+
+- `KnownCardIds.Mimic` and default deck entry exist.
+- `MarketCardState` supports `MimicTargetState`.
+- DTO mapping exposes Mimic target state.
+- Retarget command/service/tests exist.
+- `KeepCardEffectLookupService` can check effects directly or through Mimic.
+- `MimicTargetCleanupService` can clear stale targets by lost card or by owner.
+- Stale-target cleanup is covered for major card-lost paths:
+  - Parasitic Tentacles transfer,
+  - Metamorph discard,
+  - Plot Twist self-discard,
+  - Smoke Cloud self-discard,
+  - Monster Batteries payment discard,
+  - Monster Batteries end-turn drain discard,
+  - player elimination / It Has a Child replacement.
+- Validated Mimic lookup rejects copied effects when the original owner lost the card or is no longer valid.
+
+Supported copied effects include at least:
+
+- passive keep effects through `KeepCardRulesService`,
+- Telepath,
+- Stretchy,
+- Herd Culler,
+- Wings,
+- Made in a Lab,
+- Rapid Healing,
+- Healing Ray through the typed extension path.
+
+Intentionally unsupported Mimic targets for now:
+
+- Smoke Cloud,
+- Plot Twist,
+- Metamorph,
+- Psychic Probe.
+
+Reason: these effects use card-local counters, once-per-turn state, self-discard, or special self semantics. Tests explicitly lock the current behavior so they do not become partially active by accident.
+
+Known remaining Mimic work:
+
+- Review all copied passive effects and decide if every passive should use validated `GameState` lookup instead of simple target lookup.
+- Decide whether stateful/self-discard targets remain permanently blocked or receive explicit semantics.
+- Consider adding a small local patch for Psychic Probe discard cleanup in `GameEngine.cs` if the real card discards itself and Mimics point at it. Avoid full-file connector rewrites.
+- Eventually replace scattered cleanup calls with a generic `OnCardLost` lifecycle hook.
+
+Key files/tests:
+
+```text
+src/KingOfTokyo.Core/Services/KeepCardEffectLookupService.cs
+src/KingOfTokyo.Core/Services/MimicTargetCleanupService.cs
+tests/KingOfTokyo.Core.Tests/CardMimic
+tests/KingOfTokyo.Core.Tests/Integration/Mimic*FlowTests.cs
+```
 
 ### Wings
 
@@ -132,6 +202,7 @@ Implemented.
 - Cancels/heals damage taken.
 - Emits `DamageCanceledEvent`.
 - Preserves/updates pending Tokyo leave decisions.
+- Usable through valid Mimic copy.
 
 ### Camouflage
 
@@ -149,6 +220,8 @@ Implemented.
 - Spends a charge for an extra reroll.
 - Discards itself when exhausted.
 - Counters are exposed through DTO.
+- Mimic target cleanup runs when real Smoke Cloud discards.
+- Mimic activation is intentionally unsupported for now.
 
 ### Monster Batteries
 
@@ -159,6 +232,7 @@ Implemented.
 - Drains at end of turn.
 - Discards when empty.
 - Stored energy is exposed through DTO.
+- Mimic target cleanup runs when real Monster Batteries are discarded by payment or end-turn drain.
 
 ### Freeze Time
 
@@ -183,6 +257,8 @@ Implemented.
 - Rerolls one die.
 - Discards itself if rerolled die is energy.
 - Limited to once during each other player's turn.
+- Mimic activation is intentionally unsupported for now.
+- Potential future cleanup: when real Psychic Probe discards itself in `GameEngine.cs`, clear Mimics pointing at that specific card. Do this with a small patch, not a full-file rewrite.
 
 ### Background Dweller
 
@@ -215,6 +291,7 @@ Implemented.
 - Current player with this keep card can buy keep cards from another living player during purchase phase.
 - Card transfers to buyer.
 - Buyer pays seller the card cost in energy.
+- Mimic target cleanup runs when the copied card leaves the seller.
 - Covered by service and GameEngine flow tests.
 
 Key files/tests:
@@ -237,6 +314,7 @@ Implemented, but with one known cleanup note.
 - `ActivateHealingRayCommand` exists as a typed command.
 - There is a `GameEngineHealingRayExtensions` extension with an `Execute(this GameEngine, GameState, ActivateHealingRayCommand)` overload.
 - Integration tests cover successful Healing Ray activation and failing when using more hearts than rolled.
+- Valid Mimic copies can activate Healing Ray through this typed extension, and copied-card owner loss is validated.
 
 Important cleanup note:
 
@@ -260,35 +338,35 @@ src/KingOfTokyo.Core/Services/HealingRayService.cs
 src/KingOfTokyo.Core/Engine/GameEngineHealingRayExtensions.cs
 tests/KingOfTokyo.Core.Tests/CardHealing/HealingRayServiceTests.cs
 tests/KingOfTokyo.Core.Tests/Integration/HealingRayFlowTests.cs
+tests/KingOfTokyo.Core.Tests/Integration/MimicHealingRayFlowTests.cs
 ```
 
 ## Current remaining card work
 
-According to `docs/CARD_IMPLEMENTATION_AUDIT.md`, the main missing card logic is now:
+According to `docs/CARD_IMPLEMENTATION_AUDIT.md`, the main missing or incomplete card logic is now:
 
 ```text
-Mimic
+Mimic final review / policy cleanup
 Omnivore
 ```
 
 ### Mimic
 
-Status: Missing / Needs engine concept.
+Status: Partial, mostly implemented.
 
-Likely required concepts:
+Remaining work:
 
-- represent copied-card target on a keep card,
-- apply copied keep-card effects consistently,
-- retarget copied card by spending energy,
-- avoid recursive/circular copy cases,
-- ensure DTO exposes copied-card state if needed.
+- Final review of copied effects.
+- Decide whether stateful/self-discard targets stay blocked.
+- Add/confirm no circular Mimic copy edge cases in retargeting.
+- Optional cleanup for real Psychic Probe discard path.
+- Eventually replace scattered cleanup calls with generic lifecycle hooks.
 
 Suggested next step:
 
-1. Add `KnownCardIds.Mimic` and default deck entry.
-2. Add card-local copied target state to `MarketCardState` or a dedicated structure.
-3. Add a small service/test for setting Mimic target.
-4. Then gradually apply copied effects only for a small safe subset first.
+1. Do a small review pass over `KeepCardRulesService` methods and `Mimic*` tests.
+2. Add missing regression tests only where there is a real gap.
+3. Then mark Mimic as implemented/partial-policy-complete in the audit.
 
 ### Omnivore
 
@@ -300,9 +378,9 @@ Likely required concepts:
 - dice used for Omnivore should still be usable in other scoring combinations according to the audit note,
 - deterministic scoring tests.
 
-Suggested next step after Mimic or instead of Mimic:
+Suggested next step after Mimic review:
 
-1. Add `KnownCardIds.Omnivore` and default deck entry.
+1. Add `KnownCardIds.Omnivore` and default deck entry if not already present.
 2. Add scoring test for the exact pair condition.
 3. Implement the scoring extension in dice finalization/scoring rules.
 
@@ -327,11 +405,11 @@ After Mimic and Omnivore:
 Pure headless game logic is roughly:
 
 ```text
-90-92% complete
-8-10% remaining
+93-95% complete
+5-7% remaining
 ```
 
-Most base engine systems and most cards are done. The remaining complexity is concentrated in Mimic, Omnivore, cleanup of generic lifecycle/copying, and one longer regression flow.
+Most base engine systems and most cards are done. The remaining complexity is concentrated in finalizing Mimic policy/cleanup, implementing Omnivore, generic lifecycle cleanup, and one longer regression flow.
 
 ## Prompt for next chat
 
@@ -353,7 +431,12 @@ Prosím nejdřív si projdi hlavně:
 - src/KingOfTokyo.Core/Engine/GameEngineHealingRayExtensions.cs
 - src/KingOfTokyo.Core/Domain/State/GameState.cs
 - src/KingOfTokyo.Core/Domain/Entities/TurnState.cs
+- src/KingOfTokyo.Core/Domain/Entities/PlayerState.cs
+- src/KingOfTokyo.Core/Domain/Entities/MarketCardState.cs
 - src/KingOfTokyo.Core/Domain/ValueObjects/KnownCardIds.cs
+- src/KingOfTokyo.Core/Services/KeepCardRulesService.cs
+- src/KingOfTokyo.Core/Services/KeepCardEffectLookupService.cs
+- src/KingOfTokyo.Core/Services/MimicTargetCleanupService.cs
 - src/KingOfTokyo.Core/Services/MarketSetupService.cs
 - src/KingOfTokyo.Core/Dto/GameStateDto.cs
 - src/KingOfTokyo.Core/Dto/GameStateDtoMapper.cs
@@ -365,11 +448,13 @@ Aktuální stav:
 - DTO mapper je stabilizovaný,
 - Opportunist, Parasitic Tentacles a Healing Ray jsou implementované,
 - Healing Ray je zatím napojený přes typed GameEngine extension, ne přímo v hlavním command switchi,
-- podle auditu zbývá hlavně Mimic a Omnivore,
-- čistá herní logika je zhruba 90-92 % hotová.
+- Mimic je z velké části implementovaný: target state, DTO, retargeting, kopírované efekty, validated lookup a cleanup neplatných targetů,
+- stateful/self-discard Mimic targety jako Smoke Cloud, Plot Twist, Metamorph a Psychic Probe jsou zatím záměrně blokované,
+- podle auditu zbývá hlavně finalizovat Mimic policy/review a implementovat Omnivore,
+- čistá herní logika je zhruba 93-95 % hotová.
 
 Před pokračováním spusť / vyžádej si výsledek:
-dotnet test KingOfTokyo.Engine.slnx
+dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
 
 Chci pokračovat stejně jako předchozí AI:
 - navrhni další malý až střední krok,
@@ -382,7 +467,7 @@ Chci pokračovat stejně jako předchozí AI:
 - pokud něco rozbiješ, nejdřív to oprav.
 
 Doporučený další krok:
-Začni kartou Mimic, protože vyžaduje poslední větší engine koncept: kopírování jiné keep karty. Postupuj malými kroky: nejdřív přidat card id/deck entry, potom reprezentaci cíle kopírování, potom service/test pro nastavení/retarget, a až potom aplikovat kopírované efekty.
+Dokonči krátký Mimic review/policy pass a potom začni kartu Omnivore. Postupuj malými kroky: nejdřív přesný scoring test, potom card id/deck entry, potom implementace scoring extension.
 
 Důležitý styl práce:
 - Neměň moc věcí najednou, pokud to není bezpečné.
