@@ -70,6 +70,39 @@ public sealed class VictoryEliminationTimingFlowTests
                                              ended.Reason == "Last monster standing.");
     }
 
+    [Fact]
+    public void EndTurn_Should_FinishWithNoWinner_WhenTwentyPointCurrentPlayerFallsAndNoPlayersRemain()
+    {
+        var gameState = CreateGameState(2);
+        var currentPlayer = gameState.GetCurrentPlayer();
+        var otherPlayer = gameState.GetPlayerById(1);
+        currentPlayer.GainVictoryPoints(20);
+        currentPlayer.TakeDamage(9);
+        currentPlayer.Status.AddPoisonTokens(1);
+        otherPlayer.TakeDamage(10);
+        var engine = new GameEngine();
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(currentPlayer.PlayerId));
+        gameState.CurrentTurn!.MarkDiceResolved();
+        gameState.CurrentTurn.SetPhase(TurnPhase.Purchase);
+
+        var result = engine.Execute(gameState, new EndTurnCommand(currentPlayer.PlayerId));
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(20, currentPlayer.VictoryPoints);
+        Assert.False(currentPlayer.IsAlive);
+        Assert.False(otherPlayer.IsAlive);
+        Assert.Equal(GameStatus.Finished, gameState.Status);
+        Assert.NotNull(gameState.WinnerInfo);
+        Assert.False(gameState.WinnerInfo!.HasWinner);
+        Assert.Null(gameState.WinnerInfo.WinnerPlayerId);
+        Assert.Equal("All monsters were eliminated.", gameState.WinnerInfo.Reason);
+        Assert.Contains(result.NewEvents, e => e is GameEndedEvent ended &&
+                                             ended.WinnerPlayerId is null &&
+                                             ended.Reason == "All monsters were eliminated.");
+    }
+
     private static GameState CreateGameState(int playerCount)
     {
         var players = Enumerable.Range(0, playerCount)
