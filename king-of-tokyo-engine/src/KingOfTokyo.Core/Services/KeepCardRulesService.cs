@@ -27,10 +27,7 @@ public sealed class KeepCardRulesService
 
         var extraDice = 0;
 
-        if (player.HasKeepCard(KnownCardIds.ExtraHead))
-        {
-            extraDice += 1;
-        }
+        extraDice += CountKeepCardEffects(player, KnownCardIds.ExtraHead);
 
         return extraDice;
     }
@@ -41,10 +38,7 @@ public sealed class KeepCardRulesService
 
         var extraRerolls = 0;
 
-        if (player.HasKeepCard(KnownCardIds.GiantBrain))
-        {
-            extraRerolls += 1;
-        }
+        extraRerolls += CountKeepCardEffects(player, KnownCardIds.GiantBrain);
 
         return extraRerolls;
     }
@@ -135,24 +129,17 @@ public sealed class KeepCardRulesService
 
         var bonusDamage = 0;
 
-        if (player.HasKeepCard(KnownCardIds.SpikedTail))
-        {
-            bonusDamage += 1;
-        }
-
-        if (player.HasKeepCard(KnownCardIds.AcidAttack))
-        {
-            bonusDamage += 1;
-        }
+        bonusDamage += CountKeepCardEffects(player, KnownCardIds.SpikedTail);
+        bonusDamage += CountKeepCardEffects(player, KnownCardIds.AcidAttack);
 
         if (player.TokyoSlot != TokyoSlot.None &&
-            player.HasKeepCard(KnownCardIds.Urbavore))
+            HasKeepCardEffect(player, KnownCardIds.Urbavore))
         {
             bonusDamage += 1;
         }
 
         if (player.TokyoSlot == TokyoSlot.None &&
-            player.HasKeepCard(KnownCardIds.Burrowing))
+            HasKeepCardEffect(player, KnownCardIds.Burrowing))
         {
             bonusDamage += 1;
         }
@@ -276,7 +263,7 @@ public sealed class KeepCardRulesService
     public bool HasBurrowing(PlayerState player)
     {
         ArgumentNullException.ThrowIfNull(player);
-        return player.HasKeepCard(KnownCardIds.Burrowing);
+        return HasKeepCardEffect(player, KnownCardIds.Burrowing);
     }
 
     public int GetBonusHealing(PlayerState player, int baseHealingAmount)
@@ -347,7 +334,7 @@ public sealed class KeepCardRulesService
 
         var bonusVictoryPoints = 0;
 
-        if (player.HasKeepCard(KnownCardIds.Urbavore))
+        if (HasKeepCardEffect(player, KnownCardIds.Urbavore))
         {
             bonusVictoryPoints += 1;
         }
@@ -427,5 +414,17 @@ public sealed class KeepCardRulesService
         }
 
         return 0;
+    }
+
+    private static bool HasKeepCardEffect(PlayerState player, string cardId)
+    {
+        return CountKeepCardEffects(player, cardId) > 0;
+    }
+
+    private static int CountKeepCardEffects(PlayerState player, string cardId)
+    {
+        return player.KeepCards.Count(card =>
+            card.CardId == cardId ||
+            (card.CardId == KnownCardIds.Mimic && card.MimicTarget?.CardId == cardId));
     }
 }
