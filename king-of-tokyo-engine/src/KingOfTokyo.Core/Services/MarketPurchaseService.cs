@@ -306,11 +306,15 @@ public sealed class MarketPurchaseService
     {
         foreach (var target in targets.ToArray())
         {
+            var targetDamage = amount + (target.PlayerId == sourcePlayer.PlayerId
+                ? 0
+                : _keepCardRulesService.GetAcidAttackBonusDamage(sourcePlayer, amount));
+
             var packet = new DamagePacket
             {
                 SourcePlayerId = sourcePlayer.PlayerId,
                 TargetPlayerId = target.PlayerId,
-                Amount = amount,
+                Amount = targetDamage,
                 DamageKind = DamageKind.CardEffect,
                 CountsAsAttack = false,
                 AllowsTokyoLeave = false
