@@ -39,6 +39,29 @@ public sealed class MimicTargetFlowTests
     }
 
     [Fact]
+    public void SetMimicTarget_Should_FailWhenInitialTargetIsOwnCard()
+    {
+        var gameState = CreateGameState(3);
+        var mimicOwner = gameState.GetCurrentPlayer();
+        var mimic = CreateKeepCard(KnownCardIds.Mimic, "Mimic", 8);
+        var ownTarget = CreateKeepCard(KnownCardIds.GiantBrain, "Giant Brain", 5);
+        mimicOwner.AddKeepCard(mimic);
+        mimicOwner.AddKeepCard(ownTarget);
+
+        var engine = new GameEngine();
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(mimicOwner.PlayerId));
+        gameState.CurrentTurn!.MarkDiceResolved();
+        gameState.CurrentTurn.SetPhase(TurnPhase.Purchase);
+
+        var result = engine.Execute(gameState, new SetMimicTargetCommand(mimicOwner.PlayerId, ownTarget.CardId, mimicOwner.PlayerId));
+
+        Assert.False(result.Success);
+        Assert.Equal("Mimic cannot copy its owner's own cards.", result.Error);
+        Assert.Null(mimic.MimicTarget);
+    }
+
+    [Fact]
     public void SetMimicTarget_Should_RetargetAtStartOfTurnAndSpendOneEnergy()
     {
         var gameState = CreateGameState(3);
