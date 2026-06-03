@@ -392,6 +392,7 @@ public sealed class FinalizeDiceService
             return;
         }
 
+        var totalDamage = poisonDamage + _keepCardRulesService.GetAcidAttackBonusDamage(currentPlayer, poisonDamage);
         var targets = ResolvePositionalTargets(gameState, currentPlayer);
 
         foreach (var target in targets)
@@ -400,7 +401,7 @@ public sealed class FinalizeDiceService
             {
                 SourcePlayerId = currentPlayer.PlayerId,
                 TargetPlayerId = target.PlayerId,
-                Amount = poisonDamage,
+                Amount = totalDamage,
                 DamageKind = DamageKind.CardEffect,
                 CountsAsAttack = false,
                 AllowsTokyoLeave = false
