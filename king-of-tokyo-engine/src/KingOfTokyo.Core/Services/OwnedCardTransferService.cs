@@ -1,9 +1,20 @@
 using KingOfTokyo.Core.Domain.Entities;
+using KingOfTokyo.Core.Domain.State;
 
 namespace KingOfTokyo.Core.Services;
 
 public sealed class OwnedCardTransferService
 {
+    public void BuyKeepCardFromPlayer(GameState gameState, PlayerState buyer, PlayerState seller, string cardId, int cost)
+    {
+        ArgumentNullException.ThrowIfNull(gameState);
+
+        BuyKeepCardFromPlayer(buyer, seller, cardId, cost);
+
+        var mimicTargetCleanupService = new MimicTargetCleanupService();
+        mimicTargetCleanupService.ClearTargetsForLostCard(gameState, seller.PlayerId, cardId);
+    }
+
     public void BuyKeepCardFromPlayer(PlayerState buyer, PlayerState seller, string cardId, int cost)
     {
         ArgumentNullException.ThrowIfNull(buyer);
