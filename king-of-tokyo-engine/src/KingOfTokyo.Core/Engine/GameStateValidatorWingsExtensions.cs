@@ -2,7 +2,6 @@ using KingOfTokyo.Core.Commands;
 using KingOfTokyo.Core.Decisions;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
-using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Events;
 using KingOfTokyo.Core.Services;
 
@@ -40,14 +39,15 @@ public static class GameStateValidatorWingsExtensions
             throw new InvalidOperationException("Dead players cannot activate Wings.");
         }
 
-        if (!player.HasKeepCard(KnownCardIds.Wings))
+        var keepCardRulesService = new KeepCardRulesService();
+        if (!keepCardRulesService.CanUseWings(player))
         {
-            throw new InvalidOperationException("Player cannot use Wings right now.");
-        }
+            if (player.Energy < KeepCardRulesService.WingsCost)
+            {
+                throw new InvalidOperationException("Player does not have enough energy to activate Wings.");
+            }
 
-        if (player.Energy < KeepCardRulesService.WingsCost)
-        {
-            throw new InvalidOperationException("Player does not have enough energy to activate Wings.");
+            throw new InvalidOperationException("Player cannot use Wings right now.");
         }
 
         if (gameState.PendingDecision is not null &&
