@@ -8,6 +8,13 @@ namespace KingOfTokyo.Core.Services;
 
 public sealed class EnergyPaymentService
 {
+    private readonly KeepCardLifecycleService _keepCardLifecycleService;
+
+    public EnergyPaymentService(KeepCardLifecycleService? keepCardLifecycleService = null)
+    {
+        _keepCardLifecycleService = keepCardLifecycleService ?? new KeepCardLifecycleService();
+    }
+
     public int GetAvailableEnergy(PlayerState player)
     {
         ArgumentNullException.ThrowIfNull(player);
@@ -68,6 +75,7 @@ public sealed class EnergyPaymentService
             {
                 var discardedCard = player.RemoveKeepCard(KnownCardIds.MonsterBatteries);
                 new MimicTargetCleanupService().ClearTargetsForLostCard(gameState, player.PlayerId, discardedCard.CardId);
+                _keepCardLifecycleService.ApplyLostEffect(player, discardedCard);
                 gameState.Market.Discard(discardedCard);
 
                 events.Add(new KeepCardDiscardedEvent(
