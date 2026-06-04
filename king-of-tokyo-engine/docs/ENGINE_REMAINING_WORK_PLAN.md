@@ -76,6 +76,46 @@ Still useful later:
 - API adapter tests once a real server layer exists.
 - Event cursor / incremental sync tests if a cursor API is added on top of EventLog.
 
+### Healing Ray command cleanup
+
+Status: complete for current engine shape.
+
+Covered:
+
+- `ActivateHealingRayCommand` is handled in the main `GameEngine.Execute(IGameCommand)` switch.
+- Generic command dispatch has regression coverage.
+- Existing typed extension remains compatible.
+- Mimic -> Healing Ray still works.
+- Mimic targeting a different card does not allow Healing Ray.
+- Mimic target cleanup is respected when the copied Healing Ray is lost.
+
+### Keep-card lifecycle cleanup
+
+Status: mostly complete for current production paths.
+
+Implemented:
+
+- Added `KeepCardLifecycleService` with added/lost hooks.
+- `Even Bigger` max-health added/lost behavior is centralized there.
+- Purchased keep cards apply added lifecycle effects through `MarketPurchaseService`.
+- `Metamorph` discards use lifecycle lost effects.
+- `Parasitic Tentacles` transfers apply lost effect to seller and added effect to buyer.
+- `It Has a Child` discard-all applies lifecycle lost effects.
+- `Smoke Cloud` and `Plot Twist` self-discards call lifecycle lost effects.
+- `Monster Batteries` discard paths call lifecycle lost effects when batteries are exhausted by payment or end-turn drain.
+
+Regression coverage added/expanded:
+
+- `Parasitic Tentacles` transfers `Even Bigger` max-health effect from seller to buyer.
+- `It Has a Child` discarding `Even Bigger` resets max health back to normal before revive to 10.
+- Existing `Even Bigger` purchase and `Metamorph` coverage should now flow through lifecycle service.
+
+Still useful later:
+
+- Consider moving Mimic cleanup into the same lifecycle service so lost-card handling has one central public entry point.
+- Add dedicated unit tests for `KeepCardLifecycleService` if more cards gain lifecycle hooks.
+- Audit any future direct `RemoveKeepCard(...)` calls and route them through lifecycle helpers.
+
 ## 1. Combined card edge cases
 
 Priority: high.
@@ -127,20 +167,24 @@ Already covered in important flows:
 - Clears energy.
 - Counts as eliminated for Eater of the Dead.
 - Mimic stale target cleanup is covered when owner is defeated and revived.
+- It Has a Child with Even Bigger max-health loss.
 
 Still useful to cover:
 
-- It Has a Child with Even Bigger max-health loss.
 - It Has a Child when owner is in Bay and Bay cleanup is needed.
 - It Has a Child plus multiple simultaneous eliminations.
 
 ### Even Bigger
 
-Important remaining area:
+Already expanded:
 
-- Losing Even Bigger should reduce max health by 2.
-- If current health exceeds new max after losing Even Bigger, current health should clamp appropriately if that is current policy.
-- Interactions with It Has a Child, Metamorph, Parasitic Tentacles, and elimination cleanup need coverage.
+- Losing Even Bigger reduces max health by 2.
+- Current health clamps through `PlayerState.DecreaseMaxHealth` when max health drops.
+- Interactions with It Has a Child, Metamorph, and Parasitic Tentacles have coverage.
+
+Still useful to cover:
+
+- Even Bigger with future generic lifecycle entry point once Mimic cleanup is folded in.
 
 ### Tokyo attack modifiers
 
@@ -177,6 +221,7 @@ Already expanded:
 - Dead player with 20 VP cannot win.
 - VictoryMode.Standard, FirstToTwentyPoints, and LastMonsterStanding have targeted resolver tests.
 - Eater of the Dead can trigger a non-current 20 VP win.
+- It Has a Child + Eater victory timing coverage.
 - Full-game regression covers 20 VP victory, last-monster-standing victory, and dead 20 VP non-victory.
 
 Still useful to cover:
@@ -186,56 +231,7 @@ Still useful to cover:
 - All monsters eliminated while one or more players reached 20 VP earlier in same turn.
 - LastMonsterStanding mode with all eliminated should still produce no winner.
 
-## 3. Healing Ray command cleanup
-
-Priority: high before online API.
-
-Current state:
-
-- Healing Ray works through `GameEngineHealingRayExtensions` typed overload.
-- This is functional but not uniform with the main `IGameCommand` switch.
-
-Planned work:
-
-- Move `ActivateHealingRayCommand` handling into main `GameEngine.Execute(...)` switch.
-- Keep typed extension temporarily or remove if redundant.
-- Add regression tests ensuring generic `IGameCommand` dispatch works.
-- Verify Mimic -> Healing Ray still works.
-
-## 4. Generic owned-card lifecycle hook
-
-Priority: medium, but bigger refactor.
-
-Current state:
-
-- Mimic stale target cleanup works, but cleanup calls are scattered across services.
-
-Goal:
-
-Create central lifecycle hooks such as:
-
-- `OnKeepCardAdded`
-- `OnKeepCardLost`
-- `OnKeepCardDiscarded`
-- `OnKeepCardTransferred`
-
-Use cases:
-
-- Mimic stale target cleanup.
-- Even Bigger max-health loss.
-- Metamorph discard.
-- Parasitic Tentacles transfer.
-- Monster Batteries discard.
-- Smoke Cloud, Plot Twist, Psychic Probe self-discard.
-- It Has a Child discarding all keep cards.
-
-Approach:
-
-- Do not do this as one large rewrite.
-- First add a small service method and test it.
-- Then migrate one discard/transfer path at a time.
-
-## 5. DTO / online sync readiness
+## 3. DTO / online sync readiness
 
 Priority: medium before frontend.
 
@@ -251,7 +247,7 @@ Still useful later:
 - Add API adapter tests once the online layer exists.
 - Consider exposing a richer event DTO if UI animations need strongly typed serialized events.
 
-## 6. Documentation and audit cleanup
+## 4. Documentation and audit cleanup
 
 Priority: medium-low, but useful for future handoff.
 
@@ -273,23 +269,13 @@ Recent changes that should be reflected in handoff/audit:
 - It Has a Child + Eater victory timing coverage.
 - Acid Attack now applies to selected non-attack damage sources.
 - Mimic -> Acid Attack discard damage regression coverage.
+- Healing Ray generic command dispatch.
+- Keep-card lifecycle service and Even Bigger lifecycle coverage.
 
 ## Suggested next step
 
 Recommended next block:
 
 ```text
-Healing Ray command cleanup: move ActivateHealingRayCommand into the main GameEngine.Execute(...) switch and add generic-command regression tests.
-```
-
-After that, continue with either:
-
-```text
-Even Bigger / owned-card lifecycle cleanup
-```
-
-or:
-
-```text
-Combined card edge-case regression coverage
+Combined card edge-case regression coverage: Acid Attack + Gas Refinery / High Altitude Bombing / Fire Blast, then Tokyo attack modifiers.
 ```
