@@ -1,10 +1,14 @@
+using KingOfTokyo.Core.Domain.ValueObjects;
+
 namespace KingOfTokyo.Api.Lobbies;
 
 public sealed record CreateLobbyRequest(
     string Name,
     int MaxPlayers,
     bool IsPublic,
-    string HostDisplayName);
+    string HostDisplayName,
+    int InitialHealth = GameOptions.DefaultInitialHealth,
+    int TargetVictoryPoints = GameOptions.DefaultTargetVictoryPoints);
 
 public sealed record JoinLobbyRequest(string DisplayName);
 
@@ -15,6 +19,8 @@ public sealed record LobbyDto(
     string Name,
     int MaxPlayers,
     bool IsPublic,
+    int InitialHealth,
+    int TargetVictoryPoints,
     LobbyStatus Status,
     IReadOnlyList<LobbySeatDto> Seats);
 
