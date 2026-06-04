@@ -8,7 +8,7 @@ using KingOfTokyo.Core.Engine;
 
 namespace KingOfTokyo.Api.GameSessions;
 
-public sealed class InMemoryGameSessionStore
+public sealed class InMemoryGameSessionStore : IGameSessionStore
 {
     private readonly ConcurrentDictionary<Guid, GameSession> _sessions = new();
 
