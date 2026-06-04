@@ -16,7 +16,7 @@ public sealed class InMemoryGameSessionStoreTests
         var snapshot = store.CreateGame(new[] { "Alpha", "Beta" });
 
         Assert.NotEqual(Guid.Empty, snapshot.GameId);
-        Assert.Equal(GameStatus.NotStarted, snapshot.Status);
+        Assert.Equal(GameStatus.Setup, snapshot.Status);
         Assert.Equal(2, snapshot.Players.Count);
         Assert.Equal("Alpha", snapshot.Players[0].MonsterName);
         Assert.Equal("Beta", snapshot.Players[1].MonsterName);
