@@ -1,3 +1,4 @@
+using KingOfTokyo.Core.Abstractions;
 using KingOfTokyo.Core.Commands;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
@@ -39,6 +40,37 @@ public sealed class HealingRayFlowTests
         Assert.Contains(result.NewEvents, e => e is KingOfTokyo.Core.Events.PlayerHealedEvent healed &&
                                               healed.PlayerId == target.PlayerId &&
                                               healed.Amount == 2);
+    }
+
+    [Fact]
+    public void ActivateHealingRay_Should_WorkThroughGenericCommandDispatch()
+    {
+        var gameState = CreateGameState(3);
+        var healer = gameState.GetCurrentPlayer();
+        var target = gameState.GetPlayerById(1);
+        healer.AddKeepCard(CreateKeepCard(KnownCardIds.HealingRay, "Healing Ray", 4));
+        target.TakeDamage(1);
+        target.GainEnergy(2);
+
+        var engine = new GameEngine();
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(healer.PlayerId));
+        gameState.CurrentTurn!.DicePool.SetFace(0, DieFace.Heart);
+        gameState.CurrentTurn.MarkDiceResolved();
+        gameState.CurrentTurn.SetPhase(TurnPhase.Purchase);
+
+        IGameCommand command = new ActivateHealingRayCommand(target.PlayerId, healingAmount: 1, healer.PlayerId);
+        var result = engine.Execute(gameState, command);
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(10, target.Health);
+        Assert.Equal(0, target.Energy);
+        Assert.Equal(2, healer.Energy);
+        Assert.Equal(1, gameState.CurrentTurn.HealingRayHeartsSpent);
+        Assert.Contains(result.NewEvents, e => e is KingOfTokyo.Core.Events.PlayerHealedEvent healed &&
+                                              healed.PlayerId == target.PlayerId &&
+                                              healed.Amount == 1 &&
+                                              healed.Reason == "Keep card: Healing Ray.");
     }
 
     [Fact]
