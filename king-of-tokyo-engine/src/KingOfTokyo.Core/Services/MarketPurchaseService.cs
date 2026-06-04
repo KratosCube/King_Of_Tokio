@@ -15,6 +15,7 @@ namespace KingOfTokyo.Core.Services;
 public sealed class MarketPurchaseService
 {
     private readonly KeepCardRulesService _keepCardRulesService;
+    private readonly KeepCardLifecycleService _keepCardLifecycleService;
     private readonly DamageApplier _damageApplier;
     private readonly EliminationService _eliminationService;
     private readonly TokyoResolver _tokyoResolver;
@@ -22,12 +23,14 @@ public sealed class MarketPurchaseService
 
     public MarketPurchaseService(
         KeepCardRulesService? keepCardRulesService = null,
+        KeepCardLifecycleService? keepCardLifecycleService = null,
         DamageApplier? damageApplier = null,
         EliminationService? eliminationService = null,
         TokyoResolver? tokyoResolver = null,
         EnergyPaymentService? energyPaymentService = null)
     {
         _keepCardRulesService = keepCardRulesService ?? new KeepCardRulesService();
+        _keepCardLifecycleService = keepCardLifecycleService ?? new KeepCardLifecycleService();
         _damageApplier = damageApplier ?? new DamageApplier();
         _eliminationService = eliminationService ?? new EliminationService();
         _tokyoResolver = tokyoResolver ?? new TokyoResolver();
@@ -176,7 +179,11 @@ public sealed class MarketPurchaseService
     {
         var effect = boughtCard.PurchaseEffect;
 
-        if (effect.IncreaseMaxHealth > 0)
+        if (boughtCard.CardType == MarketCardType.Keep)
+        {
+            _keepCardLifecycleService.ApplyAddedEffect(player, boughtCard);
+        }
+        else if (effect.IncreaseMaxHealth > 0)
         {
             player.IncreaseMaxHealth(effect.IncreaseMaxHealth);
         }
@@ -359,48 +366,56 @@ public sealed class MarketPurchaseService
             return null;
         }
 
-        var eligiblePlayerIds = gameState.Players
+        var opportunistPlayers = gameState.Players
             .Where(player => player.IsAlive &&
                              player.HasKeepCard(KnownCardIds.Opportunist) &&
-                             _energyPaymentService.GetAvailableEnergy(player) >= _keepCardRulesService.GetEffectivePurchaseCost(player, revealedCard))
-            .Select(player => player.PlayerId)
+                             player.PlayerId != gameState.GetCurrentPlayer().PlayerId)
+            .OrderBy(player => GetDistanceFromCurrentPlayer(gameState, player.PlayerId))
             .ToArray();
 
-        if (eligiblePlayerIds.Length == 0)
+        if (opportunistPlayers.Length == 0)
         {
             return null;
         }
 
+        var opportunist = opportunistPlayers[0];
+        var effectiveCost = _keepCardRulesService.GetEffectivePurchaseCost(opportunist, revealedCard);
+
         return new PendingDecision
         {
             DecisionType = DecisionType.OpportunistPurchase,
-            PlayerId = eligiblePlayerIds[0],
+            PlayerId = opportunist.PlayerId,
             Payload = new MarketCardRevealDecisionData
             {
                 SlotIndex = slotIndex,
                 CardId = revealedCard.CardId,
                 CardName = revealedCard.Name,
-                Cost = _keepCardRulesService.GetEffectivePurchaseCost(gameState.GetPlayerById(eligiblePlayerIds[0]), revealedCard),
-                EligiblePlayerIds = eligiblePlayerIds
+                BaseCost = revealedCard.Cost,
+                EffectiveCost = effectiveCost,
+                CardType = revealedCard.CardType
             }
         };
     }
 
+    private static int GetDistanceFromCurrentPlayer(GameState gameState, int playerId)
+    {
+        var currentPlayerId = gameState.CurrentPlayerId;
+        if (playerId >= currentPlayerId)
+        {
+            return playerId - currentPlayerId;
+        }
+
+        return gameState.Players.Count - currentPlayerId + playerId;
+    }
+
     private void AwardEaterOfTheDeadPoints(GameState gameState, List<GameEventBase> events)
     {
-        foreach (var alivePlayer in gameState.GetAlivePlayers())
+        foreach (var eater in gameState.Players.Where(player => player.IsAlive && player.HasKeepCard(KnownCardIds.EaterOfTheDead)))
         {
-            var bonusVictoryPoints = _keepCardRulesService.GetVictoryPointsWhenMonsterEliminated(alivePlayer);
-            if (bonusVictoryPoints <= 0)
-            {
-                continue;
-            }
-
-            alivePlayer.GainVictoryPoints(bonusVictoryPoints);
-
+            eater.GainVictoryPoints(3);
             events.Add(new VictoryPointsGainedEvent(
-                alivePlayer.PlayerId,
-                bonusVictoryPoints,
+                eater.PlayerId,
+                3,
                 "Keep card: Eater of the Dead."));
         }
     }
