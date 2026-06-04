@@ -28,12 +28,13 @@ public sealed class EliminationService
         new MimicTargetCleanupService().ClearTargetsForOwner(gameState, player.PlayerId);
 
         RemovePlayerFromTokyoIfNeeded(gameState, player);
-        DisableBayIfNeeded(gameState);
 
         if (player.HasKeepCard(KnownCardIds.ItHasAChild))
         {
             ApplyItHasAChild(gameState, player);
         }
+
+        DisableBayIfNeeded(gameState);
 
         return true;
     }
