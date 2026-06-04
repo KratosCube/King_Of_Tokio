@@ -366,56 +366,48 @@ public sealed class MarketPurchaseService
             return null;
         }
 
-        var opportunistPlayers = gameState.Players
+        var eligiblePlayerIds = gameState.Players
             .Where(player => player.IsAlive &&
                              player.HasKeepCard(KnownCardIds.Opportunist) &&
-                             player.PlayerId != gameState.GetCurrentPlayer().PlayerId)
-            .OrderBy(player => GetDistanceFromCurrentPlayer(gameState, player.PlayerId))
+                             _energyPaymentService.GetAvailableEnergy(player) >= _keepCardRulesService.GetEffectivePurchaseCost(player, revealedCard))
+            .Select(player => player.PlayerId)
             .ToArray();
 
-        if (opportunistPlayers.Length == 0)
+        if (eligiblePlayerIds.Length == 0)
         {
             return null;
         }
 
-        var opportunist = opportunistPlayers[0];
-        var effectiveCost = _keepCardRulesService.GetEffectivePurchaseCost(opportunist, revealedCard);
-
         return new PendingDecision
         {
             DecisionType = DecisionType.OpportunistPurchase,
-            PlayerId = opportunist.PlayerId,
+            PlayerId = eligiblePlayerIds[0],
             Payload = new MarketCardRevealDecisionData
             {
                 SlotIndex = slotIndex,
                 CardId = revealedCard.CardId,
                 CardName = revealedCard.Name,
-                BaseCost = revealedCard.Cost,
-                EffectiveCost = effectiveCost,
-                CardType = revealedCard.CardType
+                Cost = _keepCardRulesService.GetEffectivePurchaseCost(gameState.GetPlayerById(eligiblePlayerIds[0]), revealedCard),
+                EligiblePlayerIds = eligiblePlayerIds
             }
         };
     }
 
-    private static int GetDistanceFromCurrentPlayer(GameState gameState, int playerId)
-    {
-        var currentPlayerId = gameState.CurrentPlayerId;
-        if (playerId >= currentPlayerId)
-        {
-            return playerId - currentPlayerId;
-        }
-
-        return gameState.Players.Count - currentPlayerId + playerId;
-    }
-
     private void AwardEaterOfTheDeadPoints(GameState gameState, List<GameEventBase> events)
     {
-        foreach (var eater in gameState.Players.Where(player => player.IsAlive && player.HasKeepCard(KnownCardIds.EaterOfTheDead)))
+        foreach (var alivePlayer in gameState.GetAlivePlayers())
         {
-            eater.GainVictoryPoints(3);
+            var bonusVictoryPoints = _keepCardRulesService.GetVictoryPointsWhenMonsterEliminated(alivePlayer);
+            if (bonusVictoryPoints <= 0)
+            {
+                continue;
+            }
+
+            alivePlayer.GainVictoryPoints(bonusVictoryPoints);
+
             events.Add(new VictoryPointsGainedEvent(
-                eater.PlayerId,
-                3,
+                alivePlayer.PlayerId,
+                bonusVictoryPoints,
                 "Keep card: Eater of the Dead."));
         }
     }
