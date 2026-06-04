@@ -4,10 +4,11 @@ namespace KingOfTokyo.Core.Dto;
 
 public sealed record GameEventCursorDto(
     Guid GameId,
-    long FromVersionExclusive,
-    long CurrentVersion,
+    long FromEventSequenceExclusive,
+    long CurrentEventSequence,
+    long CurrentGameVersion,
     IReadOnlyList<GameEventEnvelopeDto> Events);
 
 public sealed record GameEventEnvelopeDto(
-    long Version,
+    long EventSequence,
     GameEventBase Event);
