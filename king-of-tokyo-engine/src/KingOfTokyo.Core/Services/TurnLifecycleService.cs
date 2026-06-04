@@ -13,15 +13,18 @@ public sealed class TurnLifecycleService
     private readonly VictoryResolver _victoryResolver;
     private readonly EliminationService _eliminationService;
     private readonly KeepCardRulesService _keepCardRulesService;
+    private readonly KeepCardLifecycleService _keepCardLifecycleService;
 
     public TurnLifecycleService(
         VictoryResolver? victoryResolver = null,
         KeepCardRulesService? keepCardRulesService = null,
-        EliminationService? eliminationService = null)
+        EliminationService? eliminationService = null,
+        KeepCardLifecycleService? keepCardLifecycleService = null)
     {
         _victoryResolver = victoryResolver ?? new VictoryResolver();
         _keepCardRulesService = keepCardRulesService ?? new KeepCardRulesService();
         _eliminationService = eliminationService ?? new EliminationService();
+        _keepCardLifecycleService = keepCardLifecycleService ?? new KeepCardLifecycleService();
     }
 
     public EngineStepResult EndTurn(GameState gameState)
@@ -154,7 +157,7 @@ public sealed class TurnLifecycleService
         gameState.AdvanceToNextAlivePlayer();
     }
 
-    private static void DrainMonsterBatteries(GameState gameState, List<GameEventBase> newEvents)
+    private void DrainMonsterBatteries(GameState gameState, List<GameEventBase> newEvents)
     {
         foreach (var player in gameState.GetAlivePlayers().ToArray())
         {
@@ -171,6 +174,7 @@ public sealed class TurnLifecycleService
 
                 var discardedCard = player.RemoveKeepCard(KnownCardIds.MonsterBatteries);
                 new MimicTargetCleanupService().ClearTargetsForLostCard(gameState, player.PlayerId, discardedCard.CardId);
+                _keepCardLifecycleService.ApplyLostEffect(player, discardedCard);
                 gameState.Market.Discard(discardedCard);
 
                 newEvents.Add(new KeepCardDiscardedEvent(
