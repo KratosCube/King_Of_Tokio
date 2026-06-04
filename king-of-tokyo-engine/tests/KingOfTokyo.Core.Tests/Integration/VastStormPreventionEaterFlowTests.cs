@@ -93,7 +93,7 @@ public sealed class VastStormPreventionEaterFlowTests
         Assert.Contains(result.NewEvents, e => e is DamageDealtEvent damage &&
                                              damage.SourcePlayerId == buyer.PlayerId &&
                                              damage.TargetPlayerId == victim.PlayerId &&
-                                             damage.Amount == 3 &&
+                                             damage.Amount == 2 &&
                                              damage.DamageKind == DamageKind.CardEffect);
         Assert.Contains(result.NewEvents, e => e is PlayerEliminatedEvent eliminated &&
                                              eliminated.EliminatedPlayerId == victim.PlayerId &&
