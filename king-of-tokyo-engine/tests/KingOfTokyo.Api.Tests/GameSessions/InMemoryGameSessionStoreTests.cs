@@ -2,6 +2,7 @@ using KingOfTokyo.Api.Contracts;
 using KingOfTokyo.Api.GameSessions;
 using KingOfTokyo.Core.Commands;
 using KingOfTokyo.Core.Domain.Enums;
+using KingOfTokyo.Core.Engine;
 using KingOfTokyo.Core.Events;
 using Xunit;
 
@@ -67,9 +68,8 @@ public sealed class InMemoryGameSessionStoreTests
         }, out var result);
 
         Assert.NotNull(result);
-        Assert.True(result!.GameState.WinnerInfo?.HasWinner);
-        Assert.Equal(0, result.GameState.WinnerInfo?.WinnerPlayerId);
-        Assert.Equal("Reached 1 victory points.", result.GameState.WinnerInfo?.Reason);
+        Assert.Equal(0, result!.GameState.WinnerPlayerId);
+        Assert.Equal("Reached 1 victory points.", result.GameState.WinnerReason);
     }
 
     [Fact]
