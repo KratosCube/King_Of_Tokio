@@ -1,8 +1,25 @@
 # Mimic policy notes
 
-Mimic is substantially implemented, but still intentionally treated as a policy-sensitive card because it can copy many different keep-card effects.
+Mimic is implemented for the v1 headless engine policy.
 
-## Current implemented policy
+## Final v1 policy
+
+Mimic can target another living monster's non-Mimic keep card and can copy supported passive or explicitly supported activated effects.
+
+For v1, stateful/self-discard Mimic activations remain intentionally blocked. This is a final v1 rule-policy decision, not an implementation gap.
+
+Blocked v1 activations through Mimic:
+
+- Smoke Cloud
+- Plot Twist
+- Metamorph
+- Psychic Probe
+
+These cards can still be visible as Mimic target state when relevant, but command activation through Mimic must fail unless the player owns the real card.
+
+Reason: these cards use card-local counters, once-per-turn state, self-discard behavior, or special ownership semantics. Copying them safely would require explicit copy-state rules and UI explanations that are not needed for the v1 online engine.
+
+## Targeting rules
 
 Mimic can target another living monster's non-Mimic keep card.
 
@@ -30,7 +47,7 @@ Retarget:
 - costs 1 energy,
 - the cost is charged only after the new target is validated and successfully applied.
 
-This order is important. A failed retarget must not spend energy and must not modify the previous target.
+A failed retarget must not spend energy and must not modify the previous target.
 
 Regression coverage exists for failed retarget attempts against:
 
@@ -44,27 +61,30 @@ Regression coverage exists for failed retarget attempts against:
 Current copied-effect support includes passive and selected activated keep effects through existing services and command flows, including:
 
 - passive keep-card rules handled by `KeepCardRulesService`,
+- Acid Attack,
+- Omnivore,
 - Telepath,
 - Stretchy,
 - Herd Culler,
 - Wings,
 - Made in a Lab,
 - Rapid Healing,
-- Healing Ray,
-- Omnivore.
+- Healing Ray.
 
-## Intentionally unsupported copied effects
+## V1 blocked copied activations
 
-These stateful/self-discard effects are intentionally not activatable through Mimic yet:
+These stateful/self-discard effects are intentionally not activatable through Mimic in v1:
 
 - Smoke Cloud,
 - Plot Twist,
 - Metamorph,
 - Psychic Probe.
 
-They can still exist as visible target state when relevant, but command activation through Mimic is blocked by tests.
+Locked by regression tests:
 
-Reason: these cards use card-local counters, once-per-turn markers, self-discard behavior, or special ownership semantics that need explicit copy rules before they can be safely activated through Mimic.
+```text
+tests/KingOfTokyo.Core.Tests/Integration/MimicUnsupportedStatefulCardFlowTests.cs
+```
 
 ## Stale target cleanup
 
@@ -84,7 +104,7 @@ Currently covered cleanup paths include:
 
 ## Remaining cleanup risk
 
-No known Mimic-specific stale-target cleanup gap remains after the Psychic Probe discard path was covered.
+No known Mimic-specific stale-target cleanup gap remains.
 
 The remaining structural risk is that cleanup calls are still scattered across the engine and services instead of flowing through one generic owned-card lifecycle hook.
 
