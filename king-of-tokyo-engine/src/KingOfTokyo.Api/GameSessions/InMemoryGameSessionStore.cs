@@ -12,19 +12,25 @@ public sealed class InMemoryGameSessionStore : IGameSessionStore
 {
     private readonly ConcurrentDictionary<Guid, GameSession> _sessions = new();
 
-    public GameStateDto CreateGame(IReadOnlyList<string> monsterNames)
+    public GameStateDto CreateGame(CreateGameRequest request)
     {
-        ArgumentNullException.ThrowIfNull(monsterNames);
+        ArgumentNullException.ThrowIfNull(request);
 
-        var names = monsterNames
+        var names = request.MonsterNames
             .Select(name => string.IsNullOrWhiteSpace(name) ? null : name.Trim())
             .ToArray();
 
         var playerCount = names.Length;
+        var initialHealth = request.InitialHealth ?? GameOptions.DefaultInitialHealth;
+        var targetVictoryPoints = request.TargetVictoryPoints ?? GameOptions.DefaultTargetVictoryPoints;
         var players = names
-            .Select((name, index) => new PlayerState(index, name ?? $"Monster {index + 1}"))
+            .Select((name, index) => new PlayerState(index, name ?? $"Monster {index + 1}", initialHealth))
             .ToArray();
-        var gameState = new GameState(players, new GameOptions(playerCount));
+        var gameOptions = new GameOptions(
+            playerCount,
+            initialHealth: initialHealth,
+            targetVictoryPoints: targetVictoryPoints);
+        var gameState = new GameState(players, gameOptions);
         var session = new GameSession(gameState, new GameEngine());
 
         if (!_sessions.TryAdd(gameState.GameId, session))
