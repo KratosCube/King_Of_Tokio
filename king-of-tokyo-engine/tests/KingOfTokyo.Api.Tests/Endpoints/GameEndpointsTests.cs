@@ -78,7 +78,7 @@ public sealed class GameEndpointsTests
     private static WebApplication CreateAppWithGameEndpoints()
     {
         var builder = WebApplication.CreateBuilder();
-        builder.Services.AddSingleton<InMemoryGameSessionStore>();
+        builder.Services.AddSingleton<IGameSessionStore, InMemoryGameSessionStore>();
 
         var app = builder.Build();
         app.MapKingOfTokyoGameEndpoints();
