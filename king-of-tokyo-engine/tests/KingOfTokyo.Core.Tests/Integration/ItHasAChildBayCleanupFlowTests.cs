@@ -14,7 +14,7 @@ namespace KingOfTokyo.Core.Tests.Integration;
 public sealed class ItHasAChildBayCleanupFlowTests
 {
     [Fact]
-    public void FinalizeDice_Should_KeepBayEnabled_WhenBayOccupantIsDefeatedAndRevivedByItHasAChildInFivePlayerGame()
+    public void FinalizeDice_Should_KeepBayEnabledAndLetAttackerEnterBay_WhenBayOccupantIsRevivedByItHasAChildInFivePlayerGame()
     {
         var gameState = CreateGameState(5);
         var attacker = gameState.GetCurrentPlayer();
@@ -46,7 +46,8 @@ public sealed class ItHasAChildBayCleanupFlowTests
         Assert.Equal(0, bayOccupant.Energy);
         Assert.Empty(bayOccupant.KeepCards);
         Assert.Equal(TokyoSlot.None, bayOccupant.TokyoSlot);
-        Assert.Null(gameState.Tokyo.BayOccupantId);
+        Assert.Equal(TokyoSlot.Bay, attacker.TokyoSlot);
+        Assert.Equal(attacker.PlayerId, gameState.Tokyo.BayOccupantId);
         Assert.True(gameState.Tokyo.BayEnabled);
         Assert.Equal(TokyoSlot.City, cityOccupant.TokyoSlot);
         Assert.Equal(cityOccupant.PlayerId, gameState.Tokyo.CityOccupantId);
@@ -54,6 +55,9 @@ public sealed class ItHasAChildBayCleanupFlowTests
         Assert.Contains(result.NewEvents, e => e is PlayerEliminatedEvent eliminated &&
                                              eliminated.EliminatedPlayerId == bayOccupant.PlayerId &&
                                              eliminated.EliminatedByPlayerId == attacker.PlayerId);
+        Assert.Contains(result.NewEvents, e => e is TokyoEnteredEvent entered &&
+                                             entered.PlayerId == attacker.PlayerId &&
+                                             entered.Slot == TokyoSlot.Bay);
     }
 
     [Fact]
