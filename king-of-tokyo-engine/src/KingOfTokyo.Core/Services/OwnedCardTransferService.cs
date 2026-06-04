@@ -5,17 +5,27 @@ namespace KingOfTokyo.Core.Services;
 
 public sealed class OwnedCardTransferService
 {
+    private readonly KeepCardLifecycleService _keepCardLifecycleService;
+
+    public OwnedCardTransferService(KeepCardLifecycleService? keepCardLifecycleService = null)
+    {
+        _keepCardLifecycleService = keepCardLifecycleService ?? new KeepCardLifecycleService();
+    }
+
     public void BuyKeepCardFromPlayer(GameState gameState, PlayerState buyer, PlayerState seller, string cardId, int cost)
     {
         ArgumentNullException.ThrowIfNull(gameState);
 
-        BuyKeepCardFromPlayer(buyer, seller, cardId, cost);
+        var transferredCard = BuyKeepCardFromPlayer(buyer, seller, cardId, cost);
+
+        _keepCardLifecycleService.ApplyLostEffect(seller, transferredCard);
+        _keepCardLifecycleService.ApplyAddedEffect(buyer, transferredCard);
 
         var mimicTargetCleanupService = new MimicTargetCleanupService();
         mimicTargetCleanupService.ClearTargetsForLostCard(gameState, seller.PlayerId, cardId);
     }
 
-    public void BuyKeepCardFromPlayer(PlayerState buyer, PlayerState seller, string cardId, int cost)
+    public MarketCardState BuyKeepCardFromPlayer(PlayerState buyer, PlayerState seller, string cardId, int cost)
     {
         ArgumentNullException.ThrowIfNull(buyer);
         ArgumentNullException.ThrowIfNull(seller);
@@ -54,5 +64,7 @@ public sealed class OwnedCardTransferService
         buyer.SpendEnergy(cost);
         seller.GainEnergy(cost);
         buyer.AddKeepCard(transferredCard);
+
+        return transferredCard;
     }
 }
