@@ -1,6 +1,7 @@
 using KingOfTokyo.Core.Abstractions;
 using KingOfTokyo.Core.Commands;
 using KingOfTokyo.Core.Decisions;
+using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
@@ -75,6 +76,7 @@ public sealed class GameEngine : IGameEngine
                 BuyOwnedKeepCardCommand buyOwnedKeepCardCommand => ExecuteBuyOwnedKeepCard(gameState, buyOwnedKeepCardCommand),
                 RefreshMarketCommand refreshMarketCommand => ExecuteRefreshMarket(gameState, refreshMarketCommand),
                 ActivateRapidHealingCommand activateRapidHealingCommand => ExecuteActivateRapidHealing(gameState, activateRapidHealingCommand),
+                ActivateHealingRayCommand activateHealingRayCommand => ExecuteActivateHealingRay(gameState, activateHealingRayCommand),
                 ActivateTelepathCommand activateTelepathCommand => ExecuteActivateTelepath(gameState, activateTelepathCommand),
                 ActivateStretchyCommand activateStretchyCommand => ExecuteActivateStretchy(gameState, activateStretchyCommand),
                 ActivateHerdCullerCommand activateHerdCullerCommand => ExecuteActivateHerdCuller(gameState, activateHerdCullerCommand),
@@ -222,6 +224,26 @@ public sealed class GameEngine : IGameEngine
         var stepResult = _rapidHealingService.Activate(gameState);
         PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
+    }
+
+    private CommandResult ExecuteActivateHealingRay(GameState gameState, ActivateHealingRayCommand command)
+    {
+        var (healer, target, currentTurn) = EnsureCanActivateHealingRay(gameState, command);
+        var healingResult = new HealingRayService().HealOtherPlayer(healer, target, command.HealingAmount);
+        if (healingResult.HealedAmount <= 0)
+        {
+            throw new InvalidOperationException("Healing Ray did not heal any damage.");
+        }
+
+        currentTurn.SpendHealingRayHearts(healingResult.HealedAmount);
+
+        var events = new GameEventBase[]
+        {
+            new PlayerHealedEvent(target.PlayerId, healingResult.HealedAmount, "Keep card: Healing Ray.")
+        };
+
+        PublishEvents(events);
+        return CommandResult.Successful(gameState, events);
     }
 
     private CommandResult ExecuteActivateTelepath(GameState gameState, ActivateTelepathCommand command)
@@ -376,7 +398,70 @@ public sealed class GameEngine : IGameEngine
         return CommandResult.Successful(gameState);
     }
 
-    private static (KingOfTokyo.Core.Domain.Entities.PlayerState Buyer, KingOfTokyo.Core.Domain.Entities.PlayerState Seller, KingOfTokyo.Core.Domain.Entities.MarketCardState Card) EnsureCanBuyOwnedKeepCard(GameState gameState, BuyOwnedKeepCardCommand command)
+    private static (PlayerState Healer, PlayerState Target, TurnState CurrentTurn) EnsureCanActivateHealingRay(
+        GameState gameState,
+        ActivateHealingRayCommand command)
+    {
+        if (gameState.Status != GameStatus.Running)
+        {
+            throw new InvalidOperationException("Cannot activate Healing Ray when game is not running.");
+        }
+
+        if (gameState.CurrentTurn is null)
+        {
+            throw new InvalidOperationException("Cannot activate Healing Ray without an active turn.");
+        }
+
+        if (gameState.CurrentTurn.Phase != TurnPhase.Purchase &&
+            gameState.CurrentTurn.Phase != TurnPhase.DiceResolved)
+        {
+            throw new InvalidOperationException("Healing Ray can only be used after dice are resolved and before the turn ends.");
+        }
+
+        if (gameState.PendingDecision is not null)
+        {
+            throw new InvalidOperationException("Cannot activate Healing Ray while another decision is pending.");
+        }
+
+        if (!command.ActorPlayerId.HasValue)
+        {
+            throw new InvalidOperationException("ActivateHealingRayCommand requires an actor player id.");
+        }
+
+        if (gameState.CurrentTurn.CurrentPlayerId != command.ActorPlayerId.Value)
+        {
+            throw new InvalidOperationException("Only the current player can activate Healing Ray.");
+        }
+
+        var healer = gameState.GetPlayerById(command.ActorPlayerId.Value);
+        if (!healer.IsAlive)
+        {
+            throw new InvalidOperationException("Dead players cannot activate Healing Ray.");
+        }
+
+        if (!HasHealingRayEffect(healer))
+        {
+            throw new InvalidOperationException("Player cannot use Healing Ray right now.");
+        }
+
+        var unusedHeartCount = gameState.CurrentTurn.DicePool.Dice.Count(die => die.CurrentFace == DieFace.Heart) -
+                               gameState.CurrentTurn.HealingRayHeartsSpent;
+        if (command.HealingAmount > unusedHeartCount)
+        {
+            throw new InvalidOperationException("Not enough unused heart dice for Healing Ray.");
+        }
+
+        return (healer, gameState.GetPlayerById(command.TargetPlayerId), gameState.CurrentTurn);
+    }
+
+    private static bool HasHealingRayEffect(PlayerState player)
+    {
+        return player.KeepCards.Any(card =>
+            card.CardId == KnownCardIds.HealingRay ||
+            (card.CardId == KnownCardIds.Mimic && card.MimicTarget?.CardId == KnownCardIds.HealingRay));
+    }
+
+    private static (PlayerState Buyer, PlayerState Seller, MarketCardState Card) EnsureCanBuyOwnedKeepCard(GameState gameState, BuyOwnedKeepCardCommand command)
     {
         if (gameState.Status != GameStatus.Running)
         {
@@ -601,7 +686,7 @@ public sealed class GameEngine : IGameEngine
         }
     }
 
-    private static PendingDecision? CreateRerollDecisionIfAvailable(KingOfTokyo.Core.Domain.Entities.TurnState currentTurn)
+    private static PendingDecision? CreateRerollDecisionIfAvailable(TurnState currentTurn)
     {
         if (currentTurn.RollCountUsed >= currentTurn.MaxRolls)
         {
