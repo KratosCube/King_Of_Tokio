@@ -59,20 +59,16 @@ public sealed class ItHasAChildBayCleanupFlowTests
     }
 
     [Fact]
-    public void FinalizeDice_Should_DisableBay_WhenBayOccupantIsEliminatedAndAnotherMonsterAlsoDiesLeavingFourAlive()
+    public void FinalizeDice_Should_DisableBay_WhenBayOccupantIsRevivedButCityOccupantAlsoDiesLeavingFourAlive()
     {
         var gameState = CreateGameState(5);
         var attacker = gameState.GetCurrentPlayer();
         var cityOccupant = gameState.GetPlayerById(1);
         var bayOccupant = gameState.GetPlayerById(2);
-        var outsideVictim = gameState.GetPlayerById(3);
         PutInCity(gameState, cityOccupant);
         PutInBay(gameState, bayOccupant);
-        attacker.SetTokyoSlot(TokyoSlot.City);
-        gameState.Tokyo.SetCityOccupant(attacker.PlayerId);
-        cityOccupant.SetTokyoSlot(TokyoSlot.None);
+        cityOccupant.TakeDamage(9);
         bayOccupant.TakeDamage(9);
-        outsideVictim.TakeDamage(9);
         bayOccupant.AddKeepCard(CreateKeepCard(KnownCardIds.ItHasAChild, "It Has a Child", 7));
         var engine = CreateEngine(
             DieFace.Attack,
@@ -89,13 +85,15 @@ public sealed class ItHasAChildBayCleanupFlowTests
         var result = engine.Execute(gameState, new FinalizeDiceCommand(attacker.PlayerId));
 
         Assert.True(result.Success, result.Error);
+        Assert.False(cityOccupant.IsAlive);
         Assert.True(bayOccupant.IsAlive);
-        Assert.False(outsideVictim.IsAlive);
         Assert.Equal(10, bayOccupant.Health);
         Assert.Equal(TokyoSlot.None, bayOccupant.TokyoSlot);
         Assert.Null(gameState.Tokyo.BayOccupantId);
         Assert.False(gameState.Tokyo.BayEnabled);
         Assert.Equal(4, gameState.GetAlivePlayers().Count);
+        Assert.Equal(TokyoSlot.City, attacker.TokyoSlot);
+        Assert.Equal(attacker.PlayerId, gameState.Tokyo.CityOccupantId);
         Assert.Equal(2, result.NewEvents.OfType<PlayerEliminatedEvent>().Count());
     }
 
