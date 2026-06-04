@@ -12,7 +12,7 @@ dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
 
 ## Current verification
 
-- [ ] Verify the full suite is green after the latest `It Has a Child` / Bay cleanup fixes, `Drop from High Altitude` Bay policy tests, victory timing edge-case tests, Vast Storm prevention/Eater tests, Evacuation Orders/Eater/Child tests, Gas Refinery prevention/Eater tests, Jets/prevention lethal timing tests, Mimic v1 policy documentation cleanup, and owned-card lifecycle audit.
+- [ ] Verify the full suite is green after the latest `It Has a Child` / Bay cleanup fixes, `Drop from High Altitude` Bay policy tests, victory timing edge-case tests, Vast Storm prevention/Eater tests, Evacuation Orders/Eater/Child tests, Gas Refinery prevention/Eater tests, Jets/prevention lethal timing tests, Mimic v1 policy documentation cleanup, owned-card lifecycle audit, and event cursor sync helper.
 
 ## Must finish before UI/server work
 
@@ -43,9 +43,9 @@ dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
 
 ### DTO / sync readiness
 
-- [ ] Decide whether the server needs an event cursor / incremental sync helper on top of `GameState.EventLog` and `Version`.
-- [ ] If needed, add a headless helper and regression tests before the server layer.
-- [ ] Decide whether event DTOs need richer typed payloads for UI animations.
+- [x] Decide whether the server needs an event cursor / incremental sync helper on top of `GameState.EventLog` and `Version`.
+- [x] If needed, add a headless helper and regression tests before the server layer.
+- [x] Decide whether event DTOs need richer typed payloads for UI animations.
 
 ## Documentation cleanup
 
