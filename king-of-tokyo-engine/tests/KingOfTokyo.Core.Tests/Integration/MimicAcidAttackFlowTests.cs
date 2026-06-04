@@ -48,7 +48,7 @@ public sealed class MimicAcidAttackFlowTests
                                              damage.SourcePlayerId == attacker.PlayerId &&
                                              damage.TargetPlayerId == defender.PlayerId &&
                                              damage.Amount == 3 &&
-                                             damage.DamageKind == DamageKind.DiceAttack);
+                                             damage.DamageKind == DamageKind.Attack);
     }
 
     [Fact]
