@@ -1,3 +1,4 @@
+using KingOfTokyo.Api.Contracts;
 using KingOfTokyo.Api.GameSessions;
 using KingOfTokyo.Core.Commands;
 using KingOfTokyo.Core.Domain.Enums;
@@ -13,7 +14,7 @@ public sealed class InMemoryGameSessionStoreTests
     {
         var store = new InMemoryGameSessionStore();
 
-        var snapshot = store.CreateGame(new[] { "Alpha", "Beta" });
+        var snapshot = store.CreateGame(new CreateGameRequest(new[] { "Alpha", "Beta" }));
 
         Assert.NotEqual(Guid.Empty, snapshot.GameId);
         Assert.Equal(GameStatus.Setup, snapshot.Status);
@@ -28,17 +29,54 @@ public sealed class InMemoryGameSessionStoreTests
     {
         var store = new InMemoryGameSessionStore();
 
-        var snapshot = store.CreateGame(new[] { "", "  " });
+        var snapshot = store.CreateGame(new CreateGameRequest(new[] { "", "  " }));
 
         Assert.Equal("Monster 1", snapshot.Players[0].MonsterName);
         Assert.Equal("Monster 2", snapshot.Players[1].MonsterName);
     }
 
     [Fact]
+    public void CreateGame_Should_ApplyCustomInitialHealth()
+    {
+        var store = new InMemoryGameSessionStore();
+
+        var snapshot = store.CreateGame(new CreateGameRequest(
+            new[] { "Alpha", "Beta" },
+            InitialHealth: 15));
+
+        Assert.All(snapshot.Players, player =>
+        {
+            Assert.Equal(15, player.Health);
+            Assert.Equal(15, player.MaxHealth);
+        });
+    }
+
+    [Fact]
+    public void CreateGame_Should_ApplyCustomTargetVictoryPoints()
+    {
+        var store = new InMemoryGameSessionStore();
+        var created = store.CreateGame(new CreateGameRequest(
+            new[] { "Alpha", "Beta" },
+            TargetVictoryPoints: 1));
+        store.TryExecute(created.GameId, (engine, state) => engine.Execute(state, new InitializeGameCommand()), out _);
+        store.TryExecute(created.GameId, (engine, state) => engine.Execute(state, new BeginTurnCommand(0)), out _);
+        store.TryExecute(created.GameId, (engine, state) =>
+        {
+            state.GetCurrentPlayer().GainVictoryPoints(1);
+            return CommandResult.Successful(state);
+        }, out var result);
+
+        Assert.NotNull(result);
+        Assert.True(result!.GameState.WinnerInfo?.HasWinner);
+        Assert.Equal(0, result.GameState.WinnerInfo?.WinnerPlayerId);
+        Assert.Equal("Reached 1 victory points.", result.GameState.WinnerInfo?.Reason);
+    }
+
+    [Fact]
     public void TryGetSnapshot_Should_ReturnCreatedGameSnapshot()
     {
         var store = new InMemoryGameSessionStore();
-        var created = store.CreateGame(new[] { "Alpha", "Beta", "Gamma" });
+        var created = store.CreateGame(new CreateGameRequest(new[] { "Alpha", "Beta", "Gamma" }));
 
         var found = store.TryGetSnapshot(created.GameId, out var snapshot);
 
@@ -63,7 +101,7 @@ public sealed class InMemoryGameSessionStoreTests
     public void TryExecute_Should_RunCommandAndReturnUpdatedSnapshotAndEvents()
     {
         var store = new InMemoryGameSessionStore();
-        var created = store.CreateGame(new[] { "Alpha", "Beta" });
+        var created = store.CreateGame(new CreateGameRequest(new[] { "Alpha", "Beta" }));
 
         var executed = store.TryExecute(
             created.GameId,
@@ -97,7 +135,7 @@ public sealed class InMemoryGameSessionStoreTests
     public void TryGetEvents_Should_ReturnEventCursorAfterCommands()
     {
         var store = new InMemoryGameSessionStore();
-        var created = store.CreateGame(new[] { "Alpha", "Beta" });
+        var created = store.CreateGame(new CreateGameRequest(new[] { "Alpha", "Beta" }));
         store.TryExecute(created.GameId, (engine, state) => engine.Execute(state, new InitializeGameCommand()), out _);
         store.TryExecute(created.GameId, (engine, state) => engine.Execute(state, new BeginTurnCommand(0)), out _);
 
