@@ -12,10 +12,14 @@ namespace KingOfTokyo.Core.Services;
 public sealed class SpecialCardActivationService
 {
     private readonly KeepCardRulesService _keepCardRulesService;
+    private readonly KeepCardLifecycleService _keepCardLifecycleService;
 
-    public SpecialCardActivationService(KeepCardRulesService? keepCardRulesService = null)
+    public SpecialCardActivationService(
+        KeepCardRulesService? keepCardRulesService = null,
+        KeepCardLifecycleService? keepCardLifecycleService = null)
     {
         _keepCardRulesService = keepCardRulesService ?? new KeepCardRulesService();
+        _keepCardLifecycleService = keepCardLifecycleService ?? new KeepCardLifecycleService();
     }
 
     public EngineStepResult ActivateTelepath(GameState gameState)
@@ -94,6 +98,7 @@ public sealed class SpecialCardActivationService
         {
             var discardedCard = player.RemoveKeepCard(KnownCardIds.SmokeCloud);
             new MimicTargetCleanupService().ClearTargetsForLostCard(gameState, player.PlayerId, discardedCard.CardId);
+            _keepCardLifecycleService.ApplyLostEffect(player, discardedCard);
             gameState.Market.Discard(discardedCard);
             events.Add(new KeepCardDiscardedEvent(
                 player.PlayerId,
@@ -183,6 +188,7 @@ public sealed class SpecialCardActivationService
 
         var card = player.RemoveKeepCard(KnownCardIds.PlotTwist);
         new MimicTargetCleanupService().ClearTargetsForLostCard(gameState, player.PlayerId, card.CardId);
+        _keepCardLifecycleService.ApplyLostEffect(player, card);
         gameState.Market.Discard(card);
 
         var pendingDecision = CreateRerollDecisionIfAvailable(currentTurn);
@@ -208,7 +214,7 @@ public sealed class SpecialCardActivationService
         var card = player.RemoveKeepCard(cardIdToDiscard);
         new MimicTargetCleanupService().ClearTargetsForLostCard(gameState, player.PlayerId, card.CardId);
 
-        ApplyKeepCardLostEffect(player, card);
+        _keepCardLifecycleService.ApplyLostEffect(player, card);
         player.GainEnergy(card.Cost);
         gameState.Market.Discard(card);
 
@@ -305,13 +311,5 @@ public sealed class SpecialCardActivationService
                 MaxRolls = currentTurn.MaxRolls
             }
         };
-    }
-
-    private static void ApplyKeepCardLostEffect(PlayerState player, MarketCardState card)
-    {
-        if (card.CardId == KnownCardIds.EvenBigger)
-        {
-            player.DecreaseMaxHealth(2);
-        }
     }
 }
