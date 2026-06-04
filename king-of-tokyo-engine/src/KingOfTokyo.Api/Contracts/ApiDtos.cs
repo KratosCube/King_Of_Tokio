@@ -6,7 +6,10 @@ using KingOfTokyo.Core.Engine;
 
 namespace KingOfTokyo.Api.Contracts;
 
-public sealed record CreateGameRequest(IReadOnlyList<string> MonsterNames);
+public sealed record CreateGameRequest(
+    IReadOnlyList<string> MonsterNames,
+    int? InitialHealth = null,
+    int? TargetVictoryPoints = null);
 
 public sealed record ActorRequest(int? ActorPlayerId);
 
