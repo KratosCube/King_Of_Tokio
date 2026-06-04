@@ -5,16 +5,8 @@ using KingOfTokyo.Core.Commands;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<InMemoryGameSessionStore>();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
-
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
 
 var games = app.MapGroup("/api/games");
 
