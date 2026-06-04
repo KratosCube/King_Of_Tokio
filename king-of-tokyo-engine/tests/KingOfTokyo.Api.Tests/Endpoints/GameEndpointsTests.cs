@@ -88,8 +88,8 @@ public sealed class GameEndpointsTests
 
     private static IReadOnlySet<string> GetRoutePatterns(WebApplication app)
     {
-        var endpointDataSource = app.Services.GetRequiredService<EndpointDataSource>();
-        return endpointDataSource.Endpoints
+        return ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(dataSource => dataSource.Endpoints)
             .OfType<RouteEndpoint>()
             .Select(endpoint => endpoint.RoutePattern.RawText ?? string.Empty)
             .ToHashSet(StringComparer.Ordinal);
