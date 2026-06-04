@@ -12,7 +12,7 @@ dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
 
 ## Current verification
 
-- [ ] Verify the full suite is green after the latest `It Has a Child` / Bay cleanup fixes, `Drop from High Altitude` Bay policy tests, victory timing edge-case tests, Vast Storm prevention/Eater tests, Evacuation Orders/Eater/Child tests, Gas Refinery prevention/Eater tests, and Jets/prevention lethal timing tests.
+- [ ] Verify the full suite is green after the latest `It Has a Child` / Bay cleanup fixes, `Drop from High Altitude` Bay policy tests, victory timing edge-case tests, Vast Storm prevention/Eater tests, Evacuation Orders/Eater/Child tests, Gas Refinery prevention/Eater tests, Jets/prevention lethal timing tests, and Mimic v1 policy documentation cleanup.
 
 ## Must finish before UI/server work
 
@@ -32,9 +32,9 @@ dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
 
 ### Mimic policy closure
 
-- [ ] Decide whether unsupported stateful/self-discard Mimic activations remain permanently blocked for v1.
-- [ ] If blocked for v1, document the final v1 policy in `ENGINE_HANDOFF.md` and `CARD_IMPLEMENTATION_AUDIT.md`.
-- [ ] If not blocked, implement explicit copy semantics for `Smoke Cloud`, `Plot Twist`, `Metamorph`, and `Psychic Probe`.
+- [x] Decide whether unsupported stateful/self-discard Mimic activations remain permanently blocked for v1.
+- [x] If blocked for v1, document the final v1 policy in `ENGINE_HANDOFF.md` and `CARD_IMPLEMENTATION_AUDIT.md`.
+- [x] If not blocked, implement explicit copy semantics for `Smoke Cloud`, `Plot Twist`, `Metamorph`, and `Psychic Probe`.
 
 ### Owned-card lifecycle cleanup
 
@@ -50,9 +50,9 @@ dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
 
 ## Documentation cleanup
 
-- [ ] Update `CARD_IMPLEMENTATION_AUDIT.md` to reflect that `Omnivore` is implemented.
-- [ ] Update `CARD_IMPLEMENTATION_AUDIT.md` to reflect that `Healing Ray` generic dispatch is implemented.
-- [ ] Update `CARD_IMPLEMENTATION_AUDIT.md` with the recent Acid Attack, Fire Breathing, prevention, Wings, Jets, Eater, It Has a Child, and Drop from High Altitude coverage.
+- [x] Update `CARD_IMPLEMENTATION_AUDIT.md` to reflect that `Omnivore` is implemented.
+- [x] Update `CARD_IMPLEMENTATION_AUDIT.md` to reflect that `Healing Ray` generic dispatch is implemented.
+- [x] Update `CARD_IMPLEMENTATION_AUDIT.md` with the recent Acid Attack, Fire Breathing, prevention, Wings, Jets, Eater, It Has a Child, and Drop from High Altitude coverage.
 - [ ] Update `ENGINE_REMAINING_WORK_PLAN.md` after each completed checklist block.
 - [ ] Update `ENGINE_HANDOFF.md` before stopping work or switching to UI/server tasks.
 
