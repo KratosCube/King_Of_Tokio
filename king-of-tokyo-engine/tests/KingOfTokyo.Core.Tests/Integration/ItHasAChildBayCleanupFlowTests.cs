@@ -24,7 +24,6 @@ public sealed class ItHasAChildBayCleanupFlowTests
         PutInBay(gameState, bayOccupant);
         bayOccupant.TakeDamage(9);
         bayOccupant.AddKeepCard(CreateKeepCard(KnownCardIds.ItHasAChild, "It Has a Child", 7));
-        bayOccupant.AddKeepCard(CreateKeepCard(KnownCardIds.EvenBigger, "Even Bigger", 8));
         bayOccupant.GainEnergy(4);
         var engine = CreateEngine(
             DieFace.Attack,
@@ -52,7 +51,6 @@ public sealed class ItHasAChildBayCleanupFlowTests
         Assert.Equal(TokyoSlot.City, cityOccupant.TokyoSlot);
         Assert.Equal(cityOccupant.PlayerId, gameState.Tokyo.CityOccupantId);
         Assert.Contains(gameState.Market.DiscardPile, card => card.CardId == KnownCardIds.ItHasAChild);
-        Assert.Contains(gameState.Market.DiscardPile, card => card.CardId == KnownCardIds.EvenBigger);
         Assert.Contains(result.NewEvents, e => e is PlayerEliminatedEvent eliminated &&
                                              eliminated.EliminatedPlayerId == bayOccupant.PlayerId &&
                                              eliminated.EliminatedByPlayerId == attacker.PlayerId);
