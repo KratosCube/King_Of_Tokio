@@ -7,7 +7,7 @@ namespace KingOfTokyo.Api.GameSessions;
 
 public interface IGameSessionStore
 {
-    GameStateDto CreateGame(IReadOnlyList<string> monsterNames);
+    GameStateDto CreateGame(CreateGameRequest request);
 
     bool TryGetSnapshot(Guid gameId, out GameStateDto? snapshot);
 
