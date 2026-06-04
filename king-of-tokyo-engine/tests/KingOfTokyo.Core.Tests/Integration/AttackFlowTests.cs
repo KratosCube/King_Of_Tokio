@@ -216,6 +216,49 @@ public sealed class AttackFlowTests
                                                gained.Reason.Contains("Eater of the Dead"));
     }
 
+    [Fact]
+    public void FinalizeDice_Should_ResetMaxHealth_WhenItHasAChildDiscardsEvenBigger()
+    {
+        var gameState = CreateGameState(3);
+        var attacker = gameState.GetCurrentPlayer();
+        var defender = gameState.GetPlayerById(1);
+        defender.AddKeepCard(new MarketCardState(
+            KnownCardIds.ItHasAChild,
+            "It Has a Child",
+            "When eliminated, discard all cards, lose all energy, heal to 10, and start again.",
+            7,
+            MarketCardType.Keep));
+        defender.AddKeepCard(new MarketCardState(
+            KnownCardIds.EvenBigger,
+            "Even Bigger",
+            "Your maximum health is increased by 2. When you gain this card, heal 2. When you lose this card, lose 2 health.",
+            8,
+            MarketCardType.Keep));
+        defender.IncreaseMaxHealth(2);
+        defender.Heal(2);
+        defender.SetTokyoSlot(TokyoSlot.City);
+        defender.TakeDamage(11);
+        gameState.Tokyo.SetCityOccupant(defender.PlayerId);
+
+        var engine = CreateEngine(
+            DieFace.Attack, DieFace.Heart, DieFace.One,
+            DieFace.Two, DieFace.Three, DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(attacker.PlayerId));
+        engine.Execute(gameState, new RollDiceCommand(attacker.PlayerId));
+
+        var result = engine.Execute(gameState, new FinalizeDiceCommand(attacker.PlayerId));
+
+        Assert.True(result.Success, result.Error);
+        Assert.True(defender.IsAlive);
+        Assert.Equal(10, defender.MaxHealth);
+        Assert.Equal(10, defender.Health);
+        Assert.Empty(defender.KeepCards);
+        Assert.Contains(gameState.Market.DiscardPile, card => card.CardId == KnownCardIds.ItHasAChild);
+        Assert.Contains(gameState.Market.DiscardPile, card => card.CardId == KnownCardIds.EvenBigger);
+    }
+
     private static GameState CreateGameState(int playerCount)
     {
         var players = Enumerable.Range(0, playerCount)
@@ -233,14 +276,10 @@ public sealed class AttackFlowTests
 
     private static GameEngine CreateEngine(DieFace[] diceFaces, DieFace[] camouflageFaces)
     {
-        var damagePreventionService = new DamagePreventionService(
-            randomSource: new SequenceRandomSource(camouflageFaces));
-        var damageApplier = new DamageApplier(damagePreventionService: damagePreventionService);
-        var finalizeDiceService = new FinalizeDiceService(damageApplier: damageApplier);
-
         return new GameEngine(
             diceRollService: new DiceRollService(new SequenceRandomSource(diceFaces)),
-            finalizeDiceService: finalizeDiceService);
+            finalizeDiceService: new FinalizeDiceService(
+                damageApplier: new DamageApplier(camouflageRandomSource: new SequenceRandomSource(camouflageFaces))));
     }
 
     private sealed class SequenceRandomSource : IRandomSource
