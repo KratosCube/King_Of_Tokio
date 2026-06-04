@@ -12,7 +12,7 @@ dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
 
 ## Current verification
 
-- [ ] Verify the full suite is green after the latest `It Has a Child` / Bay cleanup fixes, `Drop from High Altitude` Bay policy tests, victory timing edge-case tests, Vast Storm prevention/Eater tests, Evacuation Orders/Eater/Child tests, and Gas Refinery prevention/Eater tests.
+- [ ] Verify the full suite is green after the latest `It Has a Child` / Bay cleanup fixes, `Drop from High Altitude` Bay policy tests, victory timing edge-case tests, Vast Storm prevention/Eater tests, Evacuation Orders/Eater/Child tests, Gas Refinery prevention/Eater tests, and Jets/prevention lethal timing tests.
 
 ## Must finish before UI/server work
 
@@ -28,7 +28,7 @@ dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
 - [x] Add `Vast Storm` + `Eater of the Dead` + prevention/cancellation coverage.
 - [x] Add `Evacuation Orders` + `Eater of the Dead` + `It Has a Child` coverage.
 - [x] Add `Gas Refinery` + prevention + `Eater of the Dead` coverage.
-- [ ] Add lethal timing coverage around `Jets`, prevention, and Tokyo leave decisions.
+- [x] Add lethal timing coverage around `Jets`, prevention, and Tokyo leave decisions.
 
 ### Mimic policy closure
 
