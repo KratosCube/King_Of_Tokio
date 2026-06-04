@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using KingOfTokyo.Core.Domain.ValueObjects;
 
 namespace KingOfTokyo.Api.Lobbies;
 
@@ -10,12 +11,16 @@ public sealed class InMemoryLobbyStore : ILobbyStore
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateMaxPlayers(request.MaxPlayers);
+        ValidateInitialHealth(request.InitialHealth);
+        ValidateTargetVictoryPoints(request.TargetVictoryPoints);
 
         var lobby = new LobbyState(
             Guid.NewGuid(),
             NormalizeName(request.Name),
             request.MaxPlayers,
-            request.IsPublic);
+            request.IsPublic,
+            request.InitialHealth,
+            request.TargetVictoryPoints);
         var hostSeat = lobby.AddSeat(NormalizeDisplayName(request.HostDisplayName), isHost: true);
         hostSeat.IsReady = true;
 
@@ -115,6 +120,22 @@ public sealed class InMemoryLobbyStore : ILobbyStore
         }
     }
 
+    private static void ValidateInitialHealth(int initialHealth)
+    {
+        if (initialHealth is < 1 or > 50)
+        {
+            throw new ArgumentOutOfRangeException(nameof(initialHealth), "Initial health must be between 1 and 50.");
+        }
+    }
+
+    private static void ValidateTargetVictoryPoints(int targetVictoryPoints)
+    {
+        if (targetVictoryPoints is < 1 or > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(targetVictoryPoints), "Target victory points must be between 1 and 100.");
+        }
+    }
+
     private static string NormalizeName(string name)
     {
         var normalized = name.Trim();
@@ -134,6 +155,8 @@ public sealed class InMemoryLobbyStore : ILobbyStore
             state.Name,
             state.MaxPlayers,
             state.IsPublic,
+            state.InitialHealth,
+            state.TargetVictoryPoints,
             state.Status,
             state.Seats
                 .Select(seat => new LobbySeatDto(
@@ -147,18 +170,28 @@ public sealed class InMemoryLobbyStore : ILobbyStore
 
     private sealed class LobbyState
     {
-        public LobbyState(Guid lobbyId, string name, int maxPlayers, bool isPublic)
+        public LobbyState(
+            Guid lobbyId,
+            string name,
+            int maxPlayers,
+            bool isPublic,
+            int initialHealth,
+            int targetVictoryPoints)
         {
             LobbyId = lobbyId;
             Name = name;
             MaxPlayers = maxPlayers;
             IsPublic = isPublic;
+            InitialHealth = initialHealth;
+            TargetVictoryPoints = targetVictoryPoints;
         }
 
         public Guid LobbyId { get; }
         public string Name { get; }
         public int MaxPlayers { get; }
         public bool IsPublic { get; }
+        public int InitialHealth { get; }
+        public int TargetVictoryPoints { get; }
         public LobbyStatus Status { get; private set; } = LobbyStatus.WaitingForPlayers;
         public List<LobbySeatState> Seats { get; } = new();
         public object SyncRoot { get; } = new();
