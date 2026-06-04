@@ -177,7 +177,7 @@ public sealed class JetsPreventionLethalTimingFlowTests
             {
                 DieFace.Attack,
                 DieFace.Attack,
-                DieFace.Heart,
+                DieFace.Three,
                 DieFace.One,
                 DieFace.Two,
                 DieFace.Energy
