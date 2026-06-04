@@ -1,4 +1,5 @@
 using KingOfTokyo.Core.Domain.Enums;
+using KingOfTokyo.Core.Domain.ValueObjects;
 
 namespace KingOfTokyo.Core.Domain.Entities;
 
@@ -17,7 +18,7 @@ public sealed class PlayerState
     public bool IsAlive => Health > 0;
     public IReadOnlyList<MarketCardState> KeepCards => _keepCards;
 
-    public PlayerState(int playerId, string monsterName)
+    public PlayerState(int playerId, string monsterName, int initialHealth = GameOptions.DefaultInitialHealth)
     {
         if (playerId < 0)
         {
@@ -29,10 +30,15 @@ public sealed class PlayerState
             throw new ArgumentException("Monster name must not be empty.", nameof(monsterName));
         }
 
+        if (initialHealth is < 1 or > 50)
+        {
+            throw new ArgumentOutOfRangeException(nameof(initialHealth), "Initial health must be between 1 and 50.");
+        }
+
         PlayerId = playerId;
         MonsterName = monsterName;
-        Health = 10;
-        MaxHealth = 10;
+        Health = initialHealth;
+        MaxHealth = initialHealth;
         VictoryPoints = 0;
         Energy = 0;
         TokyoSlot = TokyoSlot.None;
