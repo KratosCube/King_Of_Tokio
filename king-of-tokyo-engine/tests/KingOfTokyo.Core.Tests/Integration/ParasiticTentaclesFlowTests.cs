@@ -67,6 +67,40 @@ public sealed class ParasiticTentaclesFlowTests
         Assert.DoesNotContain(seller.KeepCards, card => card.CardId == transferredCard.CardId);
     }
 
+    [Fact]
+    public void BuyOwnedKeepCard_Should_MoveEvenBiggerMaxHealthEffect_WhenTransferred()
+    {
+        var gameState = CreateGameState(3);
+        var buyer = gameState.GetCurrentPlayer();
+        var seller = gameState.GetPlayerById(1);
+        var evenBigger = CreateKeepCard(KnownCardIds.EvenBigger, "Even Bigger", 8);
+
+        buyer.AddKeepCard(CreateKeepCard(KnownCardIds.ParasiticTentacles, "Parasitic Tentacles", 4));
+        buyer.GainEnergy(8);
+        seller.AddKeepCard(evenBigger);
+        seller.IncreaseMaxHealth(2);
+        seller.Heal(2);
+        buyer.TakeDamage(1);
+        seller.TakeDamage(1);
+
+        var engine = new GameEngine();
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(buyer.PlayerId));
+        gameState.CurrentTurn!.SetPhase(TurnPhase.Purchase);
+
+        var result = engine.Execute(gameState, new BuyOwnedKeepCardCommand(seller.PlayerId, evenBigger.CardId, buyer.PlayerId));
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(0, buyer.Energy);
+        Assert.Equal(8, seller.Energy);
+        Assert.Equal(12, buyer.MaxHealth);
+        Assert.Equal(9, buyer.Health);
+        Assert.Equal(10, seller.MaxHealth);
+        Assert.Equal(10, seller.Health);
+        Assert.Contains(buyer.KeepCards, card => card.CardId == KnownCardIds.EvenBigger);
+        Assert.DoesNotContain(seller.KeepCards, card => card.CardId == KnownCardIds.EvenBigger);
+    }
+
     private static GameState CreateGameState(int playerCount)
     {
         var players = Enumerable.Range(0, playerCount)
