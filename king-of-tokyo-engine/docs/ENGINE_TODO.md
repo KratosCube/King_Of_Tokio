@@ -12,16 +12,16 @@ dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
 
 ## Current verification
 
-- [ ] Verify the full suite is green after the latest `It Has a Child` / Bay cleanup fixes and `Drop from High Altitude` Bay policy tests.
+- [ ] Verify the full suite is green after the latest `It Has a Child` / Bay cleanup fixes, `Drop from High Altitude` Bay policy tests, and victory timing edge-case tests.
 
 ## Must finish before UI/server work
 
 ### Victory and elimination timing
 
-- [ ] Add regression coverage for multiple players reaching 20 VP in the same resolution step.
-- [ ] Add regression coverage where the current player and a non-current player both reach 20 VP through different events in the same turn.
-- [ ] Add regression coverage where all monsters are eliminated even though one or more players reached 20 VP earlier in the same turn.
-- [ ] Add regression coverage for `VictoryMode.LastMonsterStanding` when all monsters are eliminated: no winner.
+- [x] Add regression coverage for multiple players reaching 20 VP in the same resolution step.
+- [x] Add regression coverage where the current player and a non-current player both reach 20 VP through different events in the same turn.
+- [x] Add regression coverage where all monsters are eliminated even though one or more players reached 20 VP earlier in the same turn.
+- [x] Add regression coverage for `VictoryMode.LastMonsterStanding` when all monsters are eliminated: no winner.
 
 ### Remaining combined damage / prevention / Eater coverage
 
@@ -75,3 +75,4 @@ dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
 - [x] Eater of the Dead multi-elimination edge cases.
 - [x] It Has a Child + Bay cleanup production fix and regression coverage.
 - [x] Drop from High Altitude Bay policy coverage added.
+- [x] Victory timing edge-case coverage for simultaneous 20 VP and all-eliminated scenarios.
