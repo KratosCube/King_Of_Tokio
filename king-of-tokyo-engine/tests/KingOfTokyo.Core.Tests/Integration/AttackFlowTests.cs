@@ -276,10 +276,14 @@ public sealed class AttackFlowTests
 
     private static GameEngine CreateEngine(DieFace[] diceFaces, DieFace[] camouflageFaces)
     {
+        var keepCardRulesService = new KeepCardRulesService();
         return new GameEngine(
             diceRollService: new DiceRollService(new SequenceRandomSource(diceFaces)),
             finalizeDiceService: new FinalizeDiceService(
-                damageApplier: new DamageApplier(camouflageRandomSource: new SequenceRandomSource(camouflageFaces))));
+                damageApplier: new DamageApplier(
+                    damagePreventionService: new DamagePreventionService(
+                        keepCardRulesService,
+                        new SequenceRandomSource(camouflageFaces)))));
     }
 
     private sealed class SequenceRandomSource : IRandomSource
