@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using KingOfTokyo.Api.Contracts;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
