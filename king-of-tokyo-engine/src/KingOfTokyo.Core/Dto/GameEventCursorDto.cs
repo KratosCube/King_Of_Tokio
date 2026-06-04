@@ -1,4 +1,4 @@
-using KingOfTokyo.Core.Events;
+using KingOfTokyo.Core.Abstractions;
 
 namespace KingOfTokyo.Core.Dto;
 
