@@ -22,35 +22,37 @@ public sealed class GameEventCursorMapperTests
         var cursor = GameEventCursorMapper.MapEventsSince(gameState, 0);
 
         Assert.Equal(gameState.GameId, cursor.GameId);
-        Assert.Equal(0, cursor.FromVersionExclusive);
-        Assert.Equal(gameState.Version, cursor.CurrentVersion);
+        Assert.Equal(0, cursor.FromEventSequenceExclusive);
+        Assert.Equal(gameState.EventLog.Count, cursor.CurrentEventSequence);
+        Assert.Equal(gameState.Version, cursor.CurrentGameVersion);
         Assert.Single(cursor.Events);
-        Assert.Equal(1, cursor.Events[0].Version);
+        Assert.Equal(1, cursor.Events[0].EventSequence);
         Assert.IsType<TurnStartedEvent>(cursor.Events[0].Event);
     }
 
     [Fact]
-    public void MapEventsSince_Should_ReturnOnlyEventsAfterCursor()
+    public void MapEventsSince_Should_ReturnOnlyEventsAfterEventSequenceCursor()
     {
         var gameState = CreateGameState(2);
         var engine = new GameEngine();
 
         engine.Execute(gameState, new InitializeGameCommand());
         engine.Execute(gameState, new BeginTurnCommand(0));
-        var afterBeginTurnVersion = gameState.Version;
+        var afterBeginTurnEventSequence = gameState.EventLog.Count;
         engine.Execute(gameState, new RollDiceCommand(0));
 
-        var cursor = GameEventCursorMapper.MapEventsSince(gameState, afterBeginTurnVersion);
+        var cursor = GameEventCursorMapper.MapEventsSince(gameState, afterBeginTurnEventSequence);
 
-        Assert.Equal(afterBeginTurnVersion, cursor.FromVersionExclusive);
-        Assert.Equal(gameState.Version, cursor.CurrentVersion);
+        Assert.Equal(afterBeginTurnEventSequence, cursor.FromEventSequenceExclusive);
+        Assert.Equal(gameState.EventLog.Count, cursor.CurrentEventSequence);
+        Assert.Equal(gameState.Version, cursor.CurrentGameVersion);
         Assert.Single(cursor.Events);
-        Assert.Equal(afterBeginTurnVersion + 1, cursor.Events[0].Version);
+        Assert.Equal(afterBeginTurnEventSequence + 1, cursor.Events[0].EventSequence);
         Assert.IsType<DiceRolledEvent>(cursor.Events[0].Event);
     }
 
     [Fact]
-    public void MapEventsSince_Should_ReturnEmptyEvents_WhenCursorEqualsCurrentVersion()
+    public void MapEventsSince_Should_ReturnEmptyEvents_WhenCursorEqualsCurrentEventSequence()
     {
         var gameState = CreateGameState(2);
         var engine = new GameEngine();
@@ -58,15 +60,35 @@ public sealed class GameEventCursorMapperTests
         engine.Execute(gameState, new InitializeGameCommand());
         engine.Execute(gameState, new BeginTurnCommand(0));
 
-        var cursor = GameEventCursorMapper.MapEventsSince(gameState, gameState.Version);
+        var cursor = GameEventCursorMapper.MapEventsSince(gameState, gameState.EventLog.Count);
 
-        Assert.Equal(gameState.Version, cursor.FromVersionExclusive);
-        Assert.Equal(gameState.Version, cursor.CurrentVersion);
+        Assert.Equal(gameState.EventLog.Count, cursor.FromEventSequenceExclusive);
+        Assert.Equal(gameState.EventLog.Count, cursor.CurrentEventSequence);
+        Assert.Equal(gameState.Version, cursor.CurrentGameVersion);
         Assert.Empty(cursor.Events);
     }
 
     [Fact]
-    public void MapEventsSince_Should_RejectCursorAheadOfCurrentVersion()
+    public void MapEventsSince_Should_TrackGameVersionSeparatelyFromEventSequence_WhenSuccessfulCommandHasNoEvents()
+    {
+        var gameState = CreateGameState(2);
+        var engine = new GameEngine();
+
+        engine.Execute(gameState, new InitializeGameCommand());
+
+        Assert.Equal(1, gameState.Version);
+        Assert.Empty(gameState.EventLog);
+
+        var cursor = GameEventCursorMapper.MapEventsSince(gameState, 0);
+
+        Assert.Equal(0, cursor.FromEventSequenceExclusive);
+        Assert.Equal(0, cursor.CurrentEventSequence);
+        Assert.Equal(1, cursor.CurrentGameVersion);
+        Assert.Empty(cursor.Events);
+    }
+
+    [Fact]
+    public void MapEventsSince_Should_RejectCursorAheadOfCurrentEventSequence()
     {
         var gameState = CreateGameState(2);
         var engine = new GameEngine();
@@ -74,9 +96,9 @@ public sealed class GameEventCursorMapperTests
         engine.Execute(gameState, new InitializeGameCommand());
 
         var exception = Assert.Throws<InvalidOperationException>(() =>
-            GameEventCursorMapper.MapEventsSince(gameState, gameState.Version + 1));
+            GameEventCursorMapper.MapEventsSince(gameState, gameState.EventLog.Count + 1));
 
-        Assert.Equal("Requested event cursor is ahead of the current game version.", exception.Message);
+        Assert.Equal("Requested event cursor is ahead of the current event sequence.", exception.Message);
     }
 
     [Fact]
