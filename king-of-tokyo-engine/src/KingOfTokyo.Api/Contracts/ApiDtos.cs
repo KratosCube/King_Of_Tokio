@@ -28,7 +28,7 @@ public sealed record ApiCommandResultDto(
         return new ApiCommandResultDto(
             result.Success,
             result.Error,
-            GameStateDtoMapper.Map(result.GameState),
+            result.GameState.ToDto(),
             result.PendingDecision,
             result.NewEvents,
             result.GameState.EventLog.Count);
