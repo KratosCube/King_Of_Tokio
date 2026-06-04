@@ -1,5 +1,6 @@
 using KingOfTokyo.Core.Abstractions;
 using KingOfTokyo.Core.Decisions;
+using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Dto;
 using KingOfTokyo.Core.Engine;
 
@@ -14,6 +15,20 @@ public sealed record RerollDiceRequest(int? ActorPlayerId, IReadOnlyList<int> Di
 public sealed record BuyFaceUpCardRequest(int? ActorPlayerId, int SlotIndex);
 
 public sealed record ChooseLeaveTokyoRequest(int ActorPlayerId, bool LeaveTokyo);
+
+public sealed record ChangeDieFaceRequest(int? ActorPlayerId, int DieIndex, DieFace TargetFace);
+
+public sealed record DieIndexRequest(int? ActorPlayerId, int DieIndex);
+
+public sealed record HealingRayRequest(int? ActorPlayerId, int TargetPlayerId, int HealingAmount);
+
+public sealed record SetMimicTargetRequest(int? ActorPlayerId, int TargetOwnerPlayerId, string TargetCardId);
+
+public sealed record BuyOwnedKeepCardRequest(int? ActorPlayerId, int SellerPlayerId, string CardId);
+
+public sealed record MetamorphRequest(int? ActorPlayerId, string CardIdToDiscard);
+
+public sealed record PsychicProbeRequest(int ActorPlayerId, int TargetDieIndex);
 
 public sealed record ApiCommandResultDto(
     bool Success,
