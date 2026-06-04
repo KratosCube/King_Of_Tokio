@@ -1,29 +1,25 @@
-# King of Tokyo engine handoff
+# King of Tokyo / Vládce Tokia engine handoff
 
 This document is the current handoff for continuing the headless King of Tokyo / Vládce Tokia engine before building any UI.
 
-Repository path:
+Repository:
+
+```text
+https://github.com/KratosCube/King_Of_Tokio/tree/main/king-of-tokyo-engine
+```
+
+Use only this project path:
 
 ```text
 king-of-tokyo-engine
 ```
 
-Important: there was previously an accidental wrong folder path with `tokio`/`tokio` confusion. Continue using only:
+There have been accidental typo paths in the past such as `king-of-tokio-engine`. Do not add new files there. If such files appear in search results, treat them as stale unless they also exist under `king-of-tokyo-engine`.
 
-```text
-king-of-tokyo-engine
-```
-
-Primary solution command from repository root:
+Primary validation command from repository root:
 
 ```bash
 dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
-```
-
-Latest user-reported status before this handoff update:
-
-```text
-Tests were green after Mimic policy/cleanup, Psychic Probe cleanup, and Omnivore regression work.
 ```
 
 If there is any doubt, start by running the full test suite locally.
@@ -38,14 +34,13 @@ If there is any doubt, start by running the full test suite locally.
 - Do not work on UI yet.
 - Prefer existing command pattern, services, validators, domain state, DTOs, and events.
 - After every change, report what changed, commit SHA, and the local command to run.
-- Be careful with `GameEngine.cs`: the GitHub connector only supports full-file updates, and full rewrites have broken imports/structure before. Prefer smaller service/test changes unless a local patch is available.
+- Be careful with `GameEngine.cs`: GitHub connector updates whole files, and full rewrites have caused accidental regressions before. Prefer service/test changes unless a `GameEngine` change is necessary.
 
 ## Files to read first
 
-Read these before making new changes:
-
 ```text
 docs/ENGINE_HANDOFF.md
+docs/ENGINE_REMAINING_WORK_PLAN.md
 docs/CARD_IMPLEMENTATION_AUDIT.md
 docs/MIMIC_POLICY_NOTES.md
 docs/OMNIVORE_IMPLEMENTATION_NOTES.md
@@ -58,10 +53,15 @@ src/KingOfTokyo.Core/Domain/Entities/MarketCardState.cs
 src/KingOfTokyo.Core/Domain/ValueObjects/KnownCardIds.cs
 src/KingOfTokyo.Core/Services/KeepCardRulesService.cs
 src/KingOfTokyo.Core/Services/KeepCardEffectLookupService.cs
+src/KingOfTokyo.Core/Services/KeepCardLifecycleService.cs
 src/KingOfTokyo.Core/Services/MimicService.cs
 src/KingOfTokyo.Core/Services/MimicTargetCleanupService.cs
 src/KingOfTokyo.Core/Services/MarketSetupService.cs
+src/KingOfTokyo.Core/Services/MarketPurchaseService.cs
+src/KingOfTokyo.Core/Services/OwnedCardTransferService.cs
 src/KingOfTokyo.Core/Services/FinalizeDiceService.cs
+src/KingOfTokyo.Core/Rules/Attack/DamageApplier.cs
+src/KingOfTokyo.Core/Rules/Attack/DamagePreventionService.cs
 src/KingOfTokyo.Core/Dto/GameStateDto.cs
 src/KingOfTokyo.Core/Dto/GameStateDtoMapper.cs
 tests/KingOfTokyo.Core.Tests
@@ -76,66 +76,123 @@ The project is a headless C# engine. The current shape is:
 - DTO projection exists via `GameStateDto` and `GameStateDtoMapper` for future online UI/server use.
 - Most card logic is implemented through a mix of:
   - `KeepCardRulesService`,
+  - `KeepCardEffectLookupService`,
   - specialized services,
   - domain state helpers,
   - command handlers,
   - integration tests.
 - The codebase intentionally prioritizes stable headless rules before any UI.
 
-## Important current state
+## Latest known status
 
-### Event log and versioning
+As of this handoff:
 
-Implemented.
+- The engine is in late stabilization.
+- Most headless game logic and most cards are implemented.
+- 2-player games are supported as a deliberate small rule change.
+- EventLog + Versioning are implemented and covered.
+- DTO mapper is stabilized and covered.
+- Bay/Tokyo edge cases have broad regression coverage.
+- Full-flow/API-readiness tests have broad regression coverage.
+- Healing Ray has been moved into the main `GameEngine.Execute(IGameCommand)` command switch.
+- Keep-card lifecycle cleanup is mostly complete for current production paths.
+- Combined card edge-case regression coverage has started, mainly around Acid Attack.
 
-`GameState` tracks:
+Important: after the most recent Mimic -> Acid Attack fix, the user still needs to run the full test suite and report the result:
 
-- `GameId`
-- `Version`
-- `EventLog`
-- pending decisions
-- scheduled extra turns
-
-Tests cover successful and failed command behavior, version increments, event ordering, and DTO exposure.
-
-### DTO layer
-
-Implemented and stabilized.
-
-`GameStateDtoMapper` maps:
-
-- game id and version,
-- game status and winner info,
-- players,
-- Tokyo state,
-- market state,
-- current turn,
-- dice,
-- turn flags,
-- pending decisions,
-- card counters,
-- stored energy,
-- Mimic target state,
-- scheduled turns,
-- Opportunist reveal decisions.
-
-Relevant test area:
-
-```text
-tests/KingOfTokyo.Core.Tests/Dto
+```bash
+git pull
+dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
 ```
 
-### Representative flow
-
-There is a longer representative game flow test covering multiple turns, Tokyo decisions, purchases, healing, scoring, start-in-Tokyo VP, versioning, and event log consistency.
-
-Relevant test area:
+The most recent relevant commit before this handoff update was:
 
 ```text
-tests/KingOfTokyo.Core.Tests/Integration/RepresentativeGameFlowTests.cs
+2667a4b1c4a6fc278a6a64cdce733f7c94841b29
 ```
 
-## Recently implemented / important cards
+It fixed `DamageKind.DiceAttack` to `DamageKind.Attack` in `MimicAcidAttackFlowTests`.
+
+## Recently completed stabilization work
+
+### Bay / Tokyo edge cases
+
+Status: mostly complete for current engine policy.
+
+Covered:
+
+- 5-player game uses Bay.
+- 2-4 player games do not use Bay.
+- When alive player count falls below 5, Bay is disabled.
+- If Bay is occupied when alive player count falls below 5, Bay occupant leaves Tokyo and Bay is cleared.
+- Outside attacker targets both City and Bay occupants.
+- Tokyo leave decisions work correctly for City and Bay occupants.
+- City and Bay leave decisions are queued and resolved sequentially.
+- City leaves / Bay leaves.
+- City stays / Bay leaves.
+- City stays / Bay stays.
+- City leaves / Bay stays.
+- Empty Tokyo in a Bay game enters City first.
+- City occupied + Bay empty: if City defender stays, attacker enters Bay.
+- City occupied + Bay empty: if City defender leaves, attacker enters City.
+- Bay-only occupant can be attacked; if Bay occupant leaves, attacker enters City first.
+- Bay occupant elimination clears Bay.
+- Bay occupant elimination that drops alive count below 5 disables Bay.
+- After Bay is disabled, later City leave decisions still send attacker to City, not Bay.
+
+Still useful later:
+
+- Drop from High Altitude behavior in Bay games needs explicit policy coverage.
+- A direct invariant/unit test could verify a monster cannot occupy both City and Bay if not already enforced elsewhere.
+
+### Full-flow / API-readiness regression tests
+
+Status: mostly complete for current headless engine shape.
+
+Covered:
+
+- 5-player Bay attack -> queued leave decisions -> City entry -> Bay occupant stays -> purchase.
+- 5-player Bay occupant elimination -> Bay cleanup/disable -> City decision -> purchase.
+- 2-player lifecycle: initialize -> begin turn -> roll -> finalize -> enter Tokyo -> end turn -> advance -> next player begins.
+- 2-player combat where Tokyo defender leaves and attacker enters City.
+- 2-player combat where Tokyo defender stays and attacker remains outside.
+- 2-player combat where defender is eliminated and game ends by last monster standing.
+- EventLog and Version increment across multi-command combat/purchase flow.
+- DTO snapshot after combat pending decision and after purchase state.
+- CommandResult success, pending-decision, and failure paths.
+- Turn lifecycle start-in-Tokyo VP scoring.
+- Failed command state safety for wrong phase, pending decisions, and wrong actor.
+- Full-game victory through 20 VP.
+- Full-game victory through last monster standing.
+- No invalid victory when a current player has 20 VP but is eliminated before surviving the turn.
+
+Still useful later:
+
+- API adapter tests once a real server layer exists.
+- Event cursor / incremental sync tests if a cursor API is added on top of EventLog.
+
+### Victory and elimination timing
+
+Expanded coverage includes:
+
+- Current player with 20 VP must survive the turn.
+- If current player reaches 20 VP but dies, they do not win.
+- If no monsters remain alive, game ends with no winner.
+- Non-current alive player can win with 20 VP.
+- Dead player with 20 VP cannot win.
+- VictoryMode.Standard, FirstToTwentyPoints, and LastMonsterStanding have targeted resolver tests.
+- Eater of the Dead can trigger a non-current 20 VP win.
+- It Has a Child + Eater victory timing coverage.
+- Full-game regression covers 20 VP victory, last-monster-standing victory, and dead 20 VP non-victory.
+
+Still useful later:
+
+- Multiple players reach 20 VP in same resolution step.
+- Current player and non-current player reach 20 VP through different events in same turn.
+- All monsters eliminated while one or more players reached 20 VP earlier in same turn.
+- LastMonsterStanding mode with all eliminated should still produce no winner.
+
+## Important current systems/cards
 
 ### Mimic
 
@@ -164,14 +221,15 @@ Implemented pieces:
 Supported copied effects include:
 
 - passive keep effects through `KeepCardRulesService`,
+- Acid Attack,
+- Omnivore,
 - Telepath,
 - Stretchy,
 - Herd Culler,
 - Wings,
 - Made in a Lab,
 - Rapid Healing,
-- Healing Ray through the typed extension path,
-- Omnivore.
+- Healing Ray.
 
 Intentionally unsupported Mimic activations for now:
 
@@ -194,7 +252,9 @@ Stale-target cleanup is covered for:
 - player elimination,
 - It Has a Child replacement after defeat.
 
-No known Mimic-specific stale-target cleanup gap remains. The remaining architectural cleanup is to replace scattered cleanup calls with a generic owned-card lifecycle hook.
+Remaining architectural cleanup:
+
+- Consider moving Mimic cleanup into the same lifecycle service so lost-card handling has one central public entry point.
 
 Key files/tests:
 
@@ -236,82 +296,79 @@ tests/KingOfTokyo.Core.Tests/Integration/Omnivore*FlowTests.cs
 tests/KingOfTokyo.Core.Tests/Integration/MimicOmnivore*FlowTests.cs
 ```
 
-### Wings
+### Healing Ray
 
-Implemented.
+Status: implemented and moved into the main command dispatch.
 
-- Activation after damage taken this turn.
-- Spends 2 energy.
-- Cancels/heals damage taken.
-- Emits `DamageCanceledEvent`.
-- Preserves/updates pending Tokyo leave decisions.
-- Usable through valid Mimic copy.
+Implemented pieces:
 
-### Camouflage
+- Added to `KnownCardIds` and default deck.
+- `HealingRayService` heals another player and transfers payment from target to healer.
+- Target pays 2 energy per actual healed damage, or all remaining energy if they cannot pay enough.
+- `TurnState` tracks `HealingRayHeartsSpent` so heart dice cannot be reused infinitely.
+- `ActivateHealingRayCommand` exists.
+- `ActivateHealingRayCommand` is now handled directly in `GameEngine.Execute(IGameCommand)`.
+- Generic command dispatch regression coverage exists.
+- Existing typed extension remains compatible.
+- Mimic -> Healing Ray works.
+- Mimic targeting a different card does not allow Healing Ray.
+- Mimic target cleanup is respected when the copied Healing Ray is lost.
 
-Implemented.
+Key files/tests:
 
-- Rolls one die per remaining incoming damage after static prevention.
-- Each heart prevents 1 damage.
-- Covered by damage prevention and attack-flow tests.
+```text
+src/KingOfTokyo.Core/Commands/ActivateHealingRayCommand.cs
+src/KingOfTokyo.Core/Engine/GameEngine.cs
+src/KingOfTokyo.Core/Engine/GameEngineHealingRayExtensions.cs
+src/KingOfTokyo.Core/Services/HealingRayService.cs
+tests/KingOfTokyo.Core.Tests/Integration/HealingRayFlowTests.cs
+tests/KingOfTokyo.Core.Tests/Integration/MimicHealingRayFlowTests.cs
+```
 
-### Smoke Cloud
+### Keep-card lifecycle cleanup
 
-Implemented.
+Status: mostly complete for current production paths.
 
-- Starts with counters/charges.
-- Spends a charge for an extra reroll.
-- Discards itself when exhausted.
-- Counters are exposed through DTO.
-- Mimic target cleanup runs when real Smoke Cloud discards.
-- Mimic activation is intentionally unsupported for now.
+Implemented:
 
-### Monster Batteries
+- Added `KeepCardLifecycleService` with added/lost hooks.
+- `Even Bigger` max-health added/lost behavior is centralized there.
+- Purchased keep cards apply added lifecycle effects through `MarketPurchaseService`.
+- `Metamorph` discards use lifecycle lost effects.
+- `Parasitic Tentacles` transfers apply lost effect to seller and added effect to buyer.
+- `It Has a Child` discard-all applies lifecycle lost effects.
+- `Smoke Cloud` and `Plot Twist` self-discards call lifecycle lost effects.
+- `Monster Batteries` discard paths call lifecycle lost effects when batteries are exhausted by payment or end-turn drain.
 
-Implemented.
+Regression coverage added/expanded:
 
-- Starts with stored energy.
-- Stored energy can pay card and refresh costs.
-- Drains at end of turn.
-- Discards when empty.
-- Stored energy is exposed through DTO.
-- Mimic target cleanup runs when real Monster Batteries are discarded by payment or end-turn drain.
+- `Parasitic Tentacles` transfers `Even Bigger` max-health effect from seller to buyer.
+- `It Has a Child` discarding `Even Bigger` resets max health back to normal before revive to 10.
+- Existing `Even Bigger` purchase and `Metamorph` coverage should now flow through lifecycle service.
 
-### Freeze Time
+Still useful later:
 
-Implemented.
+- Consider moving Mimic cleanup into the same lifecycle service so lost-card handling has one central public entry point.
+- Add dedicated unit tests for `KeepCardLifecycleService` if more cards gain lifecycle hooks.
+- Audit any future direct `RemoveKeepCard(...)` calls and route them through lifecycle helpers.
 
-- Schedules an extra turn after scoring three 1s.
-- Extra turn uses one fewer die.
-- Scheduled turns are exposed through DTO.
+Key files/tests:
 
-### Frenzy
-
-Implemented.
-
-- Buying Frenzy schedules an immediate extra turn.
-- `CardBoughtEvent` now has both `Cost` and backward-compatible alias `CostSpent`.
-
-### Psychic Probe
-
-Implemented.
-
-- Out-of-turn activation during another player's rolling phase.
-- Rerolls one die.
-- Discards itself if rerolled die is energy.
-- Limited to once during each other player's turn.
-- Mimic activation is intentionally unsupported for now.
-- Mimic target cleanup now runs when real Psychic Probe discards itself.
-
-### Background Dweller
-
-Implemented.
-
-- Automatically rerolls rolled/rerolled `Three` results until none remain for the owner during normal roll/reroll flow.
+```text
+src/KingOfTokyo.Core/Services/KeepCardLifecycleService.cs
+src/KingOfTokyo.Core/Services/MarketPurchaseService.cs
+src/KingOfTokyo.Core/Services/OwnedCardTransferService.cs
+src/KingOfTokyo.Core/Services/SpecialCardActivationService.cs
+src/KingOfTokyo.Core/Services/EnergyPaymentService.cs
+src/KingOfTokyo.Core/Services/TurnLifecycleService.cs
+src/KingOfTokyo.Core/Rules/Victory/EliminationService.cs
+tests/KingOfTokyo.Core.Tests/Integration/ParasiticTentaclesFlowTests.cs
+tests/KingOfTokyo.Core.Tests/Integration/AttackFlowTests.cs
+```
 
 ### Opportunist
 
-Implemented.
+Status: implemented.
 
 - Reacts when a new market card is revealed after a purchase or refresh.
 - Creates `OpportunistPurchase` pending decision.
@@ -328,13 +385,14 @@ tests/KingOfTokyo.Core.Tests/Integration/OpportunistReactionWindowTests.cs
 
 ### Parasitic Tentacles
 
-Implemented.
+Status: implemented.
 
 - Added to `KnownCardIds` and default deck.
 - Current player with this keep card can buy keep cards from another living player during purchase phase.
 - Card transfers to buyer.
 - Buyer pays seller the card cost in energy.
 - Mimic target cleanup runs when the copied card leaves the seller.
+- Keep-card lifecycle effects move correctly during transfer, including `Even Bigger`.
 - Covered by service and GameEngine flow tests.
 
 Key files/tests:
@@ -346,149 +404,108 @@ tests/KingOfTokyo.Core.Tests/Services/OwnedCardTransferServiceTests.cs
 tests/KingOfTokyo.Core.Tests/Integration/ParasiticTentaclesFlowTests.cs
 ```
 
-### Healing Ray
+### Acid Attack combined-card coverage
 
-Implemented, but with one known cleanup note.
+Status: actively being expanded.
 
-- Added to `KnownCardIds` and default deck.
-- `HealingRayService` heals another player and transfers payment from target to healer.
-- Target pays 2 energy per actual healed damage, or all remaining energy if they cannot pay enough.
-- `TurnState` tracks `HealingRayHeartsSpent` so heart dice cannot be reused infinitely.
-- `ActivateHealingRayCommand` exists as a typed command.
-- There is a `GameEngineHealingRayExtensions` extension with an `Execute(this GameEngine, GameState, ActivateHealingRayCommand)` overload.
-- Integration tests cover successful Healing Ray activation and failing when using more hearts than rolled.
-- Valid Mimic copies can activate Healing Ray through this typed extension, and copied-card owner loss is validated.
+Already covered:
 
-Important cleanup note:
+- Acid Attack adds damage to normal dice attack.
+- Acid Attack adds damage to Poison Quills card-effect damage.
+- Acid Attack adds damage to bought discard-card damage against other monsters.
+- Acid Attack does not add to self-damage.
+- Mimic -> Acid Attack works for Fire Blast discard damage.
+- Mimic -> Acid Attack works for dice attack.
+- Mimic -> Acid Attack works for Poison Quills.
+- Acid Attack + Gas Refinery regression coverage was added.
+- Acid Attack + High Altitude Bombing regression coverage was added.
 
-```text
-Healing Ray is currently handled through a typed GameEngine extension instead of the main GameEngine command switch.
-```
-
-This works for typed calls such as:
-
-```csharp
-engine.Execute(gameState, new ActivateHealingRayCommand(targetId, healingAmount, actorPlayerId));
-```
-
-But a future cleanup should move it into the normal `IGameCommand` command switch if command handling needs to be fully uniform.
-
-Key files/tests:
+Important latest test file:
 
 ```text
-src/KingOfTokyo.Core/Commands/ActivateHealingRayCommand.cs
-src/KingOfTokyo.Core/Services/HealingRayService.cs
-src/KingOfTokyo.Core/Engine/GameEngineHealingRayExtensions.cs
-tests/KingOfTokyo.Core.Tests/CardHealing/HealingRayServiceTests.cs
-tests/KingOfTokyo.Core.Tests/Integration/HealingRayFlowTests.cs
-tests/KingOfTokyo.Core.Tests/Integration/MimicHealingRayFlowTests.cs
+tests/KingOfTokyo.Core.Tests/Integration/MimicAcidAttackFlowTests.cs
 ```
 
-## Current remaining card work
-
-The main card mechanics are now implemented for the current engine policy.
-
-Remaining card-related work is mostly cleanup/policy/refactor rather than missing card implementation:
-
-- Keep stateful/self-discard Mimic activations blocked unless explicit copy semantics are designed.
-- Add a generic owned-card lifecycle hook to centralize cleanup and loss effects.
-- Move Healing Ray from typed extension into the main `GameEngine` command switch if uniform command dispatch becomes required.
-- Review partial edge-case cards noted in `CARD_IMPLEMENTATION_AUDIT.md`, especially Drop from High Altitude, Even Bigger loss paths, Jets/Bay timing, and Acid Attack wording.
-
-## Other useful follow-up work
-
-Recommended next steps:
-
-1. Add one longer full-game regression flow that uses several recently completed mechanics together.
-2. Add more Bay/Tokyo edge-case tests.
-3. Add more simultaneous elimination/victory timing tests.
-4. Add generic owned-card lifecycle hooks:
-   - add keep card,
-   - remove keep card,
-   - discard keep card,
-   - transfer keep card,
-   - run `OnCardLost` / `OnCardDiscarded` from every path.
-5. Move `Healing Ray` from extension into main `GameEngine` command switch.
-6. Consider event cursor / snapshot DTO for online sync before building the UI.
-
-## Current approximate completion
-
-Pure headless game logic is roughly:
+Recent build issue fixed there:
 
 ```text
-95-97% complete
-3-5% remaining
+DamageKind.DiceAttack -> DamageKind.Attack
 ```
 
-Most base engine systems and most cards are done. The remaining complexity is concentrated in edge-case regression coverage, lifecycle refactor cleanup, Healing Ray command-dispatch cleanup, and preparing DTO/event behavior for online sync.
+Still useful next:
 
-## Prompt for next chat
+- Acid Attack + Armor Plating.
+- Acid Attack + Camouflage.
+- Acid Attack + Armor Plating + Camouflage together.
+- Acid Attack with Fire Blast eliminations and Eater of the Dead.
+- Confirm whether `AcidAttackPreventionFlowTests.cs` exists. A test file for prevention was planned, but if it is not present in the repo, create it fresh under the correct `king-of-tokyo-engine` path.
 
-A good continuation prompt is:
+## Other implemented cards/systems worth knowing
+
+These are implemented and have coverage in existing tests:
+
+- Wings.
+- Camouflage.
+- Smoke Cloud.
+- Monster Batteries.
+- Freeze Time.
+- Frenzy.
+- Psychic Probe.
+- Background Dweller.
+- Made in a Lab.
+- Rapid Healing.
+- Telepath.
+- Stretchy.
+- Herd Culler.
+- Plot Twist.
+- Metamorph.
+- It Has a Child.
+- Eater of the Dead.
+- Even Bigger.
+- Burrowing / Urbavore / Spiked Tail and other attack modifiers have some coverage, but Tokyo attack modifier combinations still need more edge-case tests.
+
+## Recommended next step
+
+Start here after running the full test suite:
 
 ```text
-Ahoj, pracuju na headless enginu pro webovou online hru inspirovanou King of Tokyo / Vládce Tokia. Chci nejdřív dokončit kompletní logiku bez UI, potom nad tím postavit online webovou hru.
-
-Repozitář:
-https://github.com/KratosCube/King_Of_Tokio/tree/main/king-of-tokyo-engine
-
-Důležité: v projektu je aktuální handoff dokument:
-king-of-tokyo-engine/docs/ENGINE_HANDOFF.md
-
-Prosím nejdřív si projdi hlavně:
-- king-of-tokyo-engine/docs/ENGINE_HANDOFF.md
-- king-of-tokyo-engine/docs/CARD_IMPLEMENTATION_AUDIT.md
-- king-of-tokyo-engine/docs/MIMIC_POLICY_NOTES.md
-- king-of-tokyo-engine/docs/OMNIVORE_IMPLEMENTATION_NOTES.md
-- src/KingOfTokyo.Core/Engine/GameEngine.cs
-- src/KingOfTokyo.Core/Engine/GameEngineHealingRayExtensions.cs
-- src/KingOfTokyo.Core/Domain/State/GameState.cs
-- src/KingOfTokyo.Core/Domain/Entities/TurnState.cs
-- src/KingOfTokyo.Core/Domain/Entities/PlayerState.cs
-- src/KingOfTokyo.Core/Domain/Entities/MarketCardState.cs
-- src/KingOfTokyo.Core/Domain/ValueObjects/KnownCardIds.cs
-- src/KingOfTokyo.Core/Services/KeepCardRulesService.cs
-- src/KingOfTokyo.Core/Services/KeepCardEffectLookupService.cs
-- src/KingOfTokyo.Core/Services/MimicService.cs
-- src/KingOfTokyo.Core/Services/MimicTargetCleanupService.cs
-- src/KingOfTokyo.Core/Services/MarketSetupService.cs
-- src/KingOfTokyo.Core/Services/FinalizeDiceService.cs
-- src/KingOfTokyo.Core/Dto/GameStateDto.cs
-- src/KingOfTokyo.Core/Dto/GameStateDtoMapper.cs
-- tests/KingOfTokyo.Core.Tests
-
-Aktuální stav:
-- většina headless logiky a prakticky všechny hlavní karty jsou implementované,
-- EventLog + Versioning jsou hotové,
-- DTO mapper je stabilizovaný,
-- Opportunist, Parasitic Tentacles, Healing Ray, Mimic a Omnivore jsou implementované,
-- Healing Ray je zatím napojený přes typed GameEngine extension, ne přímo v hlavním command switchi,
-- Mimic má target state, DTO, retargeting, policy validace, copied efekty, validated lookup a cleanup neplatných targetů,
-- žádný známý Mimic-specific stale-target cleanup gap nezbývá,
-- stateful/self-discard Mimic aktivace jako Smoke Cloud, Plot Twist, Metamorph a Psychic Probe jsou zatím záměrně blokované,
-- čistá herní logika je zhruba 95-97 % hotová.
-
-Před pokračováním spusť / vyžádej si výsledek:
-dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx
-
-Chci pokračovat stejně jako předchozí AI:
-- navrhni další malý až střední krok,
-- ideálně rovnou uprav GitHub soubory,
-- po každé změně napiš, co jsi udělal,
-- napiš commit SHA,
-- napiš příkaz, který mám spustit lokálně,
-- po mém výsledku testů pokračuj dál,
-- vždy dávej pozor, aby build zůstal zelený,
-- pokud něco rozbiješ, nejdřív to oprav.
-
-Doporučený další krok:
-Začni delším regression flow přes více dokončených mechanik, nebo začni návrhem generic owned-card lifecycle hooku. Postupuj po malých testovaných krocích.
-
-Důležitý styl práce:
-- Neměň moc věcí najednou, pokud to není bezpečné.
-- Když přidáš produkční kód, přidej k němu test.
-- Používej existující command pattern, validators, services a events.
-- UI zatím neřeš, jen headless logiku.
-- Neposílej obrovské diffy, spíš stručné shrnutí změn a commit.
-- Odpovídej česky.
+Continue combined card edge-case regression coverage.
 ```
+
+Suggested immediate next test block:
+
+```text
+Acid Attack + defensive/prevention cards:
+- Armor Plating with Acid Attack.
+- Camouflage with Acid Attack.
+- Armor Plating + Camouflage with Acid Attack.
+```
+
+Implementation hint:
+
+- Use `FinalizeDiceService` through `GameEngine`.
+- For Camouflage, inject deterministic random faces through `DamagePreventionService` and `DamageApplier` the same way existing attack-flow tests do.
+- Expected order is:
+  1. Attack/card source determines base damage.
+  2. Acid Attack adds +1 against other monsters.
+  3. Armor Plating static prevention applies.
+  4. Camouflage rolls against remaining incoming damage.
+
+Then continue with:
+
+```text
+Acid Attack + Fire Blast eliminations + Eater of the Dead.
+Tokyo attack modifiers: Burrowing / Urbavore / Spiked Tail stacking.
+Fire Breathing neighbor targeting in 2, 3, 4, 5, and 6 player games, including Bay occupants.
+```
+
+## Current rough completion estimate
+
+The headless engine is roughly 93-95% complete for starting an online UI/server layer, assuming the current full test suite is green.
+
+Remaining work before UI is mostly:
+
+- more combined-card regression coverage,
+- a few explicit policy edge cases,
+- final documentation/audit cleanup,
+- optional event cursor / online sync helper once the server API shape is known.
