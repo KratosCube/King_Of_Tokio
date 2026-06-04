@@ -32,7 +32,7 @@ public sealed class InMemoryGameSessionStore
             throw new InvalidOperationException("Could not create a unique game session.");
         }
 
-        return GameStateDtoMapper.Map(gameState);
+        return gameState.ToDto();
     }
 
     public bool TryGetSnapshot(Guid gameId, out GameStateDto? snapshot)
@@ -46,7 +46,7 @@ public sealed class InMemoryGameSessionStore
 
         lock (session.SyncRoot)
         {
-            snapshot = GameStateDtoMapper.Map(session.GameState);
+            snapshot = session.GameState.ToDto();
             return true;
         }
     }
