@@ -20,7 +20,7 @@ public sealed class VictoryResolver
 
         return gameState.Options.VictoryMode switch
         {
-            VictoryMode.FirstToTwentyPoints => ResolveFirstToTwenty(gameState, alivePlayers),
+            VictoryMode.FirstToTwentyPoints => ResolveFirstToTargetPoints(gameState, alivePlayers),
             VictoryMode.LastMonsterStanding => ResolveLastMonsterStanding(alivePlayers),
             _ => ResolveStandard(gameState, alivePlayers)
         };
@@ -28,9 +28,9 @@ public sealed class VictoryResolver
 
     private static WinnerInfo? ResolveStandard(GameState gameState, IReadOnlyList<PlayerState> alivePlayers)
     {
-        if (ResolveTwentyPointWinner(gameState, alivePlayers) is { } twentyPointWinner)
+        if (ResolveTargetPointWinner(gameState, alivePlayers) is { } targetPointWinner)
         {
-            return twentyPointWinner;
+            return targetPointWinner;
         }
 
         if (alivePlayers.Count == 1)
@@ -41,24 +41,25 @@ public sealed class VictoryResolver
         return null;
     }
 
-    private static WinnerInfo? ResolveFirstToTwenty(GameState gameState, IReadOnlyList<PlayerState> alivePlayers)
+    private static WinnerInfo? ResolveFirstToTargetPoints(GameState gameState, IReadOnlyList<PlayerState> alivePlayers)
     {
-        return ResolveTwentyPointWinner(gameState, alivePlayers);
+        return ResolveTargetPointWinner(gameState, alivePlayers);
     }
 
-    private static WinnerInfo? ResolveTwentyPointWinner(GameState gameState, IReadOnlyList<PlayerState> alivePlayers)
+    private static WinnerInfo? ResolveTargetPointWinner(GameState gameState, IReadOnlyList<PlayerState> alivePlayers)
     {
         var currentPlayer = gameState.GetCurrentPlayer();
+        var targetVictoryPoints = gameState.Options.TargetVictoryPoints;
 
-        if (currentPlayer.IsAlive && currentPlayer.VictoryPoints >= 20)
+        if (currentPlayer.IsAlive && currentPlayer.VictoryPoints >= targetVictoryPoints)
         {
-            return WinnerInfo.Winner(currentPlayer.PlayerId, "Reached 20 victory points.");
+            return WinnerInfo.Winner(currentPlayer.PlayerId, $"Reached {targetVictoryPoints} victory points.");
         }
 
-        var firstAlivePlayerAtTwenty = alivePlayers.FirstOrDefault(player => player.VictoryPoints >= 20);
-        return firstAlivePlayerAtTwenty is null
+        var firstAlivePlayerAtTarget = alivePlayers.FirstOrDefault(player => player.VictoryPoints >= targetVictoryPoints);
+        return firstAlivePlayerAtTarget is null
             ? null
-            : WinnerInfo.Winner(firstAlivePlayerAtTwenty.PlayerId, "Reached 20 victory points.");
+            : WinnerInfo.Winner(firstAlivePlayerAtTarget.PlayerId, $"Reached {targetVictoryPoints} victory points.");
     }
 
     private static WinnerInfo? ResolveLastMonsterStanding(IReadOnlyList<PlayerState> alivePlayers)
