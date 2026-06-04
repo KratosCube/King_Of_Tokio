@@ -19,7 +19,7 @@ public static class GameEndpoints
                 return Results.BadRequest(new { error = "Player count must be between 2 and 6." });
             }
 
-            var snapshot = store.CreateGame(request.MonsterNames);
+            var snapshot = store.CreateGame(request);
             return Results.Created($"/api/games/{snapshot.GameId}", snapshot);
         });
 
