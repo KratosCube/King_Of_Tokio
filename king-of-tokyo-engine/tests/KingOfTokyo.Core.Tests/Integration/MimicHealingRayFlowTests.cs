@@ -5,6 +5,7 @@ using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Engine;
 using KingOfTokyo.Core.Events;
+using KingOfTokyo.Core.Services;
 using Xunit;
 
 namespace KingOfTokyo.Core.Tests.Integration;
@@ -66,7 +67,7 @@ public sealed class MimicHealingRayFlowTests
         var result = engine.Execute(gameState, new ActivateHealingRayCommand(target.PlayerId, healingAmount: 1, healer.PlayerId));
 
         Assert.False(result.Success);
-        Assert.Equal("Player does not have Healing Ray.", result.Error);
+        Assert.Equal("Player cannot use Healing Ray right now.", result.Error);
         Assert.Equal(8, target.Health);
         Assert.Equal(4, target.Energy);
         Assert.Equal(0, healer.Energy);
@@ -82,7 +83,8 @@ public sealed class MimicHealingRayFlowTests
         var target = gameState.GetPlayerById(2);
         copiedCardOwner.AddKeepCard(CreateKeepCard(KnownCardIds.HealingRay, "Healing Ray", 4));
         healer.AddKeepCard(CreateMimicCopying(copiedCardOwner.PlayerId, KnownCardIds.HealingRay, "Healing Ray"));
-        copiedCardOwner.RemoveKeepCard(KnownCardIds.HealingRay);
+        var removedCard = copiedCardOwner.RemoveKeepCard(KnownCardIds.HealingRay);
+        new MimicTargetCleanupService().ClearTargetsForLostCard(gameState, copiedCardOwner.PlayerId, removedCard.CardId);
         target.TakeDamage(2);
         target.GainEnergy(4);
 
@@ -96,7 +98,7 @@ public sealed class MimicHealingRayFlowTests
         var result = engine.Execute(gameState, new ActivateHealingRayCommand(target.PlayerId, healingAmount: 1, healer.PlayerId));
 
         Assert.False(result.Success);
-        Assert.Equal("Player does not have Healing Ray.", result.Error);
+        Assert.Equal("Player cannot use Healing Ray right now.", result.Error);
         Assert.Equal(8, target.Health);
         Assert.Equal(4, target.Energy);
         Assert.Equal(0, healer.Energy);
