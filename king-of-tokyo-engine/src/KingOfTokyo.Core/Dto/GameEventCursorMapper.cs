@@ -4,31 +4,32 @@ namespace KingOfTokyo.Core.Dto;
 
 public static class GameEventCursorMapper
 {
-    public static GameEventCursorDto MapEventsSince(GameState gameState, long fromVersionExclusive)
+    public static GameEventCursorDto MapEventsSince(GameState gameState, long fromEventSequenceExclusive)
     {
         ArgumentNullException.ThrowIfNull(gameState);
 
-        if (fromVersionExclusive < 0)
+        if (fromEventSequenceExclusive < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(fromVersionExclusive));
+            throw new ArgumentOutOfRangeException(nameof(fromEventSequenceExclusive));
         }
 
-        if (fromVersionExclusive > gameState.Version)
+        if (fromEventSequenceExclusive > gameState.EventLog.Count)
         {
-            throw new InvalidOperationException("Requested event cursor is ahead of the current game version.");
+            throw new InvalidOperationException("Requested event cursor is ahead of the current event sequence.");
         }
 
-        var skippedEventCount = (int)Math.Min(fromVersionExclusive, gameState.EventLog.Count);
+        var skippedEventCount = (int)fromEventSequenceExclusive;
         var events = gameState.EventLog
             .Skip(skippedEventCount)
             .Select((gameEvent, index) => new GameEventEnvelopeDto(
-                fromVersionExclusive + index + 1,
+                fromEventSequenceExclusive + index + 1,
                 gameEvent))
             .ToArray();
 
         return new GameEventCursorDto(
             gameState.GameId,
-            fromVersionExclusive,
+            fromEventSequenceExclusive,
+            gameState.EventLog.Count,
             gameState.Version,
             events);
     }
