@@ -1,6 +1,7 @@
 using KingOfTokyo.Api.Contracts;
 using KingOfTokyo.Api.GameSessions;
 using KingOfTokyo.Core.Commands;
+using KingOfTokyo.Core.Engine;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -181,7 +182,7 @@ app.Run();
 static IResult Execute(
     Guid gameId,
     InMemoryGameSessionStore store,
-    Func<KingOfTokyo.Core.Engine.GameEngine, KingOfTokyo.Core.Domain.State.GameState, KingOfTokyo.Core.Engine.CommandResult> execute)
+    Func<GameEngine, KingOfTokyo.Core.Domain.State.GameState, CommandResult> execute)
 {
     try
     {
