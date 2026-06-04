@@ -8,6 +8,13 @@ namespace KingOfTokyo.Core.Rules.Victory;
 
 public sealed class EliminationService
 {
+    private readonly KeepCardLifecycleService _keepCardLifecycleService;
+
+    public EliminationService(KeepCardLifecycleService? keepCardLifecycleService = null)
+    {
+        _keepCardLifecycleService = keepCardLifecycleService ?? new KeepCardLifecycleService();
+    }
+
     public bool TryEliminate(GameState gameState, PlayerState player)
     {
         ArgumentNullException.ThrowIfNull(gameState);
@@ -31,11 +38,12 @@ public sealed class EliminationService
         return true;
     }
 
-    private static void ApplyItHasAChild(GameState gameState, PlayerState player)
+    private void ApplyItHasAChild(GameState gameState, PlayerState player)
     {
         foreach (var card in player.KeepCards.ToArray())
         {
             var removedCard = player.RemoveKeepCard(card.CardId);
+            _keepCardLifecycleService.ApplyLostEffect(player, removedCard);
             gameState.Market.Discard(removedCard);
         }
 
