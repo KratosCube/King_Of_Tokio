@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/KingOfTokyo.Core/KingOfTokyo.Core.csproj" />
+    <Project Path="src/KingOfTokyo.Api/KingOfTokyo.Api.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/KingOfTokyo.Core.Tests/KingOfTokyo.Core.Tests.csproj" />
