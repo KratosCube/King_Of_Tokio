@@ -28,6 +28,41 @@ public sealed class VictoryResolverTests
     }
 
     [Fact]
+    public void Resolve_Should_ReturnWinner_WhenCurrentPlayerReachesCustomTargetVictoryPoints()
+    {
+        var players = CreatePlayers(3);
+        var gameState = new GameState(players, new GameOptions(3, targetVictoryPoints: 12));
+        gameState.StartGame();
+        gameState.StartTurnForCurrentPlayer();
+        gameState.GetCurrentPlayer().GainVictoryPoints(12);
+
+        var resolver = new VictoryResolver();
+
+        var result = resolver.Resolve(gameState);
+
+        Assert.NotNull(result);
+        Assert.True(result!.HasWinner);
+        Assert.Equal(0, result.WinnerPlayerId);
+        Assert.Equal("Reached 12 victory points.", result.Reason);
+    }
+
+    [Fact]
+    public void Resolve_Should_NotReturnWinner_WhenPlayerIsBelowCustomTargetVictoryPoints()
+    {
+        var players = CreatePlayers(3);
+        var gameState = new GameState(players, new GameOptions(3, targetVictoryPoints: 12));
+        gameState.StartGame();
+        gameState.StartTurnForCurrentPlayer();
+        gameState.GetCurrentPlayer().GainVictoryPoints(11);
+
+        var resolver = new VictoryResolver();
+
+        var result = resolver.Resolve(gameState);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void Resolve_Should_ReturnWinner_WhenNonCurrentAlivePlayerHasTwentyPoints()
     {
         var players = CreatePlayers(3);
