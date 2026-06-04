@@ -86,7 +86,7 @@ public sealed class JetsBurrowingTokyoLeaveFlowTests
 
         Assert.True(stayResult.Success, stayResult.Error);
         Assert.Equal(TokyoSlot.City, defender.TokyoSlot);
-        Assert.Equal(TokyoSlot.Bay, attacker.TokyoSlot);
+        Assert.Equal(TokyoSlot.None, attacker.TokyoSlot);
         Assert.Equal(8, defender.Health);
         Assert.DoesNotContain(stayResult.NewEvents, e => e is PlayerHealedEvent healed &&
                                                         healed.PlayerId == defender.PlayerId &&
