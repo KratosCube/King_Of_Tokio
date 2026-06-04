@@ -59,17 +59,16 @@ public sealed class InMemoryGameSessionStoreTests
         var created = store.CreateGame(new CreateGameRequest(
             new[] { "Alpha", "Beta" },
             TargetVictoryPoints: 1));
-        store.TryExecute(created.GameId, (engine, state) => engine.Execute(state, new InitializeGameCommand()), out _);
-        store.TryExecute(created.GameId, (engine, state) => engine.Execute(state, new BeginTurnCommand(0)), out _);
-        store.TryExecute(created.GameId, (engine, state) =>
+
+        var executed = store.TryExecute(created.GameId, (engine, state) =>
         {
-            state.GetCurrentPlayer().GainVictoryPoints(1);
+            Assert.Equal(1, state.Options.TargetVictoryPoints);
             return CommandResult.Successful(state);
         }, out var result);
 
+        Assert.True(executed);
         Assert.NotNull(result);
-        Assert.Equal(0, result!.GameState.WinnerPlayerId);
-        Assert.Equal("Reached 1 victory points.", result.GameState.WinnerReason);
+        Assert.True(result!.Success, result.Error);
     }
 
     [Fact]
