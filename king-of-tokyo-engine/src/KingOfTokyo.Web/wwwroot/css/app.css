@@ -104,6 +104,11 @@ button {
     margin-top: 1rem;
 }
 
+.compact-actions {
+    gap: 0.35rem;
+    margin-top: 0.75rem;
+}
+
 .btn {
     align-items: center;
     border: 0;
@@ -129,7 +134,7 @@ button {
 .form-grid {
     display: grid;
     gap: 1rem;
-    max-width: 680px;
+    max-width: 860px;
 }
 
 .field {
@@ -172,6 +177,61 @@ button {
     display: grid;
     gap: 1rem;
     grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.4fr) minmax(260px, 0.9fr);
+}
+
+.monster-picker {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.monster-grid {
+    display: grid;
+    gap: 0.85rem;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.monster-card {
+    background:
+        radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 28%, transparent), transparent 46%),
+        rgba(3, 7, 18, 0.68);
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, rgba(255, 255, 255, 0.16));
+    border-radius: 1rem;
+    color: #f9fafb;
+    display: grid;
+    gap: 0.35rem;
+    min-height: 150px;
+    padding: 1rem;
+    text-align: left;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.monster-card:hover,
+.monster-card.selected {
+    border-color: var(--accent);
+    box-shadow: 0 18px 50px color-mix(in srgb, var(--accent) 20%, transparent);
+    transform: translateY(-2px);
+}
+
+.monster-card.selected {
+    outline: 2px solid color-mix(in srgb, var(--accent) 70%, white);
+}
+
+.monster-card strong {
+    font-size: 1.05rem;
+}
+
+.monster-card small {
+    color: #d1d5db;
+    line-height: 1.35;
+}
+
+.display-card {
+    cursor: default;
+}
+
+.monster-emoji {
+    font-size: 2.4rem;
+    line-height: 1;
 }
 
 .placeholder-box {
