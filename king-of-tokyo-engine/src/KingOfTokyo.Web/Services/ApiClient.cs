@@ -66,6 +66,15 @@ public sealed class ApiClient
     public Task<ApiCommandResultDto> FinalizeDiceAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "finalize-dice", request, cancellationToken);
 
+    public Task<ApiCommandResultDto> BuyFaceUpCardAsync(Guid gameId, BuyFaceUpCardRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "buy-face-up-card", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> RefreshMarketAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "refresh-market", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ChooseLeaveTokyoAsync(Guid gameId, ChooseLeaveTokyoRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "choose-leave-tokyo", request, cancellationToken);
+
     public Task<ApiCommandResultDto> EndTurnAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "end-turn", request, cancellationToken);
 
