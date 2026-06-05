@@ -99,7 +99,7 @@
                             var isSelected = _selectedDiceIndexes.Contains(die.Index);
                             <button type="button"
                                     class="die-button @(isSelected ? "selected" : null)"
-                                    disabled="@(_busy || die.IsLocked || !CanSelectDiceForReroll)"
+                                    disabled="@(_busy || die.IsLocked)"
                                     @onclick="() => ToggleDieSelection(die.Index)">
                                 <span class="die-face @(die.IsLocked ? "locked" : null)">@DieIcon(die.CurrentFace)</span>
                                 <small>@(die.IsLocked ? "locked" : isSelected ? "reroll" : $"die {die.Index}")</small>
@@ -110,6 +110,10 @@
                         <button class="btn btn-primary" @onclick="RerollSelectedDiceAsync" disabled="@(!CanRerollSelected || _busy)">Reroll selected dice</button>
                         <button class="btn btn-secondary" @onclick="ClearSelectedDice" disabled="@(_busy || _selectedDiceIndexes.Count == 0)">Clear dice selection</button>
                     </div>
+                    @if (_selectedDiceIndexes.Count > 0 && !CanRerollSelected)
+                    {
+                        <p class="muted">Dice are selected. Reroll becomes available only during your rolling phase.</p>
+                    }
                 }
                 else
                 {
@@ -387,7 +391,7 @@
 
     private void PruneSelectedDice()
     {
-        if (_game?.CurrentTurn is null || !CanSelectDiceForReroll)
+        if (_game?.CurrentTurn is null)
         {
             _selectedDiceIndexes.Clear();
             return;
