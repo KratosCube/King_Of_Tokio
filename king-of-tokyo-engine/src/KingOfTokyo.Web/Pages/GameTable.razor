@@ -20,6 +20,7 @@
         <p>
             Status: <span class="status-pill">@_game.Status</span>
             Version: <span class="muted">@_game.Version</span>
+            Events: <span class="muted">@Session.LastEventSequence</span>
         </p>
 
         @if (_game.WinnerPlayerId is not null)
@@ -96,25 +97,49 @@
             </section>
         </div>
 
-        <section class="panel">
-            <h2>Commands</h2>
-            <p class="muted">Current local player id: @(Session.PlayerId?.ToString() ?? "unknown")</p>
-            <div class="actions">
-                <button class="btn btn-secondary" @onclick="InitializeAsync" disabled="@_busy">Initialize</button>
-                <button class="btn btn-secondary" @onclick="BeginTurnAsync" disabled="@_busy">Begin turn</button>
-                <button class="btn btn-primary" @onclick="RollDiceAsync" disabled="@_busy">Roll dice</button>
-                <button class="btn btn-primary" @onclick="FinalizeDiceAsync" disabled="@_busy">Finalize dice</button>
-                <button class="btn btn-secondary" @onclick="EndTurnAsync" disabled="@_busy">End turn</button>
-                <button class="btn btn-secondary" @onclick="AdvancePlayerAsync" disabled="@_busy">Advance player</button>
-                <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
-            </div>
-        </section>
+        <div class="grid-2 lower-game-grid">
+            <section class="panel">
+                <h2>Commands</h2>
+                <p class="muted">Current local player id: @(Session.PlayerId?.ToString() ?? "unknown")</p>
+                <div class="actions">
+                    <button class="btn btn-secondary" @onclick="InitializeAsync" disabled="@_busy">Initialize</button>
+                    <button class="btn btn-secondary" @onclick="BeginTurnAsync" disabled="@_busy">Begin turn</button>
+                    <button class="btn btn-primary" @onclick="RollDiceAsync" disabled="@_busy">Roll dice</button>
+                    <button class="btn btn-primary" @onclick="FinalizeDiceAsync" disabled="@_busy">Finalize dice</button>
+                    <button class="btn btn-secondary" @onclick="EndTurnAsync" disabled="@_busy">End turn</button>
+                    <button class="btn btn-secondary" @onclick="AdvancePlayerAsync" disabled="@_busy">Advance player</button>
+                    <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                </div>
+            </section>
+
+            <section class="panel event-feed-panel">
+                <h2>Event feed</h2>
+                @if (_eventFeed.Count == 0)
+                {
+                    <p class="muted">No events yet. Start a turn, roll dice, or buy cards to see the story here.</p>
+                }
+                else
+                {
+                    <ol class="event-feed">
+                        @foreach (var item in _eventFeed.OrderByDescending(item => item.Sequence).Take(20))
+                        {
+                            <li>
+                                <span class="muted">#@item.Sequence</span>
+                                <strong>@item.Title</strong>
+                                <p>@item.Description</p>
+                            </li>
+                        }
+                    </ol>
+                }
+            </section>
+        </div>
     }
 </div>
 
 @code {
     [Parameter] public Guid GameId { get; set; }
 
+    private readonly List<EventFeedItem> _eventFeed = new();
     private GameStateDto? _game;
     private PeriodicTimer? _timer;
     private CancellationTokenSource? _cts;
@@ -125,6 +150,7 @@
     {
         Session.RememberGame(GameId);
         await RefreshAsync();
+        await RefreshEventsAsync();
         _cts = new CancellationTokenSource();
         _timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
         _ = PollAsync(_cts.Token);
@@ -198,7 +224,11 @@
         {
             while (_timer is not null && await _timer.WaitForNextTickAsync(cancellationToken))
             {
-                await InvokeAsync(RefreshAsync);
+                await InvokeAsync(async () =>
+                {
+                    await RefreshAsync();
+                    await RefreshEventsAsync();
+                });
             }
         }
         catch (OperationCanceledException)
@@ -211,6 +241,34 @@
         try
         {
             _game = await ApiClient.GetGameAsync(GameId);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task RefreshEventsAsync()
+    {
+        try
+        {
+            var cursor = await ApiClient.GetEventsAsync(GameId, Session.LastEventSequence);
+            if (cursor is null)
+            {
+                return;
+            }
+
+            foreach (var envelope in cursor.Events)
+            {
+                if (_eventFeed.Any(item => item.Sequence == envelope.EventSequence))
+                {
+                    continue;
+                }
+
+                _eventFeed.Add(EventFeedItem.From(envelope));
+            }
+
+            Session.LastEventSequence = cursor.CurrentEventSequence;
         }
         catch (Exception ex)
         {
@@ -232,7 +290,18 @@
             }
 
             _game = result.GameState;
-            Session.LastEventSequence = result.CurrentEventSequence;
+            foreach (var newEvent in result.NewEvents)
+            {
+                _eventFeed.Add(EventFeedItem.From(Session.LastEventSequence + 1, newEvent));
+                Session.LastEventSequence++;
+            }
+
+            if (result.CurrentEventSequence > Session.LastEventSequence)
+            {
+                Session.LastEventSequence = result.CurrentEventSequence;
+            }
+
+            await RefreshEventsAsync();
         }
         catch (Exception ex)
         {
@@ -261,5 +330,73 @@
         _cts?.Cancel();
         _cts?.Dispose();
         _timer?.Dispose();
+    }
+
+    private sealed record EventFeedItem(long Sequence, string Title, string Description)
+    {
+        public static EventFeedItem From(GameEventEnvelopeDto envelope)
+        {
+            return From(envelope.EventSequence, envelope.Event);
+        }
+
+        public static EventFeedItem From(long sequence, System.Text.Json.JsonElement json)
+        {
+            var eventName = ReadString(json, "eventName") ?? "GameEvent";
+            var title = eventName.Replace("Event", string.Empty);
+            var playerId = ReadInt(json, "playerId");
+            var sourcePlayerId = ReadInt(json, "sourcePlayerId");
+            var targetPlayerId = ReadInt(json, "targetPlayerId");
+            var amount = ReadInt(json, "amount");
+            var reason = ReadString(json, "reason");
+            var cardName = ReadString(json, "cardName");
+
+            var parts = new List<string>();
+            if (playerId is not null)
+            {
+                parts.Add($"player {playerId}");
+            }
+
+            if (sourcePlayerId is not null || targetPlayerId is not null)
+            {
+                parts.Add($"{Label(sourcePlayerId, "source")} {Label(targetPlayerId, "target")}".Trim());
+            }
+
+            if (amount is not null)
+            {
+                parts.Add($"amount {amount}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(cardName))
+            {
+                parts.Add(cardName!);
+            }
+
+            if (!string.IsNullOrWhiteSpace(reason))
+            {
+                parts.Add(reason!);
+            }
+
+            var description = parts.Count == 0 ? json.ToString() : string.Join(" • ", parts);
+            return new EventFeedItem(sequence, title, description);
+        }
+
+        private static string Label(int? value, string label)
+        {
+            return value is null ? string.Empty : $"{label} {value}";
+        }
+
+        private static string? ReadString(System.Text.Json.JsonElement json, string propertyName)
+        {
+            return json.TryGetProperty(propertyName, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.String
+                ? value.GetString()
+                : null;
+        }
+
+        private static int? ReadInt(System.Text.Json.JsonElement json, string propertyName)
+        {
+            return json.TryGetProperty(propertyName, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.Number && value.TryGetInt32(out var number)
+                ? number
+                : null;
+        }
     }
 }
