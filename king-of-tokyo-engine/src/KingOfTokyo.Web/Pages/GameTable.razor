@@ -24,6 +24,13 @@
             Events: <span class="muted">@Session.LastEventSequence</span>
         </p>
 
+        @if (_game.CurrentTurn is not null)
+        {
+            <p class="muted">
+                Current turn: @PlayerName(_game.CurrentTurn.CurrentPlayerId) • Phase: @_game.CurrentTurn.Phase • Rolls: @_game.CurrentTurn.RollCountUsed/@_game.CurrentTurn.MaxRolls
+            </p>
+        }
+
         @if (_game.WinnerPlayerId is not null)
         {
             <p class="status-pill">Winner: @PlayerName(_game.WinnerPlayerId.Value) — @_game.WinnerReason</p>
@@ -92,7 +99,7 @@
                             var isSelected = _selectedDiceIndexes.Contains(die.Index);
                             <button type="button"
                                     class="die-button @(isSelected ? "selected" : null)"
-                                    disabled="@(_busy || die.IsLocked)"
+                                    disabled="@(_busy || die.IsLocked || !CanSelectDiceForReroll)"
                                     @onclick="() => ToggleDieSelection(die.Index)">
                                 <span class="die-face @(die.IsLocked ? "locked" : null)">@DieIcon(die.CurrentFace)</span>
                                 <small>@(die.IsLocked ? "locked" : isSelected ? "reroll" : $"die {die.Index}")</small>
@@ -124,12 +131,12 @@
                             <h3>@card.value.Name</h3>
                             <p class="muted">Cost: @card.value.Cost • @card.value.CardType</p>
                             <p>@card.value.Description</p>
-                            <button class="btn btn-primary" @onclick="() => BuyFaceUpCardAsync(card.index)" disabled="@_busy">Buy</button>
+                            <button class="btn btn-primary" @onclick="() => BuyFaceUpCardAsync(card.index)" disabled="@(_busy || !CanUseMarketActions)">Buy</button>
                         }
                     </div>
                 }
                 <p class="muted">Deck: @_game.Market.DrawPileCount • Discard: @_game.Market.DiscardPileCount</p>
-                <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@_busy">Refresh market</button>
+                <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@(_busy || !CanUseMarketActions)">Refresh market</button>
             </section>
         </div>
 
@@ -137,13 +144,17 @@
             <section class="panel">
                 <h2>Commands</h2>
                 <p class="muted">Current local player id: @(Session.PlayerId?.ToString() ?? "unknown")</p>
+                @if (!IsLocalCurrentPlayer && _game.CurrentTurn is not null)
+                {
+                    <p class="status-pill">Waiting for @PlayerName(_game.CurrentTurn.CurrentPlayerId)</p>
+                }
                 <div class="actions">
-                    <button class="btn btn-secondary" @onclick="InitializeAsync" disabled="@_busy">Initialize</button>
-                    <button class="btn btn-secondary" @onclick="BeginTurnAsync" disabled="@_busy">Begin turn</button>
-                    <button class="btn btn-primary" @onclick="RollDiceAsync" disabled="@_busy">Roll dice</button>
-                    <button class="btn btn-primary" @onclick="FinalizeDiceAsync" disabled="@_busy">Finalize dice</button>
-                    <button class="btn btn-secondary" @onclick="EndTurnAsync" disabled="@_busy">End turn</button>
-                    <button class="btn btn-secondary" @onclick="AdvancePlayerAsync" disabled="@_busy">Advance player</button>
+                    <button class="btn btn-secondary" @onclick="InitializeAsync" disabled="@(_busy || !CanInitialize)">Initialize</button>
+                    <button class="btn btn-secondary" @onclick="BeginTurnAsync" disabled="@(_busy || !CanBeginTurn)">Begin turn</button>
+                    <button class="btn btn-primary" @onclick="RollDiceAsync" disabled="@(_busy || !CanRollDice)">Roll dice</button>
+                    <button class="btn btn-primary" @onclick="FinalizeDiceAsync" disabled="@(_busy || !CanFinalizeDice)">Finalize dice</button>
+                    <button class="btn btn-secondary" @onclick="EndTurnAsync" disabled="@(_busy || !CanEndTurn)">End turn</button>
+                    <button class="btn btn-secondary" @onclick="AdvancePlayerAsync" disabled="@(_busy || !CanAdvancePlayer)">Advance player</button>
                     <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
                 </div>
             </section>
@@ -183,16 +194,69 @@
     private bool _busy;
     private string? _error;
 
-    private bool CanAnswerPendingDecision =>
-        _game?.PendingDecision is not null &&
-        Session.PlayerId == _game.PendingDecision.PlayerId &&
-        string.Equals(_game.PendingDecision.DecisionType, "LeaveTokyo", StringComparison.OrdinalIgnoreCase);
+    private bool IsRunning => string.Equals(_game?.Status, "Running", StringComparison.OrdinalIgnoreCase);
+    private bool IsSetup => string.Equals(_game?.Status, "Setup", StringComparison.OrdinalIgnoreCase);
+    private bool HasPendingDecision => _game?.PendingDecision is not null;
+    private string? CurrentPhase => _game?.CurrentTurn?.Phase;
+
+    private bool IsLocalCurrentPlayer =>
+        Session.PlayerId is not null &&
+        (_game?.CurrentTurn?.CurrentPlayerId == Session.PlayerId || (_game?.CurrentTurn is null && _game?.CurrentPlayerIndex == Session.PlayerId));
+
+    private bool CanInitialize => IsSetup;
+
+    private bool CanBeginTurn =>
+        IsRunning &&
+        !HasPendingDecision &&
+        IsLocalCurrentPlayer &&
+        (CurrentPhase is null || IsPhase("NotStarted") || IsPhase("TurnEnd"));
+
+    private bool CanRollDice =>
+        IsRunning &&
+        !HasPendingDecision &&
+        IsLocalCurrentPlayer &&
+        (IsPhase("TurnStart") || IsPhase("Rolling"));
+
+    private bool CanSelectDiceForReroll =>
+        CanRollDice &&
+        IsPhase("Rolling") &&
+        _game?.CurrentTurn?.DiceResolved == false;
 
     private bool CanRerollSelected =>
+        CanSelectDiceForReroll &&
         _game?.CurrentTurn is not null &&
         _game.CurrentTurn.Dice.Count > 0 &&
         _selectedDiceIndexes.Count > 0 &&
         _selectedDiceIndexes.All(index => _game.CurrentTurn.Dice.Any(die => die.Index == index && !die.IsLocked));
+
+    private bool CanFinalizeDice =>
+        IsRunning &&
+        !HasPendingDecision &&
+        IsLocalCurrentPlayer &&
+        IsPhase("Rolling") &&
+        _game?.CurrentTurn?.DiceResolved == false;
+
+    private bool CanUseMarketActions =>
+        IsRunning &&
+        !HasPendingDecision &&
+        IsLocalCurrentPlayer &&
+        IsPhase("Purchase");
+
+    private bool CanEndTurn =>
+        IsRunning &&
+        !HasPendingDecision &&
+        IsLocalCurrentPlayer &&
+        (IsPhase("Purchase") || IsPhase("DiceResolved") || IsPhase("TurnEnd"));
+
+    private bool CanAdvancePlayer =>
+        IsRunning &&
+        !HasPendingDecision &&
+        IsPhase("TurnEnd");
+
+    private bool CanAnswerPendingDecision =>
+        _game?.PendingDecision is not null &&
+        Session.PlayerId == _game.PendingDecision.PlayerId &&
+        string.Equals(_game.PendingDecision.DecisionType, "LeaveTokyo", StringComparison.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
@@ -208,6 +272,11 @@
         _cts = new CancellationTokenSource();
         _timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
         _ = PollAsync(_cts.Token);
+    }
+
+    private bool IsPhase(string phase)
+    {
+        return string.Equals(CurrentPhase, phase, StringComparison.OrdinalIgnoreCase);
     }
 
     private RenderFragment RenderTokyoSlot(string title, int? playerId, bool isEnabled) => builder =>
@@ -318,7 +387,7 @@
 
     private void PruneSelectedDice()
     {
-        if (_game?.CurrentTurn is null)
+        if (_game?.CurrentTurn is null || !CanSelectDiceForReroll)
         {
             _selectedDiceIndexes.Clear();
             return;
