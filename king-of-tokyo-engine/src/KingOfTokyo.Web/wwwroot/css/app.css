@@ -167,6 +167,12 @@ button {
     padding: 0.35rem 0.65rem;
 }
 
+.danger-pill {
+    background: rgba(239, 68, 68, 0.16);
+    border-color: rgba(239, 68, 68, 0.42);
+    color: #fecaca;
+}
+
 .grid-2 {
     display: grid;
     gap: 1rem;
@@ -188,6 +194,10 @@ button {
     display: grid;
     gap: 0.85rem;
     grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.stacked-monsters {
+    grid-template-columns: 1fr;
 }
 
 .monster-card {
@@ -232,6 +242,83 @@ button {
 .monster-emoji {
     font-size: 2.4rem;
     line-height: 1;
+}
+
+.monster-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+}
+
+.monster-stats span {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    color: #f9fafb;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0.3rem 0.55rem;
+}
+
+.tokyo-board {
+    display: grid;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.tokyo-slot {
+    background:
+        linear-gradient(135deg, rgba(249, 115, 22, 0.16), rgba(168, 85, 247, 0.12)),
+        rgba(3, 7, 18, 0.72);
+    border: 1px solid rgba(249, 115, 22, 0.24);
+    border-radius: 1.25rem;
+    min-height: 170px;
+    padding: 1rem;
+}
+
+.tokyo-slot h3 {
+    margin-top: 0;
+}
+
+.disabled-slot {
+    filter: grayscale(0.85);
+    opacity: 0.6;
+}
+
+.tokyo-occupant {
+    align-items: center;
+    background:
+        radial-gradient(circle at left, color-mix(in srgb, var(--accent) 32%, transparent), transparent 58%),
+        rgba(255, 255, 255, 0.07);
+    border: 1px solid color-mix(in srgb, var(--accent) 50%, rgba(255, 255, 255, 0.16));
+    border-radius: 1rem;
+    display: flex;
+    gap: 0.9rem;
+    padding: 0.9rem;
+}
+
+.dice-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.die-face {
+    align-items: center;
+    aspect-ratio: 1;
+    background: rgba(255, 255, 255, 0.94);
+    border-radius: 0.85rem;
+    color: #111827;
+    display: inline-flex;
+    font-size: 1.65rem;
+    font-weight: 900;
+    justify-content: center;
+    min-width: 3.2rem;
+    padding: 0.45rem;
+}
+
+.die-face.locked {
+    outline: 3px solid #f97316;
 }
 
 .placeholder-box {
