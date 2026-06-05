@@ -1,0 +1,15 @@
+@inherits LayoutComponentBase
+
+<div class="app-shell">
+    <header class="top-bar">
+        <NavLink class="brand" href="" Match="NavLinkMatch.All">King of Tokyo</NavLink>
+        <nav class="main-nav">
+            <NavLink href="" Match="NavLinkMatch.All">Home</NavLink>
+            <NavLink href="lobbies/new">Create lobby</NavLink>
+        </nav>
+    </header>
+
+    <main class="page-shell">
+        @Body
+    </main>
+</div>
