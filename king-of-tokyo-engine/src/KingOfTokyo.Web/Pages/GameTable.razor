@@ -24,39 +24,48 @@
 
         @if (_game.WinnerPlayerId is not null)
         {
-            <p class="status-pill">Winner: player @_game.WinnerPlayerId — @_game.WinnerReason</p>
+            <p class="status-pill">Winner: @PlayerName(_game.WinnerPlayerId.Value) — @_game.WinnerReason</p>
         }
 
         <div class="game-grid">
             <section class="panel">
-                <h2>Players</h2>
-                @foreach (var player in _game.Players)
-                {
-                    <div class="panel">
-                        <h3>@player.MonsterName</h3>
-                        <p class="muted">Player #@player.PlayerId</p>
-                        <p>HP: @player.Health / @player.MaxHealth</p>
-                        <p>VP/XP: @player.VictoryPoints</p>
-                        <p>Energy: @player.Energy</p>
-                        <p>Tokyo: @player.TokyoSlot</p>
-                    </div>
-                }
+                <h2>Monsters</h2>
+                <div class="monster-grid stacked-monsters">
+                    @foreach (var player in _game.Players)
+                    {
+                        var monster = MonsterCatalog.FindByName(player.MonsterName);
+                        <article class="monster-card display-card @(player.PlayerId == Session.PlayerId ? "selected" : null)" style="--accent:@monster.Accent">
+                            <span class="monster-emoji">@monster.Emoji</span>
+                            <strong>@player.MonsterName</strong>
+                            <small>Player #@player.PlayerId • @player.TokyoSlot</small>
+                            <div class="monster-stats">
+                                <span>HP @player.Health/@player.MaxHealth</span>
+                                <span>VP @player.VictoryPoints</span>
+                                <span>⚡ @player.Energy</span>
+                            </div>
+                            @if (!player.IsAlive)
+                            {
+                                <span class="status-pill danger-pill">Eliminated</span>
+                            }
+                        </article>
+                    }
+                </div>
             </section>
 
             <section class="panel">
                 <h2>Tokyo</h2>
-                <div class="placeholder-box">
-                    City: @(_game.Tokyo.CityOccupantId?.ToString() ?? "empty")<br />
-                    Bay: @(_game.Tokyo.BayEnabled ? _game.Tokyo.BayOccupantId?.ToString() ?? "empty" : "disabled")
+                <div class="tokyo-board">
+                    @RenderTokyoSlot("Tokyo City", _game.Tokyo.CityOccupantId, isEnabled: true)
+                    @RenderTokyoSlot("Tokyo Bay", _game.Tokyo.BayOccupantId, _game.Tokyo.BayEnabled)
                 </div>
 
                 <h2>Dice</h2>
                 @if (_game.CurrentTurn?.Dice.Count > 0)
                 {
-                    <div class="actions">
+                    <div class="dice-row">
                         @foreach (var die in _game.CurrentTurn.Dice)
                         {
-                            <span class="status-pill">@die.Index: @die.CurrentFace @(die.IsLocked ? "locked" : "")</span>
+                            <span class="die-face @(die.IsLocked ? "locked" : null)">@DieIcon(die.CurrentFace)</span>
                         }
                     </div>
                 }
@@ -119,6 +128,68 @@
         _cts = new CancellationTokenSource();
         _timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
         _ = PollAsync(_cts.Token);
+    }
+
+    private RenderFragment RenderTokyoSlot(string title, int? playerId, bool isEnabled) => builder =>
+    {
+        var sequence = 0;
+        builder.OpenElement(sequence++, "div");
+        builder.AddAttribute(sequence++, "class", $"tokyo-slot {(isEnabled ? string.Empty : "disabled-slot")}");
+        builder.OpenElement(sequence++, "h3");
+        builder.AddContent(sequence++, title);
+        builder.CloseElement();
+
+        if (!isEnabled)
+        {
+            builder.OpenElement(sequence++, "p");
+            builder.AddAttribute(sequence++, "class", "muted");
+            builder.AddContent(sequence++, "Disabled for this player count");
+            builder.CloseElement();
+        }
+        else if (playerId is null || _game is null)
+        {
+            builder.OpenElement(sequence++, "p");
+            builder.AddAttribute(sequence++, "class", "muted");
+            builder.AddContent(sequence++, "Empty");
+            builder.CloseElement();
+        }
+        else
+        {
+            var player = _game.Players.FirstOrDefault(p => p.PlayerId == playerId.Value);
+            var monster = MonsterCatalog.FindByName(player?.MonsterName);
+            builder.OpenElement(sequence++, "div");
+            builder.AddAttribute(sequence++, "class", "tokyo-occupant");
+            builder.AddAttribute(sequence++, "style", $"--accent:{monster.Accent}");
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "class", "monster-emoji");
+            builder.AddContent(sequence++, monster.Emoji);
+            builder.CloseElement();
+            builder.OpenElement(sequence++, "strong");
+            builder.AddContent(sequence++, player?.MonsterName ?? $"Player {playerId}");
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+
+    private string PlayerName(int playerId)
+    {
+        return _game?.Players.FirstOrDefault(player => player.PlayerId == playerId)?.MonsterName ?? $"Player {playerId}";
+    }
+
+    private static string DieIcon(string face)
+    {
+        return face switch
+        {
+            "One" => "1",
+            "Two" => "2",
+            "Three" => "3",
+            "Energy" => "⚡",
+            "Heal" => "❤",
+            "Attack" => "🗯",
+            _ => face
+        };
     }
 
     private async Task PollAsync(CancellationToken cancellationToken)
