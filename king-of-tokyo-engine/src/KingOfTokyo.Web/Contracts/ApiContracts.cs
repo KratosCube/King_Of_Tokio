@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace KingOfTokyo.Web.Contracts;
 
 public sealed record CreateLobbyRequest(
@@ -117,7 +119,7 @@ public sealed record TurnFlagsDto(
     bool BoughtCard,
     bool HerdCullerUsed);
 
-public sealed record PendingDecisionDto(string DecisionType, int PlayerId, object? Payload);
+public sealed record PendingDecisionDto(string DecisionType, int PlayerId, JsonElement? Payload);
 
 public sealed record ActorRequest(int? ActorPlayerId);
 
@@ -132,7 +134,7 @@ public sealed record ApiCommandResultDto(
     string? Error,
     GameStateDto GameState,
     PendingDecisionDto? PendingDecision,
-    IReadOnlyList<object> NewEvents,
+    IReadOnlyList<JsonElement> NewEvents,
     long CurrentEventSequence);
 
 public sealed record GameEventCursorDto(
@@ -142,4 +144,4 @@ public sealed record GameEventCursorDto(
     long CurrentGameVersion,
     IReadOnlyList<GameEventEnvelopeDto> Events);
 
-public sealed record GameEventEnvelopeDto(long EventSequence, object Event);
+public sealed record GameEventEnvelopeDto(long EventSequence, JsonElement Event);
