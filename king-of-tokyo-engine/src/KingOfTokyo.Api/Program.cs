@@ -1,8 +1,14 @@
+using System.Text.Json.Serialization;
 using KingOfTokyo.Api.Endpoints;
 using KingOfTokyo.Api.GameSessions;
 using KingOfTokyo.Api.Lobbies;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 
 builder.Services.AddCors(options =>
 {
