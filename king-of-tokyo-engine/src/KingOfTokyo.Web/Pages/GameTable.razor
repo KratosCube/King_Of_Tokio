@@ -89,8 +89,19 @@
                     <div class="dice-row">
                         @foreach (var die in _game.CurrentTurn.Dice)
                         {
-                            <span class="die-face @(die.IsLocked ? "locked" : null)">@DieIcon(die.CurrentFace)</span>
+                            var isSelected = _selectedDiceIndexes.Contains(die.Index);
+                            <button type="button"
+                                    class="die-button @(isSelected ? "selected" : null)"
+                                    disabled="@(_busy || die.IsLocked)"
+                                    @onclick="() => ToggleDieSelection(die.Index)">
+                                <span class="die-face @(die.IsLocked ? "locked" : null)">@DieIcon(die.CurrentFace)</span>
+                                <small>@(die.IsLocked ? "locked" : isSelected ? "reroll" : $"die {die.Index}")</small>
+                            </button>
                         }
+                    </div>
+                    <div class="actions compact-actions">
+                        <button class="btn btn-primary" @onclick="RerollSelectedDiceAsync" disabled="@(!CanRerollSelected || _busy)">Reroll selected dice</button>
+                        <button class="btn btn-secondary" @onclick="ClearSelectedDice" disabled="@(_busy || _selectedDiceIndexes.Count == 0)">Clear dice selection</button>
                     </div>
                 }
                 else
@@ -165,6 +176,7 @@
     [Parameter] public Guid GameId { get; set; }
 
     private readonly List<EventFeedItem> _eventFeed = new();
+    private readonly HashSet<int> _selectedDiceIndexes = new();
     private GameStateDto? _game;
     private PeriodicTimer? _timer;
     private CancellationTokenSource? _cts;
@@ -175,6 +187,12 @@
         _game?.PendingDecision is not null &&
         Session.PlayerId == _game.PendingDecision.PlayerId &&
         string.Equals(_game.PendingDecision.DecisionType, "LeaveTokyo", StringComparison.OrdinalIgnoreCase);
+
+    private bool CanRerollSelected =>
+        _game?.CurrentTurn is not null &&
+        _game.CurrentTurn.Dice.Count > 0 &&
+        _selectedDiceIndexes.Count > 0 &&
+        _selectedDiceIndexes.All(index => _game.CurrentTurn.Dice.Any(die => die.Index == index && !die.IsLocked));
 
     protected override async Task OnInitializedAsync()
     {
@@ -254,6 +272,19 @@
         };
     }
 
+    private void ToggleDieSelection(int dieIndex)
+    {
+        if (!_selectedDiceIndexes.Add(dieIndex))
+        {
+            _selectedDiceIndexes.Remove(dieIndex);
+        }
+    }
+
+    private void ClearSelectedDice()
+    {
+        _selectedDiceIndexes.Clear();
+    }
+
     private async Task PollAsync(CancellationToken cancellationToken)
     {
         try
@@ -277,11 +308,27 @@
         try
         {
             _game = await ApiClient.GetGameAsync(GameId);
+            PruneSelectedDice();
         }
         catch (Exception ex)
         {
             _error = ex.Message;
         }
+    }
+
+    private void PruneSelectedDice()
+    {
+        if (_game?.CurrentTurn is null)
+        {
+            _selectedDiceIndexes.Clear();
+            return;
+        }
+
+        var validIndexes = _game.CurrentTurn.Dice
+            .Where(die => !die.IsLocked)
+            .Select(die => die.Index)
+            .ToHashSet();
+        _selectedDiceIndexes.RemoveWhere(index => !validIndexes.Contains(index));
     }
 
     private async Task RefreshEventsAsync()
@@ -327,6 +374,7 @@
             }
 
             _game = result.GameState;
+            _selectedDiceIndexes.Clear();
             foreach (var newEvent in result.NewEvents)
             {
                 _eventFeed.Add(EventFeedItem.From(Session.LastEventSequence + 1, newEvent));
@@ -356,6 +404,12 @@
     private Task BeginTurnAsync() => ExecuteAsync(() => ApiClient.BeginTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
 
     private Task RollDiceAsync() => ExecuteAsync(() => ApiClient.RollDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
+
+    private Task RerollSelectedDiceAsync()
+    {
+        var indexes = _selectedDiceIndexes.OrderBy(index => index).ToArray();
+        return ExecuteAsync(() => ApiClient.RerollDiceAsync(GameId, new RerollDiceRequest(Session.PlayerId, indexes)));
+    }
 
     private Task FinalizeDiceAsync() => ExecuteAsync(() => ApiClient.FinalizeDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
 
