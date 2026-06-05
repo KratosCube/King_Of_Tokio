@@ -60,6 +60,28 @@
                     @RenderTokyoSlot("Tokyo Bay", _game.Tokyo.BayOccupantId, _game.Tokyo.BayEnabled)
                 </div>
 
+                @if (_game.PendingDecision is not null)
+                {
+                    <section class="decision-panel">
+                        <h2>Pending decision</h2>
+                        <p>
+                            <strong>@_game.PendingDecision.DecisionType</strong>
+                            <span class="muted">for @PlayerName(_game.PendingDecision.PlayerId)</span>
+                        </p>
+                        @if (CanAnswerPendingDecision)
+                        {
+                            <div class="actions">
+                                <button class="btn btn-primary" @onclick="() => ChooseLeaveTokyoAsync(true)" disabled="@_busy">Leave Tokyo</button>
+                                <button class="btn btn-secondary" @onclick="() => ChooseLeaveTokyoAsync(false)" disabled="@_busy">Stay in Tokyo</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="muted">Waiting for player @_game.PendingDecision.PlayerId.</p>
+                        }
+                    </section>
+                }
+
                 <h2>Dice</h2>
                 @if (_game.CurrentTurn?.Dice.Count > 0)
                 {
@@ -80,7 +102,7 @@
                 <h2>Market</h2>
                 @foreach (var card in _game.Market.FaceUpCards.Select((value, index) => new { value, index }))
                 {
-                    <div class="panel">
+                    <div class="market-card panel">
                         @if (card.value is null)
                         {
                             <p class="muted">Slot @card.index: empty</p>
@@ -90,10 +112,12 @@
                             <h3>@card.value.Name</h3>
                             <p class="muted">Cost: @card.value.Cost • @card.value.CardType</p>
                             <p>@card.value.Description</p>
+                            <button class="btn btn-primary" @onclick="() => BuyFaceUpCardAsync(card.index)" disabled="@_busy">Buy</button>
                         }
                     </div>
                 }
                 <p class="muted">Deck: @_game.Market.DrawPileCount • Discard: @_game.Market.DiscardPileCount</p>
+                <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@_busy">Refresh market</button>
             </section>
         </div>
 
@@ -145,6 +169,11 @@
     private CancellationTokenSource? _cts;
     private bool _busy;
     private string? _error;
+
+    private bool CanAnswerPendingDecision =>
+        _game?.PendingDecision is not null &&
+        Session.PlayerId == _game.PendingDecision.PlayerId &&
+        string.Equals(_game.PendingDecision.DecisionType, "LeaveTokyo", StringComparison.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
@@ -320,6 +349,20 @@
     private Task RollDiceAsync() => ExecuteAsync(() => ApiClient.RollDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
 
     private Task FinalizeDiceAsync() => ExecuteAsync(() => ApiClient.FinalizeDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
+
+    private Task BuyFaceUpCardAsync(int slotIndex) => ExecuteAsync(() => ApiClient.BuyFaceUpCardAsync(GameId, new BuyFaceUpCardRequest(Session.PlayerId, slotIndex)));
+
+    private Task RefreshMarketAsync() => ExecuteAsync(() => ApiClient.RefreshMarketAsync(GameId, new ActorRequest(Session.PlayerId)));
+
+    private Task ChooseLeaveTokyoAsync(bool leaveTokyo)
+    {
+        if (_game?.PendingDecision is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return ExecuteAsync(() => ApiClient.ChooseLeaveTokyoAsync(GameId, new ChooseLeaveTokyoRequest(_game.PendingDecision.PlayerId, leaveTokyo)));
+    }
 
     private Task EndTurnAsync() => ExecuteAsync(() => ApiClient.EndTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
 
