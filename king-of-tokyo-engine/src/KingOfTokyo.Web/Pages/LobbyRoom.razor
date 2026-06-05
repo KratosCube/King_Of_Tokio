@@ -33,6 +33,7 @@
 
             <section>
                 <h2>Join this lobby</h2>
+                <p class="muted">Use this form from another browser/incognito window. For local solo testing, use the test monster button below.</p>
                 <div class="field">
                     <label>Your display name</label>
                     <InputText @bind-Value="_joinName" />
@@ -84,6 +85,7 @@
                 @(_currentSeat?.IsReady == true ? "Set not ready" : "Set ready")
             </button>
             <button class="btn btn-primary" @onclick="StartAsync" disabled="@(!_canStart || _busy)">Start game</button>
+            <button class="btn btn-secondary" @onclick="AddReadyTestMonsterAsync" disabled="@(!_canAddTestMonster || _busy)">Add ready test monster</button>
             @if (_lobby.GameId is not null)
             {
                 <NavLink class="btn btn-secondary" href="@($"games/{_lobby.GameId}")">Open game</NavLink>
@@ -106,6 +108,7 @@
     private MonsterOption _joinMonster = MonsterCatalog.Default;
     private bool _canToggleReady => _lobby is not null && Session.PlayerToken is not null && _currentSeat is not null && _lobby.Status is not "Started" and not "Closed";
     private bool _canStart => _lobby?.Status == "ReadyToStart" && _currentSeat?.IsHost == true && Session.PlayerToken is not null;
+    private bool _canAddTestMonster => _lobby is not null && _currentSeat?.IsHost == true && _lobby.Status is not "Started" and not "Closed" && _lobby.Seats.Count < _lobby.MaxPlayers;
 
     protected override async Task OnInitializedAsync()
     {
@@ -173,6 +176,37 @@
             Session.RememberLobby(LobbyId, result.PlayerId, result.PlayerToken);
             _lobby = result.Lobby;
             _currentSeat = result.Lobby.Seats.FirstOrDefault(seat => seat.PlayerToken == result.PlayerToken);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task AddReadyTestMonsterAsync()
+    {
+        if (_lobby is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var monster = MonsterCatalog.Monsters[_lobby.Seats.Count % MonsterCatalog.Monsters.Count];
+            var result = await ApiClient.JoinLobbyAsync(LobbyId, new JoinLobbyRequest(
+                $"Test player {_lobby.Seats.Count + 1}",
+                monster.MonsterId,
+                monster.MonsterName,
+                monster.AvatarId));
+            await ApiClient.SetReadyAsync(LobbyId, new SetLobbyReadyRequest(result.PlayerToken, IsReady: true));
+            await RefreshAsync();
         }
         catch (Exception ex)
         {
