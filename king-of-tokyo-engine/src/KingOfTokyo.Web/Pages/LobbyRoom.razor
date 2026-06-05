@@ -113,9 +113,11 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (Session.LobbyId is null)
+        await Session.LoadAsync();
+        if (Session.LobbyId is null || Session.LobbyId != LobbyId)
         {
             Session.LobbyId = LobbyId;
+            await Session.SaveAsync();
         }
 
         await RefreshAsync();
@@ -151,9 +153,10 @@
             _lobby = await ApiClient.GetLobbyAsync(LobbyId);
             _currentSeat = _lobby?.Seats.FirstOrDefault(seat => seat.PlayerToken == Session.PlayerToken);
 
-            if (_lobby?.GameId is not null)
+            if (_lobby?.GameId is not null && Session.GameId != _lobby.GameId.Value)
             {
                 Session.RememberGame(_lobby.GameId.Value);
+                await Session.SaveAsync();
             }
         }
         catch (Exception ex)
@@ -175,6 +178,7 @@
                 _joinMonster.MonsterName,
                 _joinMonster.AvatarId));
             Session.RememberLobby(LobbyId, result.PlayerId, result.PlayerToken);
+            await Session.SaveAsync();
             _lobby = result.Lobby;
             _currentSeat = result.Lobby.Seats.FirstOrDefault(seat => seat.PlayerToken == result.PlayerToken);
         }
@@ -233,6 +237,7 @@
         {
             _lobby = await ApiClient.SetReadyAsync(LobbyId, new SetLobbyReadyRequest(Session.PlayerToken.Value, !_currentSeat.IsReady));
             _currentSeat = _lobby.Seats.FirstOrDefault(seat => seat.PlayerToken == Session.PlayerToken);
+            await Session.SaveAsync();
         }
         catch (Exception ex)
         {
@@ -258,6 +263,7 @@
         {
             var result = await ApiClient.StartLobbyAsync(LobbyId, new StartLobbyRequest(Session.PlayerToken.Value));
             Session.RememberGame(result.Game.GameId);
+            await Session.SaveAsync();
             Navigation.NavigateTo($"/games/{result.Game.GameId}");
         }
         catch (Exception ex)
