@@ -1,4 +1,6 @@
+using KingOfTokyo.Api.Contracts;
 using KingOfTokyo.Core.Domain.ValueObjects;
+using KingOfTokyo.Core.Dto;
 
 namespace KingOfTokyo.Api.Lobbies;
 
@@ -14,6 +16,8 @@ public sealed record JoinLobbyRequest(string DisplayName);
 
 public sealed record SetLobbyReadyRequest(Guid PlayerToken, bool IsReady);
 
+public sealed record StartLobbyRequest(Guid PlayerToken);
+
 public sealed record LobbyDto(
     Guid LobbyId,
     string Name,
@@ -22,6 +26,7 @@ public sealed record LobbyDto(
     int InitialHealth,
     int TargetVictoryPoints,
     LobbyStatus Status,
+    Guid? GameId,
     IReadOnlyList<LobbySeatDto> Seats);
 
 public sealed record LobbySeatDto(
@@ -35,6 +40,14 @@ public sealed record LobbyJoinResultDto(
     LobbyDto Lobby,
     Guid PlayerToken,
     int PlayerId);
+
+public sealed record LobbyStartPreparationDto(
+    LobbyDto Lobby,
+    CreateGameRequest GameRequest);
+
+public sealed record LobbyStartResultDto(
+    LobbyDto Lobby,
+    GameStateDto Game);
 
 public enum LobbyStatus
 {
