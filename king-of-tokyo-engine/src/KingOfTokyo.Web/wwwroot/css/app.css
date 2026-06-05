@@ -430,6 +430,43 @@ button {
     gap: 0.75rem;
 }
 
+.die-button {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: var(--muted);
+    display: grid;
+    gap: 0.35rem;
+    justify-items: center;
+    padding: 0;
+    text-transform: uppercase;
+}
+
+.die-button small {
+    font-size: 0.72rem;
+    font-weight: 950;
+    letter-spacing: 0.05em;
+}
+
+.die-button:not(:disabled):hover .die-face,
+.die-button.selected .die-face {
+    filter: brightness(1.08) saturate(1.2);
+    transform: translateY(-3px) rotate(-3deg);
+}
+
+.die-button.selected .die-face {
+    outline: 4px solid var(--toxic-green);
+}
+
+.die-button.selected small {
+    color: #bbf7d0;
+}
+
+.die-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.72;
+}
+
 .die-face {
     align-items: center;
     aspect-ratio: 1;
@@ -444,6 +481,7 @@ button {
     justify-content: center;
     min-width: 3.35rem;
     padding: 0.45rem;
+    transition: filter 0.12s ease, outline 0.12s ease, transform 0.12s ease;
 }
 
 .die-face.locked {
