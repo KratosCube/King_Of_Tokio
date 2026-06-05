@@ -8,7 +8,7 @@ namespace KingOfTokyo.Api.Tests.Lobbies;
 public sealed class LobbyToGameSessionFlowTests
 {
     [Fact]
-    public void StartLobbyFlow_Should_CreateGameSessionFromLobbySeatsAndOptions()
+    public void StartLobbyFlow_Should_CreateGameSessionFromLobbyMonsterSelectionsAndOptions()
     {
         var lobbyStore = new InMemoryLobbyStore();
         var gameSessionStore = new InMemoryGameSessionStore();
@@ -18,8 +18,15 @@ public sealed class LobbyToGameSessionFlowTests
             IsPublic: true,
             HostDisplayName: "Host",
             InitialHealth: 15,
-            TargetVictoryPoints: 30));
-        lobbyStore.TryJoinLobby(createdLobby.Lobby.LobbyId, new JoinLobbyRequest("Guest"), out var joined, out _);
+            TargetVictoryPoints: 30,
+            HostMonsterId: "gigasaur",
+            HostMonsterName: "Gigasaur",
+            HostAvatarId: "avatar-roar"));
+        lobbyStore.TryJoinLobby(
+            createdLobby.Lobby.LobbyId,
+            new JoinLobbyRequest("Guest", "cyber-kitty", "Cyber Kitty", "avatar-neon"),
+            out var joined,
+            out _);
         lobbyStore.TrySetReady(createdLobby.Lobby.LobbyId, new SetLobbyReadyRequest(joined!.PlayerToken, IsReady: true), out _, out _);
 
         var prepared = lobbyStore.TryPrepareStart(
@@ -40,8 +47,8 @@ public sealed class LobbyToGameSessionFlowTests
         Assert.Equal(game.GameId, startedLobby.GameId);
         Assert.Equal(GameStatus.Setup, game.Status);
         Assert.Equal(2, game.Players.Count);
-        Assert.Equal("Host", game.Players[0].MonsterName);
-        Assert.Equal("Guest", game.Players[1].MonsterName);
+        Assert.Equal("Gigasaur", game.Players[0].MonsterName);
+        Assert.Equal("Cyber Kitty", game.Players[1].MonsterName);
         Assert.All(game.Players, player =>
         {
             Assert.Equal(15, player.Health);
