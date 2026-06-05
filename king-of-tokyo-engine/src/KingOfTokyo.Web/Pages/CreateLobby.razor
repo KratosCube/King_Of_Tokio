@@ -1,0 +1,99 @@
+@page "/lobbies/new"
+@inject ApiClient ApiClient
+@inject ClientSessionState Session
+@inject NavigationManager Navigation
+
+<div class="card">
+    <h1>Create lobby</h1>
+    <p class="muted">Set up the match. You can change the feel of the game with starting health and target VP/XP.</p>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <p class="status-pill">@_error</p>
+    }
+
+    <EditForm Model="_model" OnValidSubmit="CreateAsync" class="form-grid">
+        <div class="field">
+            <label>Lobby name</label>
+            <InputText @bind-Value="_model.Name" />
+        </div>
+
+        <div class="field">
+            <label>Your display name</label>
+            <InputText @bind-Value="_model.HostDisplayName" />
+        </div>
+
+        <div class="grid-2">
+            <div class="field">
+                <label>Max players</label>
+                <InputNumber @bind-Value="_model.MaxPlayers" />
+            </div>
+            <div class="field">
+                <label>Visibility</label>
+                <InputSelect @bind-Value="_model.IsPublic">
+                    <option value="true">Public</option>
+                    <option value="false">Private</option>
+                </InputSelect>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="field">
+                <label>Initial health</label>
+                <InputNumber @bind-Value="_model.InitialHealth" />
+            </div>
+            <div class="field">
+                <label>Target VP/XP</label>
+                <InputNumber @bind-Value="_model.TargetVictoryPoints" />
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" type="submit" disabled="@_busy">@(_busy ? "Creating..." : "Create lobby")</button>
+            <NavLink class="btn btn-secondary" href="">Cancel</NavLink>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private CreateLobbyFormModel _model = new();
+    private bool _busy;
+    private string? _error;
+
+    private async Task CreateAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var result = await ApiClient.CreateLobbyAsync(new CreateLobbyRequest(
+                _model.Name,
+                _model.MaxPlayers,
+                _model.IsPublic,
+                _model.HostDisplayName,
+                _model.InitialHealth,
+                _model.TargetVictoryPoints));
+            Session.RememberLobby(result.Lobby.LobbyId, result.PlayerId, result.PlayerToken);
+            Navigation.NavigateTo($"/lobbies/{result.Lobby.LobbyId}");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private sealed class CreateLobbyFormModel
+    {
+        public string Name { get; set; } = "Kaiju night";
+        public string HostDisplayName { get; set; } = "Host";
+        public int MaxPlayers { get; set; } = 2;
+        public bool IsPublic { get; set; } = true;
+        public int InitialHealth { get; set; } = 10;
+        public int TargetVictoryPoints { get; set; } = 20;
+    }
+}
