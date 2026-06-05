@@ -3,12 +3,13 @@
 @inject ApiClient ApiClient
 @inject ClientSessionState Session
 
-<div class="card">
-    <h1>Game table</h1>
+<div class="card game-hero">
+    <p class="status-pill">Tokyo battle arena</p>
+    <h1>Tokyo arena</h1>
 
     @if (!string.IsNullOrWhiteSpace(_error))
     {
-        <p class="status-pill">@_error</p>
+        <p class="status-pill danger-pill">@_error</p>
     }
 
     @if (_game is null)
