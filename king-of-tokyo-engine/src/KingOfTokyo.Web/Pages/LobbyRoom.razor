@@ -4,12 +4,13 @@
 @inject ClientSessionState Session
 @inject NavigationManager Navigation
 
-<div class="card">
+<div class="card lobby-hero">
+    <p class="status-pill">Monster staging area</p>
     <h1>Lobby</h1>
 
     @if (!string.IsNullOrWhiteSpace(_error))
     {
-        <p class="status-pill">@_error</p>
+        <p class="status-pill danger-pill">@_error</p>
     }
 
     @if (_lobby is null)
@@ -31,7 +32,7 @@
                 </p>
             </section>
 
-            <section>
+            <section class="panel">
                 <h2>Join this lobby</h2>
                 <p class="muted">Use this form from another browser/incognito window. For local solo testing, use the test monster button below.</p>
                 <div class="field">
@@ -55,7 +56,7 @@
         </div>
 
         <section class="panel">
-            <h2>Monsters in lobby</h2>
+            <h2>Choose your destroyers</h2>
             <div class="monster-grid">
                 @foreach (var seat in _lobby.Seats)
                 {
