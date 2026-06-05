@@ -5,7 +5,7 @@
 
 <div class="card">
     <h1>Create lobby</h1>
-    <p class="muted">Set up the match. You can change the feel of the game with starting health and target VP/XP.</p>
+    <p class="muted">Set up the match. Pick your monster, starting health, and target VP/XP.</p>
 
     @if (!string.IsNullOrWhiteSpace(_error))
     {
@@ -13,15 +13,34 @@
     }
 
     <EditForm Model="_model" OnValidSubmit="CreateAsync" class="form-grid">
-        <div class="field">
-            <label>Lobby name</label>
-            <InputText @bind-Value="_model.Name" />
+        <div class="grid-2">
+            <div class="field">
+                <label>Lobby name</label>
+                <InputText @bind-Value="_model.Name" />
+            </div>
+
+            <div class="field">
+                <label>Your display name</label>
+                <InputText @bind-Value="_model.HostDisplayName" />
+            </div>
         </div>
 
-        <div class="field">
-            <label>Your display name</label>
-            <InputText @bind-Value="_model.HostDisplayName" />
-        </div>
+        <section class="monster-picker">
+            <h2>Choose your monster</h2>
+            <div class="monster-grid">
+                @foreach (var monster in MonsterCatalog.Monsters)
+                {
+                    <button type="button"
+                            class="monster-card @(_model.MonsterId == monster.MonsterId ? "selected" : null)"
+                            style="--accent:@monster.Accent"
+                            @onclick="() => SelectMonster(monster)">
+                        <span class="monster-emoji">@monster.Emoji</span>
+                        <strong>@monster.MonsterName</strong>
+                        <small>@monster.Tagline</small>
+                    </button>
+                }
+            </div>
+        </section>
 
         <div class="grid-2">
             <div class="field">
@@ -60,6 +79,18 @@
     private bool _busy;
     private string? _error;
 
+    protected override void OnInitialized()
+    {
+        SelectMonster(MonsterCatalog.Default);
+    }
+
+    private void SelectMonster(MonsterOption monster)
+    {
+        _model.MonsterId = monster.MonsterId;
+        _model.MonsterName = monster.MonsterName;
+        _model.AvatarId = monster.AvatarId;
+    }
+
     private async Task CreateAsync()
     {
         _busy = true;
@@ -73,7 +104,10 @@
                 _model.IsPublic,
                 _model.HostDisplayName,
                 _model.InitialHealth,
-                _model.TargetVictoryPoints));
+                _model.TargetVictoryPoints,
+                _model.MonsterId,
+                _model.MonsterName,
+                _model.AvatarId));
             Session.RememberLobby(result.Lobby.LobbyId, result.PlayerId, result.PlayerToken);
             Navigation.NavigateTo($"/lobbies/{result.Lobby.LobbyId}");
         }
@@ -95,5 +129,8 @@
         public bool IsPublic { get; set; } = true;
         public int InitialHealth { get; set; } = 10;
         public int TargetVictoryPoints { get; set; } = 20;
+        public string MonsterId { get; set; } = string.Empty;
+        public string MonsterName { get; set; } = string.Empty;
+        public string AvatarId { get; set; } = string.Empty;
     }
 }
