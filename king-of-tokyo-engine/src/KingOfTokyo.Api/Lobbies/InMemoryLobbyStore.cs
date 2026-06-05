@@ -5,6 +5,10 @@ namespace KingOfTokyo.Api.Lobbies;
 
 public sealed class InMemoryLobbyStore : ILobbyStore
 {
+    private const string DefaultMonsterId = "gigasaur";
+    private const string DefaultMonsterName = "Gigasaur";
+    private const string DefaultAvatarId = "avatar-roar";
+
     private readonly ConcurrentDictionary<Guid, LobbyState> _lobbies = new();
 
     public LobbyJoinResultDto CreateLobby(CreateLobbyRequest request)
@@ -21,7 +25,12 @@ public sealed class InMemoryLobbyStore : ILobbyStore
             request.IsPublic,
             request.InitialHealth,
             request.TargetVictoryPoints);
-        var hostSeat = lobby.AddSeat(NormalizeDisplayName(request.HostDisplayName), isHost: true);
+        var hostSeat = lobby.AddSeat(
+            NormalizeDisplayName(request.HostDisplayName),
+            isHost: true,
+            NormalizeId(request.HostMonsterId, DefaultMonsterId),
+            NormalizeNameOrDefault(request.HostMonsterName, DefaultMonsterName),
+            NormalizeId(request.HostAvatarId, DefaultAvatarId));
         hostSeat.IsReady = true;
 
         if (!_lobbies.TryAdd(lobby.LobbyId, lobby))
@@ -73,7 +82,12 @@ public sealed class InMemoryLobbyStore : ILobbyStore
                 return true;
             }
 
-            var seat = state.AddSeat(NormalizeDisplayName(request.DisplayName), isHost: false);
+            var seat = state.AddSeat(
+                NormalizeDisplayName(request.DisplayName),
+                isHost: false,
+                NormalizeId(request.MonsterId, DefaultMonsterId),
+                NormalizeNameOrDefault(request.MonsterName, DefaultMonsterName),
+                NormalizeId(request.AvatarId, DefaultAvatarId));
             state.RecalculateStatus();
             result = new LobbyJoinResultDto(ToDto(state), seat.PlayerToken, seat.PlayerId);
             return true;
@@ -162,7 +176,7 @@ public sealed class InMemoryLobbyStore : ILobbyStore
             }
 
             var gameRequest = new CreateGameRequest(
-                state.Seats.Select(seat => seat.DisplayName).ToArray(),
+                state.Seats.Select(seat => seat.MonsterName).ToArray(),
                 InitialHealth: state.InitialHealth,
                 TargetVictoryPoints: state.TargetVictoryPoints);
             result = new LobbyStartPreparationDto(ToDto(state), gameRequest);
@@ -236,6 +250,18 @@ public sealed class InMemoryLobbyStore : ILobbyStore
         return string.IsNullOrWhiteSpace(normalized) ? "Monster" : normalized;
     }
 
+    private static string NormalizeNameOrDefault(string? value, string fallback)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
+    }
+
+    private static string NormalizeId(string? value, string fallback)
+    {
+        var normalized = value?.Trim().ToLowerInvariant();
+        return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
+    }
+
     private static LobbyDto ToDto(LobbyState state)
     {
         return new LobbyDto(
@@ -253,7 +279,10 @@ public sealed class InMemoryLobbyStore : ILobbyStore
                     seat.DisplayName,
                     seat.IsHost,
                     seat.IsReady,
-                    seat.PlayerToken))
+                    seat.PlayerToken,
+                    seat.MonsterId,
+                    seat.MonsterName,
+                    seat.AvatarId))
                 .ToArray());
     }
 
@@ -286,13 +315,16 @@ public sealed class InMemoryLobbyStore : ILobbyStore
         public List<LobbySeatState> Seats { get; } = new();
         public object SyncRoot { get; } = new();
 
-        public LobbySeatState AddSeat(string displayName, bool isHost)
+        public LobbySeatState AddSeat(string displayName, bool isHost, string monsterId, string monsterName, string avatarId)
         {
             var seat = new LobbySeatState(
                 Seats.Count,
                 displayName,
                 isHost,
-                Guid.NewGuid());
+                Guid.NewGuid(),
+                monsterId,
+                monsterName,
+                avatarId);
             Seats.Add(seat);
             RecalculateStatus();
             return seat;
@@ -319,18 +351,31 @@ public sealed class InMemoryLobbyStore : ILobbyStore
 
     private sealed class LobbySeatState
     {
-        public LobbySeatState(int playerId, string displayName, bool isHost, Guid playerToken)
+        public LobbySeatState(
+            int playerId,
+            string displayName,
+            bool isHost,
+            Guid playerToken,
+            string monsterId,
+            string monsterName,
+            string avatarId)
         {
             PlayerId = playerId;
             DisplayName = displayName;
             IsHost = isHost;
             PlayerToken = playerToken;
+            MonsterId = monsterId;
+            MonsterName = monsterName;
+            AvatarId = avatarId;
         }
 
         public int PlayerId { get; }
         public string DisplayName { get; }
         public bool IsHost { get; }
         public Guid PlayerToken { get; }
+        public string MonsterId { get; }
+        public string MonsterName { get; }
+        public string AvatarId { get; }
         public bool IsReady { get; set; }
     }
 }
