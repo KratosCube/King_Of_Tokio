@@ -29,6 +29,9 @@ public sealed class InMemoryLobbyStoreTests
         Assert.Equal(0, result.PlayerId);
         Assert.Equal(result.PlayerToken, result.Lobby.Seats[0].PlayerToken);
         Assert.Equal("Host", result.Lobby.Seats[0].DisplayName);
+        Assert.Equal("gigasaur", result.Lobby.Seats[0].MonsterId);
+        Assert.Equal("Gigasaur", result.Lobby.Seats[0].MonsterName);
+        Assert.Equal("avatar-roar", result.Lobby.Seats[0].AvatarId);
         Assert.True(result.Lobby.Seats[0].IsHost);
         Assert.True(result.Lobby.Seats[0].IsReady);
     }
@@ -48,6 +51,25 @@ public sealed class InMemoryLobbyStoreTests
 
         Assert.Equal(15, result.Lobby.InitialHealth);
         Assert.Equal(30, result.Lobby.TargetVictoryPoints);
+    }
+
+    [Fact]
+    public void CreateLobby_Should_ApplyCustomHostMonsterSelection()
+    {
+        var store = new InMemoryLobbyStore();
+
+        var result = store.CreateLobby(new CreateLobbyRequest(
+            "Custom monster",
+            MaxPlayers: 2,
+            IsPublic: true,
+            HostDisplayName: "Host",
+            HostMonsterId: "cyber-kitty",
+            HostMonsterName: "Cyber Kitty",
+            HostAvatarId: "avatar-neon"));
+
+        Assert.Equal("cyber-kitty", result.Lobby.Seats[0].MonsterId);
+        Assert.Equal("Cyber Kitty", result.Lobby.Seats[0].MonsterName);
+        Assert.Equal("avatar-neon", result.Lobby.Seats[0].AvatarId);
     }
 
     [Fact]
@@ -142,7 +164,7 @@ public sealed class InMemoryLobbyStoreTests
 
         var found = store.TryJoinLobby(
             created.Lobby.LobbyId,
-            new JoinLobbyRequest("Guest"),
+            new JoinLobbyRequest("Guest", "cyber-kitty", "Cyber Kitty", "avatar-neon"),
             out var joinResult,
             out var error);
 
@@ -151,6 +173,9 @@ public sealed class InMemoryLobbyStoreTests
         Assert.NotNull(joinResult);
         Assert.Equal(1, joinResult!.PlayerId);
         Assert.Equal("Guest", joinResult.Lobby.Seats[1].DisplayName);
+        Assert.Equal("cyber-kitty", joinResult.Lobby.Seats[1].MonsterId);
+        Assert.Equal("Cyber Kitty", joinResult.Lobby.Seats[1].MonsterName);
+        Assert.Equal("avatar-neon", joinResult.Lobby.Seats[1].AvatarId);
         Assert.False(joinResult.Lobby.Seats[1].IsReady);
         Assert.Equal(LobbyStatus.WaitingForPlayers, joinResult.Lobby.Status);
     }
@@ -239,7 +264,7 @@ public sealed class InMemoryLobbyStoreTests
     }
 
     [Fact]
-    public void TryPrepareStart_Should_ReturnGameRequest_WhenHostStartsReadyLobby()
+    public void TryPrepareStart_Should_ReturnGameRequestWithMonsterNames_WhenHostStartsReadyLobby()
     {
         var store = new InMemoryLobbyStore();
         var created = store.CreateLobby(new CreateLobbyRequest(
@@ -248,8 +273,15 @@ public sealed class InMemoryLobbyStoreTests
             IsPublic: true,
             HostDisplayName: "Host",
             InitialHealth: 15,
-            TargetVictoryPoints: 30));
-        store.TryJoinLobby(created.Lobby.LobbyId, new JoinLobbyRequest("Guest"), out var joinResult, out _);
+            TargetVictoryPoints: 30,
+            HostMonsterId: "gigasaur",
+            HostMonsterName: "Gigasaur",
+            HostAvatarId: "avatar-roar"));
+        store.TryJoinLobby(
+            created.Lobby.LobbyId,
+            new JoinLobbyRequest("Guest", "cyber-kitty", "Cyber Kitty", "avatar-neon"),
+            out var joinResult,
+            out _);
         store.TrySetReady(created.Lobby.LobbyId, new SetLobbyReadyRequest(joinResult!.PlayerToken, IsReady: true), out _, out _);
 
         var found = store.TryPrepareStart(
@@ -262,7 +294,7 @@ public sealed class InMemoryLobbyStoreTests
         Assert.Null(error);
         Assert.NotNull(preparation);
         Assert.Equal(LobbyStatus.ReadyToStart, preparation!.Lobby.Status);
-        Assert.Equal(new[] { "Host", "Guest" }, preparation.GameRequest.MonsterNames);
+        Assert.Equal(new[] { "Gigasaur", "Cyber Kitty" }, preparation.GameRequest.MonsterNames);
         Assert.Equal(15, preparation.GameRequest.InitialHealth);
         Assert.Equal(30, preparation.GameRequest.TargetVictoryPoints);
     }
