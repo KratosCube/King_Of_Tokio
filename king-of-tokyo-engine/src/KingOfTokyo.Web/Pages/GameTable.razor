@@ -1,0 +1,194 @@
+@page "/games/{GameId:guid}"
+@implements IDisposable
+@inject ApiClient ApiClient
+@inject ClientSessionState Session
+
+<div class="card">
+    <h1>Game table</h1>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <p class="status-pill">@_error</p>
+    }
+
+    @if (_game is null)
+    {
+        <p class="muted">Loading game...</p>
+    }
+    else
+    {
+        <p>
+            Status: <span class="status-pill">@_game.Status</span>
+            Version: <span class="muted">@_game.Version</span>
+        </p>
+
+        @if (_game.WinnerPlayerId is not null)
+        {
+            <p class="status-pill">Winner: player @_game.WinnerPlayerId — @_game.WinnerReason</p>
+        }
+
+        <div class="game-grid">
+            <section class="panel">
+                <h2>Players</h2>
+                @foreach (var player in _game.Players)
+                {
+                    <div class="panel">
+                        <h3>@player.MonsterName</h3>
+                        <p class="muted">Player #@player.PlayerId</p>
+                        <p>HP: @player.Health / @player.MaxHealth</p>
+                        <p>VP/XP: @player.VictoryPoints</p>
+                        <p>Energy: @player.Energy</p>
+                        <p>Tokyo: @player.TokyoSlot</p>
+                    </div>
+                }
+            </section>
+
+            <section class="panel">
+                <h2>Tokyo</h2>
+                <div class="placeholder-box">
+                    City: @(_game.Tokyo.CityOccupantId?.ToString() ?? "empty")<br />
+                    Bay: @(_game.Tokyo.BayEnabled ? _game.Tokyo.BayOccupantId?.ToString() ?? "empty" : "disabled")
+                </div>
+
+                <h2>Dice</h2>
+                @if (_game.CurrentTurn?.Dice.Count > 0)
+                {
+                    <div class="actions">
+                        @foreach (var die in _game.CurrentTurn.Dice)
+                        {
+                            <span class="status-pill">@die.Index: @die.CurrentFace @(die.IsLocked ? "locked" : "")</span>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="placeholder-box">Dice will appear here after rolling.</div>
+                }
+            </section>
+
+            <section class="panel">
+                <h2>Market</h2>
+                @foreach (var card in _game.Market.FaceUpCards.Select((value, index) => new { value, index }))
+                {
+                    <div class="panel">
+                        @if (card.value is null)
+                        {
+                            <p class="muted">Slot @card.index: empty</p>
+                        }
+                        else
+                        {
+                            <h3>@card.value.Name</h3>
+                            <p class="muted">Cost: @card.value.Cost • @card.value.CardType</p>
+                            <p>@card.value.Description</p>
+                        }
+                    </div>
+                }
+                <p class="muted">Deck: @_game.Market.DrawPileCount • Discard: @_game.Market.DiscardPileCount</p>
+            </section>
+        </div>
+
+        <section class="panel">
+            <h2>Commands</h2>
+            <p class="muted">Current local player id: @(Session.PlayerId?.ToString() ?? "unknown")</p>
+            <div class="actions">
+                <button class="btn btn-secondary" @onclick="InitializeAsync" disabled="@_busy">Initialize</button>
+                <button class="btn btn-secondary" @onclick="BeginTurnAsync" disabled="@_busy">Begin turn</button>
+                <button class="btn btn-primary" @onclick="RollDiceAsync" disabled="@_busy">Roll dice</button>
+                <button class="btn btn-primary" @onclick="FinalizeDiceAsync" disabled="@_busy">Finalize dice</button>
+                <button class="btn btn-secondary" @onclick="EndTurnAsync" disabled="@_busy">End turn</button>
+                <button class="btn btn-secondary" @onclick="AdvancePlayerAsync" disabled="@_busy">Advance player</button>
+                <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid GameId { get; set; }
+
+    private GameStateDto? _game;
+    private PeriodicTimer? _timer;
+    private CancellationTokenSource? _cts;
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Session.RememberGame(GameId);
+        await RefreshAsync();
+        _cts = new CancellationTokenSource();
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+        _ = PollAsync(_cts.Token);
+    }
+
+    private async Task PollAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (_timer is not null && await _timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await InvokeAsync(RefreshAsync);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task RefreshAsync()
+    {
+        try
+        {
+            _game = await ApiClient.GetGameAsync(GameId);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task ExecuteAsync(Func<Task<ApiCommandResultDto>> command)
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var result = await command();
+            if (!result.Success)
+            {
+                _error = result.Error;
+            }
+
+            _game = result.GameState;
+            Session.LastEventSequence = result.CurrentEventSequence;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private Task InitializeAsync() => ExecuteAsync(() => ApiClient.InitializeGameAsync(GameId));
+
+    private Task BeginTurnAsync() => ExecuteAsync(() => ApiClient.BeginTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
+
+    private Task RollDiceAsync() => ExecuteAsync(() => ApiClient.RollDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
+
+    private Task FinalizeDiceAsync() => ExecuteAsync(() => ApiClient.FinalizeDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
+
+    private Task EndTurnAsync() => ExecuteAsync(() => ApiClient.EndTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
+
+    private Task AdvancePlayerAsync() => ExecuteAsync(() => ApiClient.AdvancePlayerAsync(GameId, new ActorRequest(Session.PlayerId)));
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _timer?.Dispose();
+    }
+}
