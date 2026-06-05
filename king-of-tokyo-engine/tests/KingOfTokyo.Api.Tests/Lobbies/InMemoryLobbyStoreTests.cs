@@ -24,6 +24,7 @@ public sealed class InMemoryLobbyStoreTests
         Assert.Equal(GameOptions.DefaultInitialHealth, result.Lobby.InitialHealth);
         Assert.Equal(GameOptions.DefaultTargetVictoryPoints, result.Lobby.TargetVictoryPoints);
         Assert.Equal(LobbyStatus.WaitingForPlayers, result.Lobby.Status);
+        Assert.Null(result.Lobby.GameId);
         Assert.Single(result.Lobby.Seats);
         Assert.Equal(0, result.PlayerId);
         Assert.Equal(result.PlayerToken, result.Lobby.Seats[0].PlayerToken);
@@ -231,6 +232,133 @@ public sealed class InMemoryLobbyStoreTests
             new SetLobbyReadyRequest(Guid.NewGuid(), IsReady: true),
             out var lobby,
             out var error);
+
+        Assert.False(found);
+        Assert.Null(lobby);
+        Assert.Null(error);
+    }
+
+    [Fact]
+    public void TryPrepareStart_Should_ReturnGameRequest_WhenHostStartsReadyLobby()
+    {
+        var store = new InMemoryLobbyStore();
+        var created = store.CreateLobby(new CreateLobbyRequest(
+            "Game",
+            MaxPlayers: 2,
+            IsPublic: true,
+            HostDisplayName: "Host",
+            InitialHealth: 15,
+            TargetVictoryPoints: 30));
+        store.TryJoinLobby(created.Lobby.LobbyId, new JoinLobbyRequest("Guest"), out var joinResult, out _);
+        store.TrySetReady(created.Lobby.LobbyId, new SetLobbyReadyRequest(joinResult!.PlayerToken, IsReady: true), out _, out _);
+
+        var found = store.TryPrepareStart(
+            created.Lobby.LobbyId,
+            new StartLobbyRequest(created.PlayerToken),
+            out var preparation,
+            out var error);
+
+        Assert.True(found);
+        Assert.Null(error);
+        Assert.NotNull(preparation);
+        Assert.Equal(LobbyStatus.ReadyToStart, preparation!.Lobby.Status);
+        Assert.Equal(new[] { "Host", "Guest" }, preparation.GameRequest.MonsterNames);
+        Assert.Equal(15, preparation.GameRequest.InitialHealth);
+        Assert.Equal(30, preparation.GameRequest.TargetVictoryPoints);
+    }
+
+    [Fact]
+    public void TryPrepareStart_Should_ReturnError_WhenRequesterIsNotHost()
+    {
+        var store = new InMemoryLobbyStore();
+        var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
+        store.TryJoinLobby(created.Lobby.LobbyId, new JoinLobbyRequest("Guest"), out var joinResult, out _);
+        store.TrySetReady(created.Lobby.LobbyId, new SetLobbyReadyRequest(joinResult!.PlayerToken, IsReady: true), out _, out _);
+
+        var found = store.TryPrepareStart(
+            created.Lobby.LobbyId,
+            new StartLobbyRequest(joinResult.PlayerToken),
+            out var preparation,
+            out var error);
+
+        Assert.True(found);
+        Assert.Null(preparation);
+        Assert.Equal("Only the host can start the lobby.", error);
+    }
+
+    [Fact]
+    public void TryPrepareStart_Should_ReturnError_WhenLobbyHasOnlyHost()
+    {
+        var store = new InMemoryLobbyStore();
+        var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
+
+        var found = store.TryPrepareStart(
+            created.Lobby.LobbyId,
+            new StartLobbyRequest(created.PlayerToken),
+            out var preparation,
+            out var error);
+
+        Assert.True(found);
+        Assert.Null(preparation);
+        Assert.Equal("At least two players are required to start the lobby.", error);
+    }
+
+    [Fact]
+    public void TryPrepareStart_Should_ReturnError_WhenSomePlayerIsNotReady()
+    {
+        var store = new InMemoryLobbyStore();
+        var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
+        store.TryJoinLobby(created.Lobby.LobbyId, new JoinLobbyRequest("Guest"), out _, out _);
+
+        var found = store.TryPrepareStart(
+            created.Lobby.LobbyId,
+            new StartLobbyRequest(created.PlayerToken),
+            out var preparation,
+            out var error);
+
+        Assert.True(found);
+        Assert.Null(preparation);
+        Assert.Equal("All players must be ready before starting the lobby.", error);
+    }
+
+    [Fact]
+    public void TryPrepareStart_Should_ReturnFalse_WhenLobbyDoesNotExist()
+    {
+        var store = new InMemoryLobbyStore();
+
+        var found = store.TryPrepareStart(
+            Guid.NewGuid(),
+            new StartLobbyRequest(Guid.NewGuid()),
+            out var preparation,
+            out var error);
+
+        Assert.False(found);
+        Assert.Null(preparation);
+        Assert.Null(error);
+    }
+
+    [Fact]
+    public void TryAttachGame_Should_MarkLobbyStartedAndStoreGameId()
+    {
+        var store = new InMemoryLobbyStore();
+        var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
+        var gameId = Guid.NewGuid();
+
+        var found = store.TryAttachGame(created.Lobby.LobbyId, gameId, out var lobby, out var error);
+
+        Assert.True(found);
+        Assert.Null(error);
+        Assert.NotNull(lobby);
+        Assert.Equal(LobbyStatus.Started, lobby!.Status);
+        Assert.Equal(gameId, lobby.GameId);
+    }
+
+    [Fact]
+    public void TryAttachGame_Should_ReturnFalse_WhenLobbyDoesNotExist()
+    {
+        var store = new InMemoryLobbyStore();
+
+        var found = store.TryAttachGame(Guid.NewGuid(), Guid.NewGuid(), out var lobby, out var error);
 
         Assert.False(found);
         Assert.Null(lobby);
