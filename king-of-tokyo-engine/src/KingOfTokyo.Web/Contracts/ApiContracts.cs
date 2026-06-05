@@ -6,9 +6,16 @@ public sealed record CreateLobbyRequest(
     bool IsPublic,
     string HostDisplayName,
     int InitialHealth,
-    int TargetVictoryPoints);
+    int TargetVictoryPoints,
+    string? HostMonsterId = null,
+    string? HostMonsterName = null,
+    string? HostAvatarId = null);
 
-public sealed record JoinLobbyRequest(string DisplayName);
+public sealed record JoinLobbyRequest(
+    string DisplayName,
+    string? MonsterId = null,
+    string? MonsterName = null,
+    string? AvatarId = null);
 
 public sealed record SetLobbyReadyRequest(Guid PlayerToken, bool IsReady);
 
@@ -39,7 +46,10 @@ public sealed record LobbySeatDto(
     string DisplayName,
     bool IsHost,
     bool IsReady,
-    Guid PlayerToken);
+    Guid PlayerToken,
+    string MonsterId,
+    string MonsterName,
+    string AvatarId);
 
 public sealed record GameStateDto(
     Guid GameId,
