@@ -302,6 +302,26 @@ button {
     padding: 0.9rem;
 }
 
+.decision-panel {
+    background:
+        linear-gradient(135deg, rgba(34, 197, 94, 0.14), rgba(59, 130, 246, 0.1)),
+        rgba(3, 7, 18, 0.66);
+    border: 1px solid rgba(34, 197, 94, 0.28);
+    border-radius: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+}
+
+.market-card {
+    display: grid;
+    gap: 0.55rem;
+    margin-bottom: 0.75rem;
+}
+
+.market-card .btn {
+    justify-self: start;
+}
+
 .dice-row {
     display: flex;
     flex-wrap: wrap;
