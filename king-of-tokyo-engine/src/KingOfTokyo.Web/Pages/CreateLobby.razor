@@ -9,7 +9,7 @@
 
     @if (!string.IsNullOrWhiteSpace(_error))
     {
-        <p class="status-pill">@_error</p>
+        <p class="status-pill danger-pill">@_error</p>
     }
 
     <EditForm Model="_model" OnValidSubmit="CreateAsync" class="form-grid">
@@ -79,8 +79,9 @@
     private bool _busy;
     private string? _error;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        await Session.LoadAsync();
         SelectMonster(MonsterCatalog.Default);
     }
 
@@ -109,6 +110,7 @@
                 _model.MonsterName,
                 _model.AvatarId));
             Session.RememberLobby(result.Lobby.LobbyId, result.PlayerId, result.PlayerToken);
+            await Session.SaveAsync();
             Navigation.NavigateTo($"/lobbies/{result.Lobby.LobbyId}");
         }
         catch (Exception ex)
