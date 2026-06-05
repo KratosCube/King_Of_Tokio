@@ -1,4 +1,5 @@
 using KingOfTokyo.Api.Endpoints;
+using KingOfTokyo.Api.GameSessions;
 using KingOfTokyo.Api.Lobbies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -20,6 +21,7 @@ public sealed class LobbyEndpointsTests
         Assert.Contains("/api/lobbies/{lobbyId:guid}", routePatterns);
         Assert.Contains("/api/lobbies/{lobbyId:guid}/join", routePatterns);
         Assert.Contains("/api/lobbies/{lobbyId:guid}/ready", routePatterns);
+        Assert.Contains("/api/lobbies/{lobbyId:guid}/start", routePatterns);
     }
 
     [Fact]
@@ -29,13 +31,14 @@ public sealed class LobbyEndpointsTests
 
         var routePatterns = GetRoutePatterns(app);
 
-        Assert.Equal(4, routePatterns.Count);
+        Assert.Equal(5, routePatterns.Count);
     }
 
     private static WebApplication CreateAppWithLobbyEndpoints()
     {
         var builder = WebApplication.CreateBuilder();
         builder.Services.AddSingleton<ILobbyStore, InMemoryLobbyStore>();
+        builder.Services.AddSingleton<IGameSessionStore, InMemoryGameSessionStore>();
 
         var app = builder.Build();
         app.MapKingOfTokyoLobbyEndpoints();
