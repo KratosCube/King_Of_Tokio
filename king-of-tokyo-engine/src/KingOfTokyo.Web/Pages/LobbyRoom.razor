@@ -37,6 +37,15 @@
                     <label>Your display name</label>
                     <InputText @bind-Value="_joinName" />
                 </div>
+                <div class="field">
+                    <label>Your monster</label>
+                    <InputSelect @bind-Value="_joinMonsterId" @onchange="OnJoinMonsterChanged">
+                        @foreach (var monster in MonsterCatalog.Monsters)
+                        {
+                            <option value="@monster.MonsterId">@monster.Emoji @monster.MonsterName</option>
+                        }
+                    </InputSelect>
+                </div>
                 <div class="actions">
                     <button class="btn btn-secondary" @onclick="JoinAsync" disabled="@(_busy || Session.HasLobbyIdentity)">Join</button>
                     <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
@@ -45,23 +54,29 @@
         </div>
 
         <section class="panel">
-            <h2>Players</h2>
-            @foreach (var seat in _lobby.Seats)
-            {
-                <p>
-                    <strong>@seat.DisplayName</strong>
-                    <span class="muted">#@seat.PlayerId</span>
-                    @if (seat.IsHost)
-                    {
-                        <span class="status-pill">Host</span>
-                    }
-                    <span class="status-pill">@(seat.IsReady ? "Ready" : "Not ready")</span>
-                    @if (Session.PlayerToken == seat.PlayerToken)
-                    {
-                        <span class="muted">You</span>
-                    }
-                </p>
-            }
+            <h2>Monsters in lobby</h2>
+            <div class="monster-grid">
+                @foreach (var seat in _lobby.Seats)
+                {
+                    var monster = MonsterCatalog.Find(seat.MonsterId);
+                    <article class="monster-card display-card" style="--accent:@monster.Accent">
+                        <span class="monster-emoji">@monster.Emoji</span>
+                        <strong>@seat.MonsterName</strong>
+                        <small>@seat.DisplayName • Player #@seat.PlayerId</small>
+                        <div class="actions compact-actions">
+                            @if (seat.IsHost)
+                            {
+                                <span class="status-pill">Host</span>
+                            }
+                            <span class="status-pill">@(seat.IsReady ? "Ready" : "Not ready")</span>
+                            @if (Session.PlayerToken == seat.PlayerToken)
+                            {
+                                <span class="status-pill">You</span>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
         </section>
 
         <div class="actions">
@@ -87,6 +102,8 @@
     private bool _busy;
     private string? _error;
     private string _joinName = "Guest";
+    private string _joinMonsterId = MonsterCatalog.Default.MonsterId;
+    private MonsterOption _joinMonster = MonsterCatalog.Default;
     private bool _canToggleReady => _lobby is not null && Session.PlayerToken is not null && _currentSeat is not null && _lobby.Status is not "Started" and not "Closed";
     private bool _canStart => _lobby?.Status == "ReadyToStart" && _currentSeat?.IsHost == true && Session.PlayerToken is not null;
 
@@ -101,6 +118,12 @@
         _cts = new CancellationTokenSource();
         _timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
         _ = PollAsync(_cts.Token);
+    }
+
+    private void OnJoinMonsterChanged(ChangeEventArgs args)
+    {
+        _joinMonsterId = args.Value?.ToString() ?? MonsterCatalog.Default.MonsterId;
+        _joinMonster = MonsterCatalog.Find(_joinMonsterId);
     }
 
     private async Task PollAsync(CancellationToken cancellationToken)
@@ -142,7 +165,11 @@
 
         try
         {
-            var result = await ApiClient.JoinLobbyAsync(LobbyId, new JoinLobbyRequest(_joinName));
+            var result = await ApiClient.JoinLobbyAsync(LobbyId, new JoinLobbyRequest(
+                _joinName,
+                _joinMonster.MonsterId,
+                _joinMonster.MonsterName,
+                _joinMonster.AvatarId));
             Session.RememberLobby(LobbyId, result.PlayerId, result.PlayerToken);
             _lobby = result.Lobby;
             _currentSeat = result.Lobby.Seats.FirstOrDefault(seat => seat.PlayerToken == result.PlayerToken);
