@@ -1,3 +1,4 @@
+using KingOfTokyo.Api.GameSessions;
 using KingOfTokyo.Api.Lobbies;
 using Microsoft.AspNetCore.Mvc;
 
@@ -53,6 +54,35 @@ public static class LobbyEndpoints
             return error is null
                 ? Results.Ok(lobby)
                 : Results.BadRequest(new { error });
+        });
+
+        lobbies.MapPost("/{lobbyId:guid}/start", (
+            Guid lobbyId,
+            StartLobbyRequest request,
+            [FromServices] ILobbyStore lobbyStore,
+            [FromServices] IGameSessionStore gameSessionStore) =>
+        {
+            var found = lobbyStore.TryPrepareStart(lobbyId, request, out var preparation, out var error);
+            if (!found)
+            {
+                return Results.NotFound(new { error = "Lobby was not found." });
+            }
+
+            if (error is not null || preparation is null)
+            {
+                return Results.BadRequest(new { error });
+            }
+
+            var game = gameSessionStore.CreateGame(preparation.GameRequest);
+            var attached = lobbyStore.TryAttachGame(lobbyId, game.GameId, out var startedLobby, out var attachError);
+            if (!attached)
+            {
+                return Results.NotFound(new { error = "Lobby was not found." });
+            }
+
+            return attachError is null && startedLobby is not null
+                ? Results.Ok(new LobbyStartResultDto(startedLobby, game))
+                : Results.BadRequest(new { error = attachError });
         });
 
         return endpoints;
