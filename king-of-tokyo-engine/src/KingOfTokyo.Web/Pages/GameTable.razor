@@ -178,7 +178,13 @@
 
     protected override async Task OnInitializedAsync()
     {
-        Session.RememberGame(GameId);
+        await Session.LoadAsync();
+        if (Session.GameId is null || Session.GameId != GameId)
+        {
+            Session.RememberGame(GameId);
+            await Session.SaveAsync();
+        }
+
         await RefreshAsync();
         await RefreshEventsAsync();
         _cts = new CancellationTokenSource();
@@ -299,6 +305,7 @@
             }
 
             Session.LastEventSequence = cursor.CurrentEventSequence;
+            await Session.SaveAsync();
         }
         catch (Exception ex)
         {
@@ -331,6 +338,7 @@
                 Session.LastEventSequence = result.CurrentEventSequence;
             }
 
+            await Session.SaveAsync();
             await RefreshEventsAsync();
         }
         catch (Exception ex)
