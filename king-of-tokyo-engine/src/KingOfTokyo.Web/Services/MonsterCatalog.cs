@@ -26,4 +26,10 @@ public static class MonsterCatalog
     {
         return Monsters.FirstOrDefault(monster => monster.MonsterId == monsterId) ?? Default;
     }
+
+    public static MonsterOption FindByName(string? monsterName)
+    {
+        return Monsters.FirstOrDefault(monster => string.Equals(monster.MonsterName, monsterName, StringComparison.OrdinalIgnoreCase))
+            ?? Default;
+    }
 }
