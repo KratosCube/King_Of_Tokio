@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using KingOfTokyo.Core.Domain.ValueObjects;
+using KingOfTokyo.Api.Contracts;
 
 namespace KingOfTokyo.Api.Lobbies;
 
@@ -112,6 +112,94 @@ public sealed class InMemoryLobbyStore : ILobbyStore
         }
     }
 
+    public bool TryPrepareStart(Guid lobbyId, StartLobbyRequest request, out LobbyStartPreparationDto? result, out string? error)
+    {
+        result = null;
+        error = null;
+
+        if (!_lobbies.TryGetValue(lobbyId, out var state))
+        {
+            return false;
+        }
+
+        lock (state.SyncRoot)
+        {
+            var requester = state.Seats.SingleOrDefault(s => s.PlayerToken == request.PlayerToken);
+            if (requester is null)
+            {
+                error = "Player token was not found in this lobby.";
+                return true;
+            }
+
+            if (!requester.IsHost)
+            {
+                error = "Only the host can start the lobby.";
+                return true;
+            }
+
+            if (state.Status is LobbyStatus.Started)
+            {
+                error = "Lobby has already been started.";
+                return true;
+            }
+
+            if (state.Status is LobbyStatus.Closed)
+            {
+                error = "Lobby is closed.";
+                return true;
+            }
+
+            if (state.Seats.Count < 2)
+            {
+                error = "At least two players are required to start the lobby.";
+                return true;
+            }
+
+            if (state.Seats.Any(seat => !seat.IsReady))
+            {
+                error = "All players must be ready before starting the lobby.";
+                return true;
+            }
+
+            var gameRequest = new CreateGameRequest(
+                state.Seats.Select(seat => seat.DisplayName).ToArray(),
+                InitialHealth: state.InitialHealth,
+                TargetVictoryPoints: state.TargetVictoryPoints);
+            result = new LobbyStartPreparationDto(ToDto(state), gameRequest);
+            return true;
+        }
+    }
+
+    public bool TryAttachGame(Guid lobbyId, Guid gameId, out LobbyDto? lobby, out string? error)
+    {
+        lobby = null;
+        error = null;
+
+        if (!_lobbies.TryGetValue(lobbyId, out var state))
+        {
+            return false;
+        }
+
+        lock (state.SyncRoot)
+        {
+            if (state.Status is LobbyStatus.Closed)
+            {
+                error = "Lobby is closed.";
+                return true;
+            }
+
+            if (state.Status is LobbyStatus.Started && state.GameId != gameId)
+            {
+                error = "Lobby has already been started.";
+                return true;
+            }
+
+            state.AttachGame(gameId);
+            lobby = ToDto(state);
+            return true;
+        }
+    }
+
     private static void ValidateMaxPlayers(int maxPlayers)
     {
         if (maxPlayers is < 2 or > 6)
@@ -158,6 +246,7 @@ public sealed class InMemoryLobbyStore : ILobbyStore
             state.InitialHealth,
             state.TargetVictoryPoints,
             state.Status,
+            state.GameId,
             state.Seats
                 .Select(seat => new LobbySeatDto(
                     seat.PlayerId,
@@ -193,6 +282,7 @@ public sealed class InMemoryLobbyStore : ILobbyStore
         public int InitialHealth { get; }
         public int TargetVictoryPoints { get; }
         public LobbyStatus Status { get; private set; } = LobbyStatus.WaitingForPlayers;
+        public Guid? GameId { get; private set; }
         public List<LobbySeatState> Seats { get; } = new();
         public object SyncRoot { get; } = new();
 
@@ -206,6 +296,12 @@ public sealed class InMemoryLobbyStore : ILobbyStore
             Seats.Add(seat);
             RecalculateStatus();
             return seat;
+        }
+
+        public void AttachGame(Guid gameId)
+        {
+            GameId = gameId;
+            Status = LobbyStatus.Started;
         }
 
         public void RecalculateStatus()
