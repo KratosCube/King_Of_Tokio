@@ -52,6 +52,7 @@
                                 <span>VP @player.VictoryPoints</span>
                                 <span>⚡ @player.Energy</span>
                             </div>
+                            <PlayerStatusTokens Status="player.Status" />
                             @if (!player.IsAlive)
                             {
                                 <span class="status-pill danger-pill">Eliminated</span>
