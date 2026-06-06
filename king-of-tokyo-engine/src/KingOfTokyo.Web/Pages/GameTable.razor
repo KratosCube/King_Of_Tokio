@@ -445,7 +445,7 @@
             {
                 if (!_eventFeed.Any(item => item.Sequence == envelope.EventSequence))
                 {
-                    _eventFeed.Add(EventFeedItem.From(envelope));
+                    _eventFeed.Add(EventFeedItem.From(envelope, PlayerName));
                 }
             }
 
@@ -475,7 +475,7 @@
             _selectedDiceIndexes.Clear();
             foreach (var newEvent in result.NewEvents)
             {
-                _eventFeed.Add(EventFeedItem.From(Session.LastEventSequence + 1, newEvent));
+                _eventFeed.Add(EventFeedItem.From(Session.LastEventSequence + 1, newEvent, PlayerName));
                 Session.LastEventSequence++;
             }
 
@@ -527,24 +527,131 @@
 
     private sealed record EventFeedItem(long Sequence, string Title, string Description)
     {
-        public static EventFeedItem From(GameEventEnvelopeDto envelope) => From(envelope.EventSequence, envelope.Event);
+        public static EventFeedItem From(GameEventEnvelopeDto envelope, Func<int, string> playerName) => From(envelope.EventSequence, envelope.Event, playerName);
 
-        public static EventFeedItem From(long sequence, System.Text.Json.JsonElement json)
+        public static EventFeedItem From(long sequence, System.Text.Json.JsonElement json, Func<int, string> playerName)
         {
             var eventName = ReadString(json, "eventName") ?? "GameEvent";
+            var cleanName = eventName.Replace("Event", string.Empty);
+            var playerId = ReadInt(json, "playerId");
+            var sourcePlayerId = ReadInt(json, "sourcePlayerId");
+            var targetPlayerId = ReadInt(json, "targetPlayerId");
+            var amount = ReadInt(json, "amount");
+            var reason = ReadString(json, "reason");
+            var cardName = ReadString(json, "cardName");
+            var slot = ReadString(json, "slot");
+
+            return eventName switch
+            {
+                "TurnStartedEvent" => new(sequence, "Turn started", $"{Name(playerName, playerId)} started their turn."),
+                "DiceRolledEvent" => new(sequence, "Dice rolled", $"{Name(playerName, playerId)} rolled {FormatFaces(json)} on roll {ReadInt(json, "rollNumber") ?? 1}."),
+                "DiceFinalizedEvent" => new(sequence, "Dice resolved", $"{Name(playerName, playerId)} resolved dice: {FormatDiceSummary(json)}."),
+                "DamageDealtEvent" => new(sequence, "Damage dealt", $"{Name(playerName, sourcePlayerId)} dealt {amount ?? 0} damage to {Name(playerName, targetPlayerId)}{FormatSuffix(ReadString(json, "damageKind"))}."),
+                "DamageCanceledEvent" => new(sequence, "Damage canceled", $"Damage against {Name(playerName, targetPlayerId ?? playerId)} was canceled{FormatSuffix(reason)}."),
+                "PlayerHealedEvent" => new(sequence, "Healing", $"{Name(playerName, playerId)} healed {amount ?? 0} HP{FormatSuffix(reason)}."),
+                "TokyoEnteredEvent" => new(sequence, "Tokyo entered", $"{Name(playerName, playerId)} entered {FormatTokyoSlot(slot)}."),
+                "TokyoLeftEvent" => new(sequence, "Tokyo left", $"{Name(playerName, playerId)} left {FormatTokyoSlot(slot)}."),
+                "CardBoughtEvent" => new(sequence, "Card bought", $"{Name(playerName, playerId)} bought {cardName ?? "a card"} for {ReadInt(json, "cost") ?? ReadInt(json, "costSpent") ?? 0} energy."),
+                "MarketRefreshedEvent" => new(sequence, "Market refreshed", playerId is null ? "The market was refreshed." : $"{Name(playerName, playerId)} refreshed the market."),
+                "StatusTokensAddedEvent" => new(sequence, "Status tokens", $"{Name(playerName, sourcePlayerId)} gave {FormatStatusTokens(json, added: true)} to {Name(playerName, targetPlayerId)}."),
+                "StatusTokensRemovedEvent" => new(sequence, "Status tokens removed", $"{FormatStatusTokens(json, added: false)} were removed from {Name(playerName, targetPlayerId ?? playerId)}."),
+                "KeepCardDiscardedEvent" => new(sequence, "Card discarded", $"{Name(playerName, playerId)} discarded {cardName ?? "a keep card"}."),
+                "GameEndedEvent" => FormatGameEnded(sequence, json, playerName, reason),
+                _ => new EventFeedItem(sequence, SplitTitle(cleanName), FormatFallback(json, playerName))
+            };
+        }
+
+        private static EventFeedItem FormatGameEnded(long sequence, System.Text.Json.JsonElement json, Func<int, string> playerName, string? reason)
+        {
+            var winnerPlayerId = ReadInt(json, "winnerPlayerId");
+            return winnerPlayerId is null
+                ? new EventFeedItem(sequence, "Game ended", $"The game ended without a winner{FormatSuffix(reason)}.")
+                : new EventFeedItem(sequence, "Game ended", $"{Name(playerName, winnerPlayerId)} won the game{FormatSuffix(reason)}.");
+        }
+
+        private static string FormatFallback(System.Text.Json.JsonElement json, Func<int, string> playerName)
+        {
             var parts = new List<string>();
-            Add(parts, ReadInt(json, "playerId"), "player");
-            Add(parts, ReadInt(json, "sourcePlayerId"), "source");
-            Add(parts, ReadInt(json, "targetPlayerId"), "target");
-            Add(parts, ReadInt(json, "amount"), "amount");
+            Add(parts, ReadInt(json, "playerId"), "Player", playerName);
+            Add(parts, ReadInt(json, "sourcePlayerId"), "Source", playerName);
+            Add(parts, ReadInt(json, "targetPlayerId"), "Target", playerName);
+            Add(parts, ReadInt(json, "amount"), "Amount");
             Add(parts, ReadString(json, "cardName"));
             Add(parts, ReadString(json, "reason"));
-            return new EventFeedItem(sequence, eventName.Replace("Event", string.Empty), parts.Count == 0 ? json.ToString() : string.Join(" • ", parts));
+            return parts.Count == 0 ? json.ToString() : string.Join(" • ", parts);
+        }
+
+        private static string FormatFaces(System.Text.Json.JsonElement json)
+        {
+            if (!json.TryGetProperty("faces", out var faces) || faces.ValueKind != System.Text.Json.JsonValueKind.Array)
+            {
+                return "dice";
+            }
+
+            var formatted = faces.EnumerateArray()
+                .Select(face => face.ValueKind == System.Text.Json.JsonValueKind.String ? FaceIcon(face.GetString()) : "?")
+                .ToArray();
+            return formatted.Length == 0 ? "dice" : string.Join(" ", formatted);
+        }
+
+        private static string FormatDiceSummary(System.Text.Json.JsonElement json)
+        {
+            if (!json.TryGetProperty("summary", out var summary) || summary.ValueKind != System.Text.Json.JsonValueKind.Object)
+            {
+                return "result applied";
+            }
+
+            var parts = new List<string>();
+            AddCount(parts, ReadInt(summary, "attackCount"), "attack");
+            AddCount(parts, ReadInt(summary, "energyCount"), "energy");
+            AddCount(parts, ReadInt(summary, "heartCount"), "heal");
+            AddCount(parts, ReadInt(summary, "victoryPointsFromNumbers"), "VP");
+            return parts.Count == 0 ? "no direct effect" : string.Join(", ", parts);
+        }
+
+        private static string FormatStatusTokens(System.Text.Json.JsonElement json, bool added)
+        {
+            var parts = new List<string>();
+            AddCount(parts, ReadInt(json, added ? "poisonTokensAdded" : "poisonTokensRemoved"), "poison");
+            AddCount(parts, ReadInt(json, added ? "shrinkTokensAdded" : "shrinkTokensRemoved"), "shrink");
+            return parts.Count == 0 ? "status tokens" : string.Join(" and ", parts);
+        }
+
+        private static string FaceIcon(string? face) => face switch
+        {
+            "One" => "1",
+            "Two" => "2",
+            "Three" => "3",
+            "Energy" => "⚡",
+            "Heal" => "❤",
+            "Attack" => "💥",
+            _ => face ?? "?"
+        };
+
+        private static string FormatTokyoSlot(string? slot) => slot switch
+        {
+            "City" => "Tokyo City",
+            "Bay" => "Tokyo Bay",
+            _ => "Tokyo"
+        };
+
+        private static string FormatSuffix(string? value) => string.IsNullOrWhiteSpace(value) ? string.Empty : $" ({value})";
+        private static string Name(Func<int, string> playerName, int? playerId) => playerId is null ? "Unknown monster" : playerName(playerId.Value);
+        private static string SplitTitle(string value) => string.Concat(value.SelectMany((character, index) => index > 0 && char.IsUpper(character) ? new[] { ' ', character } : new[] { character }));
+
+        private static void AddCount(List<string> parts, int? value, string label)
+        {
+            if (value is > 0) parts.Add($"{value} {label}");
         }
 
         private static void Add(List<string> parts, int? value, string label)
         {
             if (value is not null) parts.Add($"{label} {value}");
+        }
+
+        private static void Add(List<string> parts, int? value, string label, Func<int, string> playerName)
+        {
+            if (value is not null) parts.Add($"{label}: {playerName(value.Value)}");
         }
 
         private static void Add(List<string> parts, string? value)
