@@ -34,6 +34,13 @@
     font-size: 0.78rem;
 }
 
+.owned-card-chip p {
+    color: #d1d5db;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    margin: 0.15rem 0 0;
+}
+
 .owned-card-meta {
     display: flex;
     flex-wrap: wrap;
