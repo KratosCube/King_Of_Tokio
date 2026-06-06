@@ -1,4 +1,4 @@
-@using KingOfTokyo.Core.Dto
+@using WebCardDto = KingOfTokyo.Web.Contracts.CardDto
 
 <div class="owned-card-list">
     <small class="owned-card-heading">Keep cards</small>
@@ -36,5 +36,5 @@
 </div>
 
 @code {
-    [Parameter] public IReadOnlyList<CardDto> Cards { get; set; } = Array.Empty<CardDto>();
+    [Parameter] public IReadOnlyList<WebCardDto> Cards { get; set; } = Array.Empty<WebCardDto>();
 }
