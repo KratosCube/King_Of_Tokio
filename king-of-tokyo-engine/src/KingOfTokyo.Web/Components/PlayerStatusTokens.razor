@@ -1,0 +1,19 @@
+@using KingOfTokyo.Web.Contracts
+
+@if (Status.PoisonTokens > 0 || Status.ShrinkTokens > 0)
+{
+    <div class="status-token-list">
+        @if (Status.PoisonTokens > 0)
+        {
+            <span class="status-token poison-token">☠ Poison @Status.PoisonTokens</span>
+        }
+        @if (Status.ShrinkTokens > 0)
+        {
+            <span class="status-token shrink-token">⬇ Shrink @Status.ShrinkTokens</span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public PlayerStatusDto Status { get; set; } = new(0, 0);
+}
