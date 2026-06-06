@@ -1,0 +1,52 @@
+.owned-card-list {
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+}
+
+.owned-card-heading {
+    color: var(--energy-yellow);
+    font-weight: 950;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.owned-card-chip {
+    background: rgba(3, 7, 18, 0.66);
+    border: 1px solid rgba(250, 204, 21, 0.22);
+    border-radius: 0.75rem;
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.55rem 0.65rem;
+}
+
+.owned-card-chip strong {
+    color: #fff7ed;
+    font-size: 0.85rem;
+    font-weight: 950;
+    text-transform: uppercase;
+}
+
+.owned-card-chip small {
+    color: var(--muted);
+    font-size: 0.78rem;
+}
+
+.owned-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.25rem;
+}
+
+.owned-card-meta span {
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    border-radius: 999px;
+    color: #bae6fd;
+    font-size: 0.7rem;
+    font-weight: 850;
+    padding: 0.18rem 0.42rem;
+}
