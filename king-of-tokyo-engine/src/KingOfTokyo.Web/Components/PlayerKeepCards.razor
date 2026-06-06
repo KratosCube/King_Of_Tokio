@@ -13,6 +13,10 @@
             <div class="owned-card-chip">
                 <strong>@card.Name</strong>
                 <small>@card.CardType • Cost @card.Cost</small>
+                @if (!string.IsNullOrWhiteSpace(card.Description))
+                {
+                    <p>@card.Description</p>
+                }
                 @if (card.Counters > 0 || card.StoredEnergy > 0 || card.MimicTarget is not null)
                 {
                     <div class="owned-card-meta">
