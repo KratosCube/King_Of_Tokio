@@ -1,0 +1,40 @@
+@using KingOfTokyo.Core.Dto
+
+<div class="owned-card-list">
+    <small class="owned-card-heading">Keep cards</small>
+    @if (Cards.Count == 0)
+    {
+        <small class="muted">No keep cards</small>
+    }
+    else
+    {
+        @foreach (var card in Cards)
+        {
+            <div class="owned-card-chip">
+                <strong>@card.Name</strong>
+                <small>@card.CardType • Cost @card.Cost</small>
+                @if (card.Counters > 0 || card.StoredEnergy > 0 || card.MimicTarget is not null)
+                {
+                    <div class="owned-card-meta">
+                        @if (card.Counters > 0)
+                        {
+                            <span>Counters @card.Counters</span>
+                        }
+                        @if (card.StoredEnergy > 0)
+                        {
+                            <span>Stored energy @card.StoredEnergy</span>
+                        }
+                        @if (card.MimicTarget is not null)
+                        {
+                            <span>Mimic: @card.MimicTarget.CardName</span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<CardDto> Cards { get; set; } = Array.Empty<CardDto>();
+}
