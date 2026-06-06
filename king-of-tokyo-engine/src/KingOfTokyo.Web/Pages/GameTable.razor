@@ -64,7 +64,7 @@
             <section class="panel">
                 <h2>Tokyo</h2>
                 <div class="tokyo-board">
-                    @RenderTokyoSlot("Tokyo City", _game.Tokyo.CityOccupantId, isEnabled: true)
+                    @RenderTokyoSlot("Tokyo City", _game.Tokyo.CityOccupantId, true)
                     @RenderTokyoSlot("Tokyo Bay", _game.Tokyo.BayOccupantId, _game.Tokyo.BayEnabled)
                 </div>
 
@@ -72,16 +72,17 @@
                 {
                     <section class="decision-panel">
                         <h2>Pending decision</h2>
-                        <p>
-                            <strong>@_game.PendingDecision.DecisionType</strong>
-                            <span class="muted">for @PlayerName(_game.PendingDecision.PlayerId)</span>
-                        </p>
-                        @if (CanAnswerPendingDecision)
+                        <p><strong>@_game.PendingDecision.DecisionType</strong> <span class="muted">for @PlayerName(_game.PendingDecision.PlayerId)</span></p>
+                        @if (CanAnswerLeaveTokyoDecision)
                         {
                             <div class="actions">
                                 <button class="btn btn-primary" @onclick="() => ChooseLeaveTokyoAsync(true)" disabled="@_busy">Leave Tokyo</button>
                                 <button class="btn btn-secondary" @onclick="() => ChooseLeaveTokyoAsync(false)" disabled="@_busy">Stay in Tokyo</button>
                             </div>
+                        }
+                        else if (IsSelectDiceToRerollDecision)
+                        {
+                            <p class="muted">Select dice below and press Reroll selected dice, or finalize dice to keep the current result.</p>
                         }
                         else
                         {
@@ -97,10 +98,7 @@
                         @foreach (var die in _game.CurrentTurn.Dice)
                         {
                             var isSelected = _selectedDiceIndexes.Contains(die.Index);
-                            <button type="button"
-                                    class="die-button @(isSelected ? "selected" : null)"
-                                    disabled="@(_busy || die.IsLocked)"
-                                    @onclick="() => ToggleDieSelection(die.Index)">
+                            <button type="button" class="die-button @(isSelected ? "selected" : null)" disabled="@(_busy || die.IsLocked || !CanSelectDiceForReroll)" @onclick="() => ToggleDieSelection(die.Index)">
                                 <span class="die-face @(die.IsLocked ? "locked" : null)">@DieIcon(die.CurrentFace)</span>
                                 <small>@(die.IsLocked ? "locked" : isSelected ? "reroll" : $"die {die.Index}")</small>
                             </button>
@@ -112,7 +110,7 @@
                     </div>
                     @if (_selectedDiceIndexes.Count > 0 && !CanRerollSelected)
                     {
-                        <p class="muted">Dice are selected. Reroll becomes available only during your rolling phase.</p>
+                        <p class="muted">Dice are selected. Reroll becomes available only during your reroll decision.</p>
                     }
                 }
                 else
@@ -148,7 +146,7 @@
             <section class="panel">
                 <h2>Commands</h2>
                 <p class="muted">Current local player id: @(Session.PlayerId?.ToString() ?? "unknown")</p>
-                @if (!IsLocalCurrentPlayer && _game.CurrentTurn is not null)
+                @if (!IsLocalActor && _game.CurrentTurn is not null)
                 {
                     <p class="status-pill">Waiting for @PlayerName(_game.CurrentTurn.CurrentPlayerId)</p>
                 }
@@ -174,11 +172,7 @@
                     <ol class="event-feed">
                         @foreach (var item in _eventFeed.OrderByDescending(item => item.Sequence).Take(20))
                         {
-                            <li>
-                                <span class="muted">#@item.Sequence</span>
-                                <strong>@item.Title</strong>
-                                <p>@item.Description</p>
-                            </li>
+                            <li><span class="muted">#@item.Sequence</span><strong>@item.Title</strong><p>@item.Description</p></li>
                         }
                     </ol>
                 }
@@ -202,65 +196,26 @@
     private bool IsSetup => string.Equals(_game?.Status, "Setup", StringComparison.OrdinalIgnoreCase);
     private bool HasPendingDecision => _game?.PendingDecision is not null;
     private string? CurrentPhase => _game?.CurrentTurn?.Phase;
+    private int? CurrentActorId => _game?.CurrentTurn?.CurrentPlayerId ?? _game?.CurrentPlayerIndex;
+    private bool IsLocalActor => Session.PlayerId is not null && CurrentActorId == Session.PlayerId;
 
-    private bool IsLocalCurrentPlayer =>
-        Session.PlayerId is not null &&
-        (_game?.CurrentTurn?.CurrentPlayerId == Session.PlayerId || (_game?.CurrentTurn is null && _game?.CurrentPlayerIndex == Session.PlayerId));
+    private bool IsSelectDiceToRerollDecision =>
+        _game?.PendingDecision is not null &&
+        string.Equals(_game.PendingDecision.DecisionType, "SelectDiceToReroll", StringComparison.OrdinalIgnoreCase) &&
+        _game.CurrentTurn is not null &&
+        _game.PendingDecision.PlayerId == _game.CurrentTurn.CurrentPlayerId;
 
     private bool CanInitialize => IsSetup;
-
-    private bool CanBeginTurn =>
-        IsRunning &&
-        !HasPendingDecision &&
-        IsLocalCurrentPlayer &&
-        (CurrentPhase is null || IsPhase("NotStarted") || IsPhase("TurnEnd"));
-
-    private bool CanRollDice =>
-        IsRunning &&
-        !HasPendingDecision &&
-        IsLocalCurrentPlayer &&
-        (IsPhase("TurnStart") || IsPhase("Rolling"));
-
-    private bool CanSelectDiceForReroll =>
-        CanRollDice &&
-        IsPhase("Rolling") &&
-        _game?.CurrentTurn?.DiceResolved == false;
-
-    private bool CanRerollSelected =>
-        CanSelectDiceForReroll &&
-        _game?.CurrentTurn is not null &&
-        _game.CurrentTurn.Dice.Count > 0 &&
-        _selectedDiceIndexes.Count > 0 &&
-        _selectedDiceIndexes.All(index => _game.CurrentTurn.Dice.Any(die => die.Index == index && !die.IsLocked));
-
-    private bool CanFinalizeDice =>
-        IsRunning &&
-        !HasPendingDecision &&
-        IsLocalCurrentPlayer &&
-        IsPhase("Rolling") &&
-        _game?.CurrentTurn?.DiceResolved == false;
-
-    private bool CanUseMarketActions =>
-        IsRunning &&
-        !HasPendingDecision &&
-        IsLocalCurrentPlayer &&
-        IsPhase("Purchase");
-
-    private bool CanEndTurn =>
-        IsRunning &&
-        !HasPendingDecision &&
-        IsLocalCurrentPlayer &&
-        (IsPhase("Purchase") || IsPhase("DiceResolved") || IsPhase("TurnEnd"));
-
-    private bool CanAdvancePlayer =>
-        IsRunning &&
-        !HasPendingDecision &&
-        IsPhase("TurnEnd");
-
-    private bool CanAnswerPendingDecision =>
-        _game?.PendingDecision is not null &&
-        Session.PlayerId == _game.PendingDecision.PlayerId &&
-        string.Equals(_game.PendingDecision.DecisionType, "LeaveTokyo", StringComparison.OrdinalIgnoreCase);
+    private bool CanBeginTurn => IsRunning && !HasPendingDecision && IsLocalActor && (_game?.CurrentTurn is null || IsPhase("Finished"));
+    private bool CanRollDice => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed == 0;
+    private bool CanRerollStep => IsRunning && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed > 0 && _game.CurrentTurn.RollCountUsed < _game.CurrentTurn.MaxRolls && (!HasPendingDecision || IsSelectDiceToRerollDecision);
+    private bool CanSelectDiceForReroll => CanRerollStep && _game?.CurrentTurn?.DiceResolved == false;
+    private bool CanRerollSelected => CanSelectDiceForReroll && _selectedDiceIndexes.Count > 0 && _selectedDiceIndexes.All(index => _game!.CurrentTurn!.Dice.Any(die => die.Index == index && !die.IsLocked));
+    private bool CanFinalizeDice => IsRunning && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed > 0 && _game.CurrentTurn.DiceResolved == false && (!HasPendingDecision || IsSelectDiceToRerollDecision);
+    private bool CanUseMarketActions => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Purchase");
+    private bool CanEndTurn => CanUseMarketActions;
+    private bool CanAdvancePlayer => IsRunning && !HasPendingDecision && IsPhase("Finished");
+    private bool CanAnswerLeaveTokyoDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "LeaveTokyo", StringComparison.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
@@ -278,10 +233,7 @@
         _ = PollAsync(_cts.Token);
     }
 
-    private bool IsPhase(string phase)
-    {
-        return string.Equals(CurrentPhase, phase, StringComparison.OrdinalIgnoreCase);
-    }
+    private bool IsPhase(string phase) => string.Equals(CurrentPhase, phase, StringComparison.OrdinalIgnoreCase);
 
     private RenderFragment RenderTokyoSlot(string title, int? playerId, bool isEnabled) => builder =>
     {
@@ -326,24 +278,18 @@
         builder.CloseElement();
     };
 
-    private string PlayerName(int playerId)
-    {
-        return _game?.Players.FirstOrDefault(player => player.PlayerId == playerId)?.MonsterName ?? $"Player {playerId}";
-    }
+    private string PlayerName(int playerId) => _game?.Players.FirstOrDefault(player => player.PlayerId == playerId)?.MonsterName ?? $"Player {playerId}";
 
-    private static string DieIcon(string face)
+    private static string DieIcon(string face) => face switch
     {
-        return face switch
-        {
-            "One" => "1",
-            "Two" => "2",
-            "Three" => "3",
-            "Energy" => "⚡",
-            "Heal" => "❤",
-            "Attack" => "🗯",
-            _ => face
-        };
-    }
+        "One" => "1",
+        "Two" => "2",
+        "Three" => "3",
+        "Energy" => "⚡",
+        "Heal" => "❤",
+        "Attack" => "🗯",
+        _ => face
+    };
 
     private void ToggleDieSelection(int dieIndex)
     {
@@ -353,10 +299,7 @@
         }
     }
 
-    private void ClearSelectedDice()
-    {
-        _selectedDiceIndexes.Clear();
-    }
+    private void ClearSelectedDice() => _selectedDiceIndexes.Clear();
 
     private async Task PollAsync(CancellationToken cancellationToken)
     {
@@ -391,16 +334,13 @@
 
     private void PruneSelectedDice()
     {
-        if (_game?.CurrentTurn is null)
+        if (_game?.CurrentTurn is null || !CanSelectDiceForReroll)
         {
             _selectedDiceIndexes.Clear();
             return;
         }
 
-        var validIndexes = _game.CurrentTurn.Dice
-            .Where(die => !die.IsLocked)
-            .Select(die => die.Index)
-            .ToHashSet();
+        var validIndexes = _game.CurrentTurn.Dice.Where(die => !die.IsLocked).Select(die => die.Index).ToHashSet();
         _selectedDiceIndexes.RemoveWhere(index => !validIndexes.Contains(index));
     }
 
@@ -416,12 +356,10 @@
 
             foreach (var envelope in cursor.Events)
             {
-                if (_eventFeed.Any(item => item.Sequence == envelope.EventSequence))
+                if (!_eventFeed.Any(item => item.Sequence == envelope.EventSequence))
                 {
-                    continue;
+                    _eventFeed.Add(EventFeedItem.From(envelope));
                 }
-
-                _eventFeed.Add(EventFeedItem.From(envelope));
             }
 
             Session.LastEventSequence = cursor.CurrentEventSequence;
@@ -473,21 +411,11 @@
     }
 
     private Task InitializeAsync() => ExecuteAsync(() => ApiClient.InitializeGameAsync(GameId));
-
     private Task BeginTurnAsync() => ExecuteAsync(() => ApiClient.BeginTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
-
     private Task RollDiceAsync() => ExecuteAsync(() => ApiClient.RollDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
-
-    private Task RerollSelectedDiceAsync()
-    {
-        var indexes = _selectedDiceIndexes.OrderBy(index => index).ToArray();
-        return ExecuteAsync(() => ApiClient.RerollDiceAsync(GameId, new RerollDiceRequest(Session.PlayerId, indexes)));
-    }
-
+    private Task RerollSelectedDiceAsync() => ExecuteAsync(() => ApiClient.RerollDiceAsync(GameId, new RerollDiceRequest(Session.PlayerId, _selectedDiceIndexes.OrderBy(index => index).ToArray())));
     private Task FinalizeDiceAsync() => ExecuteAsync(() => ApiClient.FinalizeDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
-
     private Task BuyFaceUpCardAsync(int slotIndex) => ExecuteAsync(() => ApiClient.BuyFaceUpCardAsync(GameId, new BuyFaceUpCardRequest(Session.PlayerId, slotIndex)));
-
     private Task RefreshMarketAsync() => ExecuteAsync(() => ApiClient.RefreshMarketAsync(GameId, new ActorRequest(Session.PlayerId)));
 
     private Task ChooseLeaveTokyoAsync(bool leaveTokyo)
@@ -501,7 +429,6 @@
     }
 
     private Task EndTurnAsync() => ExecuteAsync(() => ApiClient.EndTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
-
     private Task AdvancePlayerAsync() => ExecuteAsync(() => ApiClient.AdvancePlayerAsync(GameId, new ActorRequest(Session.PlayerId)));
 
     public void Dispose()
@@ -513,69 +440,35 @@
 
     private sealed record EventFeedItem(long Sequence, string Title, string Description)
     {
-        public static EventFeedItem From(GameEventEnvelopeDto envelope)
-        {
-            return From(envelope.EventSequence, envelope.Event);
-        }
+        public static EventFeedItem From(GameEventEnvelopeDto envelope) => From(envelope.EventSequence, envelope.Event);
 
         public static EventFeedItem From(long sequence, System.Text.Json.JsonElement json)
         {
             var eventName = ReadString(json, "eventName") ?? "GameEvent";
-            var title = eventName.Replace("Event", string.Empty);
-            var playerId = ReadInt(json, "playerId");
-            var sourcePlayerId = ReadInt(json, "sourcePlayerId");
-            var targetPlayerId = ReadInt(json, "targetPlayerId");
-            var amount = ReadInt(json, "amount");
-            var reason = ReadString(json, "reason");
-            var cardName = ReadString(json, "cardName");
-
             var parts = new List<string>();
-            if (playerId is not null)
-            {
-                parts.Add($"player {playerId}");
-            }
-
-            if (sourcePlayerId is not null || targetPlayerId is not null)
-            {
-                parts.Add($"{Label(sourcePlayerId, "source")} {Label(targetPlayerId, "target")}".Trim());
-            }
-
-            if (amount is not null)
-            {
-                parts.Add($"amount {amount}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(cardName))
-            {
-                parts.Add(cardName!);
-            }
-
-            if (!string.IsNullOrWhiteSpace(reason))
-            {
-                parts.Add(reason!);
-            }
-
-            var description = parts.Count == 0 ? json.ToString() : string.Join(" • ", parts);
-            return new EventFeedItem(sequence, title, description);
+            Add(parts, ReadInt(json, "playerId"), "player");
+            Add(parts, ReadInt(json, "sourcePlayerId"), "source");
+            Add(parts, ReadInt(json, "targetPlayerId"), "target");
+            Add(parts, ReadInt(json, "amount"), "amount");
+            Add(parts, ReadString(json, "cardName"));
+            Add(parts, ReadString(json, "reason"));
+            return new EventFeedItem(sequence, eventName.Replace("Event", string.Empty), parts.Count == 0 ? json.ToString() : string.Join(" • ", parts));
         }
 
-        private static string Label(int? value, string label)
+        private static void Add(List<string> parts, int? value, string label)
         {
-            return value is null ? string.Empty : $"{label} {value}";
+            if (value is not null) parts.Add($"{label} {value}");
         }
 
-        private static string? ReadString(System.Text.Json.JsonElement json, string propertyName)
+        private static void Add(List<string> parts, string? value)
         {
-            return json.TryGetProperty(propertyName, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.String
-                ? value.GetString()
-                : null;
+            if (!string.IsNullOrWhiteSpace(value)) parts.Add(value);
         }
 
-        private static int? ReadInt(System.Text.Json.JsonElement json, string propertyName)
-        {
-            return json.TryGetProperty(propertyName, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.Number && value.TryGetInt32(out var number)
-                ? number
-                : null;
-        }
+        private static string? ReadString(System.Text.Json.JsonElement json, string propertyName) =>
+            json.TryGetProperty(propertyName, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.String ? value.GetString() : null;
+
+        private static int? ReadInt(System.Text.Json.JsonElement json, string propertyName) =>
+            json.TryGetProperty(propertyName, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.Number && value.TryGetInt32(out var number) ? number : null;
     }
 }
