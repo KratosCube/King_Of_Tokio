@@ -144,7 +144,54 @@
 
         <div class="grid-2 lower-game-grid">
             <section class="panel">
-                <h2>Commands</h2>
+                <h2>Next action</h2>
+                <p class="status-pill">@SmartActionTitle</p>
+                <p class="muted">@SmartActionDescription</p>
+                <div class="actions">
+                    @if (CanInitialize)
+                    {
+                        <button class="btn btn-primary" @onclick="InitializeAsync" disabled="@_busy">Initialize game</button>
+                    }
+                    else if (CanBeginTurn)
+                    {
+                        <button class="btn btn-primary" @onclick="BeginTurnAsync" disabled="@_busy">Begin turn</button>
+                    }
+                    else if (CanRollDice)
+                    {
+                        <button class="btn btn-primary" @onclick="RollDiceAsync" disabled="@_busy">Roll dice</button>
+                    }
+                    else if (CanRerollSelected)
+                    {
+                        <button class="btn btn-primary" @onclick="RerollSelectedDiceAsync" disabled="@_busy">Reroll selected dice</button>
+                        <button class="btn btn-secondary" @onclick="FinalizeDiceAsync" disabled="@_busy">Finalize instead</button>
+                    }
+                    else if (CanSelectDiceForReroll)
+                    {
+                        <button class="btn btn-secondary" disabled>Select dice to reroll</button>
+                        <button class="btn btn-primary" @onclick="FinalizeDiceAsync" disabled="@_busy">Finalize dice</button>
+                    }
+                    else if (CanFinalizeDice)
+                    {
+                        <button class="btn btn-primary" @onclick="FinalizeDiceAsync" disabled="@_busy">Finalize dice</button>
+                    }
+                    else if (CanUseMarketActions)
+                    {
+                        <button class="btn btn-primary" @onclick="EndTurnAsync" disabled="@_busy">End turn</button>
+                        <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@_busy">Refresh market</button>
+                    }
+                    else if (CanAdvancePlayer)
+                    {
+                        <button class="btn btn-primary" @onclick="AdvancePlayerAsync" disabled="@_busy">Advance player</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                    }
+                </div>
+            </section>
+
+            <section class="panel">
+                <h2>Debug commands</h2>
                 <p class="muted">Current local player id: @(Session.PlayerId?.ToString() ?? "unknown")</p>
                 @if (!IsLocalActor && _game.CurrentTurn is not null)
                 {
@@ -216,6 +263,44 @@
     private bool CanEndTurn => CanUseMarketActions;
     private bool CanAdvancePlayer => IsRunning && !HasPendingDecision && IsPhase("Finished");
     private bool CanAnswerLeaveTokyoDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "LeaveTokyo", StringComparison.OrdinalIgnoreCase);
+
+    private string SmartActionTitle
+    {
+        get
+        {
+            if (_game?.WinnerPlayerId is not null) return "Game finished";
+            if (CanInitialize) return "Initialize game";
+            if (CanBeginTurn) return "Begin your turn";
+            if (CanRollDice) return "Roll dice";
+            if (CanRerollSelected) return "Reroll selected dice";
+            if (CanSelectDiceForReroll) return "Choose dice or finalize";
+            if (CanFinalizeDice) return "Finalize dice";
+            if (CanUseMarketActions) return "Buy cards or end turn";
+            if (CanAdvancePlayer) return "Advance to next player";
+            if (_game?.PendingDecision is not null) return $"Waiting for {PlayerName(_game.PendingDecision.PlayerId)}";
+            if (_game?.CurrentTurn is not null && !IsLocalActor) return $"Waiting for {PlayerName(_game.CurrentTurn.CurrentPlayerId)}";
+            return "Waiting";
+        }
+    }
+
+    private string SmartActionDescription
+    {
+        get
+        {
+            if (_game?.WinnerPlayerId is not null) return "The match has a winner.";
+            if (CanInitialize) return "Start the match state and deal the initial market.";
+            if (CanBeginTurn) return "Start the active monster's turn.";
+            if (CanRollDice) return "Make the first roll of this turn.";
+            if (CanRerollSelected) return "Reroll the dice you selected below, or finalize if you want to keep the current result.";
+            if (CanSelectDiceForReroll) return "Click dice below to select them for reroll, or finalize the current result.";
+            if (CanFinalizeDice) return "Resolve the current dice result and move to the next step.";
+            if (CanUseMarketActions) return "Buy cards from the market, refresh the market, or end your turn.";
+            if (CanAdvancePlayer) return "The current turn is finished. Move to the next monster.";
+            if (_game?.PendingDecision is not null) return "Another decision must be answered before the game can continue.";
+            if (_game?.CurrentTurn is not null && !IsLocalActor) return "This browser is not controlling the active monster.";
+            return "Refresh the game if you expect a new state.";
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
