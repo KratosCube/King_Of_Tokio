@@ -583,6 +583,147 @@ button {
     position: relative;
 }
 
+@media (min-width: 901px) {
+    body {
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .app-shell {
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .top-bar {
+        min-height: 4.35rem;
+        padding: 0.7rem 1.25rem;
+    }
+
+    .page-shell {
+        height: calc(100vh - 4.35rem);
+        max-width: none;
+        overflow: hidden;
+        padding: 0.65rem;
+    }
+
+    .game-hero {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        height: 100%;
+        padding: 0.85rem;
+    }
+
+    .game-hero > h1 {
+        font-size: clamp(1.65rem, 3vw, 2.55rem);
+        margin-bottom: 0;
+    }
+
+    .game-hero > p {
+        margin: 0;
+    }
+
+    .game-grid {
+        flex: 1 1 auto;
+        grid-template-columns: minmax(210px, 0.7fr) minmax(390px, 1.45fr) minmax(260px, 0.85fr);
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .game-grid > .panel,
+    .lower-game-grid > .panel {
+        min-height: 0;
+        overflow: auto;
+        padding: 0.85rem;
+    }
+
+    .lower-game-grid {
+        flex: 0 0 clamp(165px, 25vh, 235px);
+        grid-template-columns: minmax(300px, 0.95fr) minmax(230px, 0.65fr) minmax(360px, 1.15fr);
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .panel h2 {
+        font-size: 1rem;
+        margin-bottom: 0.55rem;
+    }
+
+    .monster-card {
+        gap: 0.25rem;
+        min-height: 0;
+        padding: 0.7rem;
+    }
+
+    .monster-emoji {
+        font-size: 2.1rem;
+    }
+
+    .monster-stats {
+        gap: 0.25rem;
+        margin-top: 0.25rem;
+    }
+
+    .monster-stats span,
+    .status-pill {
+        font-size: 0.74rem;
+        padding: 0.22rem 0.45rem;
+    }
+
+    .tokyo-board {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-bottom: 0.9rem;
+    }
+
+    .tokyo-slot {
+        min-height: 125px;
+        padding: 0.75rem;
+    }
+
+    .decision-panel {
+        margin-bottom: 0.9rem;
+        padding: 0.75rem;
+    }
+
+    .dice-row {
+        gap: 0.55rem;
+    }
+
+    .die-face {
+        font-size: 1.45rem;
+        min-width: 2.85rem;
+        padding: 0.32rem;
+    }
+
+    .btn {
+        min-height: 2.35rem;
+        padding: 0.52rem 0.8rem;
+    }
+
+    .actions {
+        gap: 0.45rem;
+        margin-top: 0.65rem;
+    }
+
+    .market-card {
+        margin-bottom: 0.55rem;
+        padding: 0.75rem;
+    }
+
+    .market-card p {
+        margin: 0.2rem 0;
+    }
+
+    .event-feed-panel {
+        max-height: none;
+    }
+
+    .event-feed {
+        max-height: none;
+        overflow: visible;
+    }
+}
+
 @media (max-width: 900px) {
     .hero,
     .grid-2,
