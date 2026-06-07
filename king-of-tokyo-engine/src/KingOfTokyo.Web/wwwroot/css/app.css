@@ -275,6 +275,30 @@ button {
     margin-top: 1rem;
 }
 
+.lower-game-grid > .panel:nth-child(2) {
+    background:
+        linear-gradient(145deg, rgba(28, 37, 64, 0.58), rgba(8, 13, 29, 0.58)),
+        rgba(17, 24, 39, 0.58);
+    border-style: dashed;
+    box-shadow: none;
+    opacity: 0.82;
+}
+
+.lower-game-grid > .panel:nth-child(2) h2::after {
+    color: var(--muted);
+    content: " · optional tools";
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+.lower-game-grid > .panel:nth-child(2):hover,
+.lower-game-grid > .panel:nth-child(2):focus-within {
+    border-style: solid;
+    box-shadow: var(--heavy-shadow);
+    opacity: 1;
+}
+
 .game-grid {
     display: grid;
     gap: 1rem;
