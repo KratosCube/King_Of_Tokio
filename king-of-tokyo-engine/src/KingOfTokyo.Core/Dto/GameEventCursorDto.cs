@@ -1,4 +1,4 @@
-using KingOfTokyo.Core.Abstractions;
+using System.Text.Json;
 
 namespace KingOfTokyo.Core.Dto;
 
@@ -11,4 +11,4 @@ public sealed record GameEventCursorDto(
 
 public sealed record GameEventEnvelopeDto(
     long EventSequence,
-    GameEventBase Event);
+    JsonElement Event);
