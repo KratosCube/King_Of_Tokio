@@ -138,6 +138,57 @@
     margin: 0;
 }
 
+.decision-panel {
+    background:
+        radial-gradient(circle at top left, rgba(250, 204, 21, 0.2), transparent 46%),
+        linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(56, 189, 248, 0.13)),
+        rgba(3, 7, 18, 0.76);
+    border-color: rgba(250, 204, 21, 0.5);
+    box-shadow: 0 14px 36px rgba(250, 204, 21, 0.14);
+}
+
+.decision-panel h2 {
+    align-items: center;
+    color: var(--energy-yellow);
+    display: flex;
+    font-size: 1rem;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
+}
+
+.decision-panel h2::before {
+    content: "⚠";
+    filter: drop-shadow(2px 2px 0 rgba(0, 0, 0, 0.55));
+}
+
+.decision-panel p {
+    margin: 0.35rem 0;
+}
+
+.decision-panel p strong {
+    background: rgba(250, 204, 21, 0.16);
+    border: 1px solid rgba(250, 204, 21, 0.32);
+    border-radius: 999px;
+    color: #fef3c7;
+    display: inline-flex;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    padding: 0.25rem 0.5rem;
+    text-transform: uppercase;
+}
+
+.decision-panel .actions {
+    margin-top: 0.7rem;
+}
+
+.dice-row::before {
+    color: var(--muted);
+    content: "Click dice or drag across them to select rerolls.";
+    flex-basis: 100%;
+    font-size: 0.78rem;
+    line-height: 1.25;
+}
+
 @media (min-width: 901px) {
     .owned-card-list {
         gap: 0.35rem;
@@ -210,6 +261,23 @@
         gap: 0.4rem;
         margin-top: 0.55rem;
         padding-top: 0.55rem;
+    }
+
+    .decision-panel {
+        margin-bottom: 0.7rem;
+        padding: 0.7rem;
+    }
+
+    .decision-panel h2 {
+        font-size: 0.9rem;
+    }
+
+    .decision-panel p strong {
+        font-size: 0.68rem;
+    }
+
+    .dice-row::before {
+        font-size: 0.7rem;
     }
 
     .event-feed-panel {
