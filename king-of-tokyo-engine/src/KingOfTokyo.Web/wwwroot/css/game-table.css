@@ -1,0 +1,44 @@
+@media (min-width: 901px) {
+    .owned-card-list {
+        gap: 0.35rem;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+    }
+
+    .owned-card-heading {
+        font-size: 0.7rem;
+    }
+
+    .owned-card-chip {
+        gap: 0.12rem;
+        padding: 0.4rem 0.5rem;
+    }
+
+    .owned-card-chip strong {
+        font-size: 0.78rem;
+        line-height: 1.1;
+    }
+
+    .owned-card-chip small {
+        font-size: 0.7rem;
+        line-height: 1.15;
+    }
+
+    .owned-card-chip p {
+        font-size: 0.7rem;
+        line-height: 1.22;
+        margin: 0.1rem 0 0;
+        max-height: 2.55rem;
+        overflow: hidden;
+    }
+
+    .owned-card-meta {
+        gap: 0.2rem;
+        margin-top: 0.15rem;
+    }
+
+    .owned-card-meta span {
+        font-size: 0.64rem;
+        padding: 0.12rem 0.3rem;
+    }
+}
