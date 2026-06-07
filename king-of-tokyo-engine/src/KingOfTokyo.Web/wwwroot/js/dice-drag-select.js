@@ -4,6 +4,7 @@
     let dragStartButton = null;
     let draggedAcrossDice = false;
     let suppressNextNativeClick = false;
+    let isSyntheticDieClick = false;
 
     const isSelectableDieButton = (element) =>
         element instanceof HTMLElement &&
@@ -18,13 +19,23 @@
             return false;
         }
 
-        button.click();
+        isSyntheticDieClick = true;
+        try {
+            button.click();
+        } finally {
+            isSyntheticDieClick = false;
+        }
+
         return true;
     };
 
     document.addEventListener('click', (event) => {
         const button = findDieButton(event);
         if (!isSelectableDieButton(button)) {
+            return;
+        }
+
+        if (isSyntheticDieClick) {
             return;
         }
 
@@ -62,9 +73,9 @@
         }
 
         draggedAcrossDice = true;
-        suppressNextNativeClick = true;
         clickIfNotSelected(dragStartButton);
         clickIfNotSelected(button);
+        suppressNextNativeClick = true;
     });
 
     document.addEventListener('pointerup', () => {
@@ -80,5 +91,6 @@
         dragStartButton = null;
         draggedAcrossDice = false;
         suppressNextNativeClick = false;
+        isSyntheticDieClick = false;
     });
 })();
