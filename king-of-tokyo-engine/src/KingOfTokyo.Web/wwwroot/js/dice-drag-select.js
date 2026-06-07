@@ -1,9 +1,9 @@
 (() => {
     let isDraggingDice = false;
     let dragStartedOnDiceRow = false;
-    let suppressNextDieClick = false;
     let dragStartButton = null;
     let draggedAcrossDice = false;
+    let suppressNextNativeClick = false;
 
     const isSelectableDieButton = (element) =>
         element instanceof HTMLElement &&
@@ -28,11 +28,10 @@
             return;
         }
 
-        if (suppressNextDieClick || draggedAcrossDice) {
+        if (suppressNextNativeClick) {
             event.preventDefault();
             event.stopImmediatePropagation();
-            suppressNextDieClick = false;
-            draggedAcrossDice = false;
+            suppressNextNativeClick = false;
         }
     }, true);
 
@@ -50,8 +49,6 @@
         dragStartedOnDiceRow = true;
         dragStartButton = button;
         draggedAcrossDice = false;
-
-        suppressNextDieClick = clickIfNotSelected(button);
     });
 
     document.addEventListener('pointerover', (event) => {
@@ -60,10 +57,13 @@
         }
 
         const button = findDieButton(event);
-        if (button !== dragStartButton && isSelectableDieButton(button)) {
-            draggedAcrossDice = true;
+        if (!isSelectableDieButton(button) || button === dragStartButton) {
+            return;
         }
 
+        draggedAcrossDice = true;
+        suppressNextNativeClick = true;
+        clickIfNotSelected(dragStartButton);
         clickIfNotSelected(button);
     });
 
@@ -71,13 +71,14 @@
         isDraggingDice = false;
         dragStartedOnDiceRow = false;
         dragStartButton = null;
+        draggedAcrossDice = false;
     });
 
     document.addEventListener('pointercancel', () => {
         isDraggingDice = false;
         dragStartedOnDiceRow = false;
-        suppressNextDieClick = false;
         dragStartButton = null;
         draggedAcrossDice = false;
+        suppressNextNativeClick = false;
     });
 })();
