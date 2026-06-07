@@ -61,6 +61,83 @@
     padding: 0.18rem 0.42rem;
 }
 
+.market-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.market-list {
+    display: grid;
+    gap: 0.6rem;
+    min-height: 0;
+    overflow: auto;
+    padding-right: 0.15rem;
+}
+
+.market-card {
+    background: rgba(3, 7, 18, 0.66);
+    border: 1px solid rgba(250, 204, 21, 0.22);
+    border-radius: 0.9rem;
+    display: grid;
+    gap: 0.28rem;
+    margin: 0;
+    padding: 0.75rem;
+}
+
+.market-card-header {
+    align-items: start;
+    display: flex;
+    gap: 0.55rem;
+    justify-content: space-between;
+}
+
+.market-card-header h3 {
+    color: #fff7ed;
+    font-size: 0.96rem;
+    line-height: 1.05;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+.market-cost {
+    background: linear-gradient(135deg, rgba(250, 204, 21, 0.95), rgba(249, 115, 22, 0.95));
+    border: 2px solid rgba(0, 0, 0, 0.45);
+    border-radius: 999px;
+    color: #111827;
+    flex: 0 0 auto;
+    font-size: 0.78rem;
+    font-weight: 950;
+    padding: 0.18rem 0.45rem;
+}
+
+.market-card-type {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.market-card p {
+    color: #d1d5db;
+    font-size: 0.78rem;
+    line-height: 1.32;
+    margin: 0;
+}
+
+.market-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: grid;
+    gap: 0.55rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+}
+
+.market-footer p {
+    margin: 0;
+}
+
 @media (min-width: 901px) {
     .owned-card-list {
         gap: 0.35rem;
@@ -103,6 +180,36 @@
     .owned-card-meta span {
         font-size: 0.64rem;
         padding: 0.12rem 0.3rem;
+    }
+
+    .market-list {
+        gap: 0.45rem;
+    }
+
+    .market-card {
+        padding: 0.58rem;
+    }
+
+    .market-card-header h3 {
+        font-size: 0.86rem;
+    }
+
+    .market-card p {
+        font-size: 0.7rem;
+        line-height: 1.22;
+        max-height: 2.6rem;
+        overflow: hidden;
+    }
+
+    .market-card .btn {
+        min-height: 2.05rem;
+        padding: 0.38rem 0.65rem;
+    }
+
+    .market-footer {
+        gap: 0.4rem;
+        margin-top: 0.55rem;
+        padding-top: 0.55rem;
     }
 
     .event-feed-panel {
