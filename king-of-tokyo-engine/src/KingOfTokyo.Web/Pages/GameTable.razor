@@ -121,26 +121,33 @@
                 }
             </section>
 
-            <section class="panel">
+            <section class="panel market-panel">
                 <h2>Market</h2>
-                @foreach (var card in _game.Market.FaceUpCards.Select((value, index) => new { value, index }))
-                {
-                    <div class="market-card panel">
-                        @if (card.value is null)
-                        {
-                            <p class="muted">Slot @card.index: empty</p>
-                        }
-                        else
-                        {
-                            <h3>@card.value.Name</h3>
-                            <p class="muted">Cost: @card.value.Cost • @card.value.CardType</p>
-                            <p>@card.value.Description</p>
-                            <button class="btn btn-primary" @onclick="() => BuyFaceUpCardAsync(card.index)" disabled="@(_busy || !CanUseMarketActions)">Buy</button>
-                        }
-                    </div>
-                }
-                <p class="muted">Deck: @_game.Market.DrawPileCount • Discard: @_game.Market.DiscardPileCount</p>
-                <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@(_busy || !CanUseMarketActions)">Refresh market</button>
+                <div class="market-list">
+                    @foreach (var card in _game.Market.FaceUpCards.Select((value, index) => new { value, index }))
+                    {
+                        <article class="market-card">
+                            @if (card.value is null)
+                            {
+                                <p class="muted">Slot @card.index: empty</p>
+                            }
+                            else
+                            {
+                                <div class="market-card-header">
+                                    <h3>@card.value.Name</h3>
+                                    <span class="market-cost">⚡ @card.value.Cost</span>
+                                </div>
+                                <small class="market-card-type">@card.value.CardType</small>
+                                <p>@card.value.Description</p>
+                                <button class="btn btn-primary" @onclick="() => BuyFaceUpCardAsync(card.index)" disabled="@(_busy || !CanUseMarketActions)">Buy</button>
+                            }
+                        </article>
+                    }
+                </div>
+                <div class="market-footer">
+                    <p class="muted">Deck: @_game.Market.DrawPileCount • Discard: @_game.Market.DiscardPileCount</p>
+                    <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@(_busy || !CanUseMarketActions)">Refresh market</button>
+                </div>
             </section>
         </div>
 
