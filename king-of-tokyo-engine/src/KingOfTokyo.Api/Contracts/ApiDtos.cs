@@ -1,4 +1,5 @@
-using KingOfTokyo.Core.Abstractions;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using KingOfTokyo.Core.Decisions;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Dto;
@@ -38,9 +39,15 @@ public sealed record ApiCommandResultDto(
     string? Error,
     GameStateDto GameState,
     PendingDecision? PendingDecision,
-    IReadOnlyList<GameEventBase> NewEvents,
+    IReadOnlyList<JsonElement> NewEvents,
     long CurrentEventSequence)
 {
+    private static readonly JsonSerializerOptions EventJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     public static ApiCommandResultDto From(CommandResult result)
     {
         return new ApiCommandResultDto(
@@ -48,7 +55,9 @@ public sealed record ApiCommandResultDto(
             result.Error,
             result.GameState.ToDto(),
             result.PendingDecision,
-            result.NewEvents,
+            result.NewEvents
+                .Select(gameEvent => JsonSerializer.SerializeToElement(gameEvent, gameEvent.GetType(), EventJsonOptions))
+                .ToArray(),
             result.GameState.EventLog.Count);
     }
 }
