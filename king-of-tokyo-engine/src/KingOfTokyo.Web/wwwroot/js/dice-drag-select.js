@@ -25,6 +25,7 @@
 
         isDraggingDice = true;
         dragStartedOnDiceRow = true;
+        clickIfNotSelected(button);
     });
 
     document.addEventListener('pointerover', (event) => {
