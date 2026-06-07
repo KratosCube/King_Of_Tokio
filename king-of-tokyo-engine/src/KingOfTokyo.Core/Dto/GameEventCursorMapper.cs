@@ -1,9 +1,17 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using KingOfTokyo.Core.Domain.State;
 
 namespace KingOfTokyo.Core.Dto;
 
 public static class GameEventCursorMapper
 {
+    private static readonly JsonSerializerOptions EventJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     public static GameEventCursorDto MapEventsSince(GameState gameState, long fromEventSequenceExclusive)
     {
         ArgumentNullException.ThrowIfNull(gameState);
@@ -23,7 +31,7 @@ public static class GameEventCursorMapper
             .Skip(skippedEventCount)
             .Select((gameEvent, index) => new GameEventEnvelopeDto(
                 fromEventSequenceExclusive + index + 1,
-                gameEvent))
+                JsonSerializer.SerializeToElement(gameEvent, gameEvent.GetType(), EventJsonOptions)))
             .ToArray();
 
         return new GameEventCursorDto(
