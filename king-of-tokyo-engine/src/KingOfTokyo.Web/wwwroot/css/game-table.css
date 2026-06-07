@@ -215,12 +215,23 @@
     .event-feed-panel {
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        height: 100%;
+        max-height: none;
+        min-height: 0;
+        overflow: hidden !important;
+    }
+
+    .event-feed-panel > h2 {
+        flex: 0 0 auto;
     }
 
     .event-feed {
         flex: 1 1 auto;
+        max-height: none;
         min-height: 0;
-        overflow: auto;
+        overflow-y: auto !important;
+        overflow-x: hidden;
+        overscroll-behavior: contain;
+        padding-right: 0.35rem;
     }
 }
