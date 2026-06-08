@@ -28,6 +28,25 @@
         return match ? Number.parseInt(match[1], 10) : null;
     };
 
+    const readGameId = () => {
+        const match = window.location.pathname.match(/\/games\/([0-9a-fA-F-]{36})/);
+        return match ? match[1] : null;
+    };
+
+    const postJson = async (url, payload) => {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload ?? {})
+        });
+
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+
+        return response.json();
+    };
+
     const reloadWithCacheBust = () => {
         const url = new URL(window.location.href);
         url.searchParams.set('controlPlayerRefresh', Date.now().toString());
@@ -76,9 +95,64 @@
             .forEach(installControlButton);
     };
 
-    const observer = new MutationObserver(installControlButtons);
+    const shouldAutoHandleAdvance = (button) =>
+        button instanceof HTMLButtonElement &&
+        button.textContent?.trim().toLowerCase() === 'advance player' &&
+        !button.disabled;
+
+    const installAdvanceHelper = () => {
+        document.querySelectorAll('button')
+            .forEach((button) => {
+                if (!(button instanceof HTMLButtonElement) || button.dataset.devAdvanceHelperInstalled === 'true') {
+                    return;
+                }
+
+                if (button.textContent?.trim().toLowerCase() !== 'advance player') {
+                    return;
+                }
+
+                button.dataset.devAdvanceHelperInstalled = 'true';
+                button.addEventListener('click', async (event) => {
+                    if (!shouldAutoHandleAdvance(button)) {
+                        return;
+                    }
+
+                    const gameId = readGameId();
+                    const controlledPlayerId = readCurrentPlayerId(readSession());
+                    if (!gameId || controlledPlayerId is null) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    button.disabled = true;
+                    button.textContent = 'Advancing...';
+
+                    try {
+                        const advanceResult = await postJson(`/api/games/${gameId}/commands/advance-player`, { actorPlayerId: controlledPlayerId });
+                        const currentPlayerIndex = advanceResult?.gameState?.currentPlayerIndex;
+                        const currentTurnPhase = advanceResult?.gameState?.currentTurn?.phase;
+                        const canBeginControlledTurn = currentPlayerIndex === controlledPlayerId &&
+                            (!currentTurnPhase || currentTurnPhase === 'Finished');
+
+                        if (canBeginControlledTurn) {
+                            await postJson(`/api/games/${gameId}/commands/begin-turn`, { actorPlayerId: controlledPlayerId });
+                        }
+                    } finally {
+                        reloadWithCacheBust();
+                    }
+                }, true);
+            });
+    };
+
+    const installDevHelpers = () => {
+        installControlButtons();
+        installAdvanceHelper();
+    };
+
+    const observer = new MutationObserver(installDevHelpers);
     observer.observe(document.documentElement, { childList: true, subtree: true });
 
-    document.addEventListener('DOMContentLoaded', installControlButtons);
-    installControlButtons();
+    document.addEventListener('DOMContentLoaded', installDevHelpers);
+    installDevHelpers();
 })();
