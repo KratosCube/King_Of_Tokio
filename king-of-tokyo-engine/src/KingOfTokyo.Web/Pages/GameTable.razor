@@ -18,18 +18,28 @@
     }
     else
     {
-        <p>
-            Status: <span class="status-pill">@_game.Status</span>
-            Version: <span class="muted">@_game.Version</span>
-            Events: <span class="muted">@Session.LastEventSequence</span>
-        </p>
-
-        @if (_game.CurrentTurn is not null)
-        {
-            <p class="muted">
-                Current turn: @PlayerName(_game.CurrentTurn.CurrentPlayerId) • Phase: @_game.CurrentTurn.Phase • Rolls: @_game.CurrentTurn.RollCountUsed/@_game.CurrentTurn.MaxRolls
-            </p>
-        }
+        <div class="game-status-strip">
+            <section class="status-card primary-status">
+                <span>Next action</span>
+                <strong>@SmartActionTitle</strong>
+                <small>@SmartActionDescription</small>
+            </section>
+            <section class="status-card">
+                <span>You</span>
+                <strong>@LocalPlayerLabel</strong>
+                <small>Local player id: @(Session.PlayerId?.ToString() ?? "unknown")</small>
+            </section>
+            <section class="status-card @(IsLocalActor ? "your-turn-card" : null)">
+                <span>Active monster</span>
+                <strong>@ActiveTurnLabel</strong>
+                <small>@ActorPillText</small>
+            </section>
+            <section class="status-card">
+                <span>State</span>
+                <strong>@_game.Status</strong>
+                <small>Phase: @PhaseLabel • Rolls: @RollsLabel • Events: @Session.LastEventSequence</small>
+            </section>
+        </div>
 
         @if (_game.WinnerPlayerId is not null)
         {
@@ -43,20 +53,34 @@
                     @foreach (var player in _game.Players)
                     {
                         var monster = MonsterCatalog.FindByName(player.MonsterName);
-                        <article class="monster-card display-card @(player.PlayerId == Session.PlayerId ? "selected" : null)" style="--accent:@monster.Accent">
+                        <article class="@MonsterCardClass(player)" style="--accent:@monster.Accent">
                             <span class="monster-emoji">@monster.Emoji</span>
                             <strong>@player.MonsterName</strong>
                             <small>Player #@player.PlayerId • @player.TokyoSlot</small>
+                            <div class="monster-badge-row">
+                                @if (player.PlayerId == Session.PlayerId)
+                                {
+                                    <span class="status-pill">You</span>
+                                }
+                                @if (player.PlayerId == CurrentActorId)
+                                {
+                                    <span class="status-pill turn-pill">Active turn</span>
+                                }
+                                @if (IsTokyoOccupant(player))
+                                {
+                                    <span class="status-pill tokyo-pill">In Tokyo</span>
+                                }
+                                @if (!player.IsAlive)
+                                {
+                                    <span class="status-pill danger-pill">Eliminated</span>
+                                }
+                            </div>
                             <div class="monster-stats">
                                 <span>HP @player.Health/@player.MaxHealth</span>
                                 <span>VP @player.VictoryPoints</span>
                                 <span>⚡ @player.Energy</span>
                             </div>
                             <PlayerStatusTokens Status="player.Status" />
-                            @if (!player.IsAlive)
-                            {
-                                <span class="status-pill danger-pill">Eliminated</span>
-                            }
                             <PlayerKeepCards Cards="player.KeepCards" />
                         </article>
                     }
@@ -77,6 +101,7 @@
                         <p><strong>@_game.PendingDecision.DecisionType</strong> <span class="muted">for @PlayerName(_game.PendingDecision.PlayerId)</span></p>
                         @if (CanAnswerLeaveTokyoDecision)
                         {
+                            <p class="muted">Tokyo is under attack. Choose whether your monster retreats after taking damage.</p>
                             <div class="actions">
                                 <button class="btn btn-primary" @onclick="() => ChooseLeaveTokyoAsync(true)" disabled="@_busy">Leave Tokyo</button>
                                 <button class="btn btn-secondary" @onclick="() => ChooseLeaveTokyoAsync(false)" disabled="@_busy">Stay in Tokyo</button>
@@ -88,7 +113,7 @@
                         }
                         else
                         {
-                            <p class="muted">Waiting for player @_game.PendingDecision.PlayerId.</p>
+                            <p class="muted">Waiting for @PlayerName(_game.PendingDecision.PlayerId) to answer this decision.</p>
                         }
                     </section>
                 }
@@ -152,7 +177,7 @@
         </div>
 
         <div class="grid-2 lower-game-grid">
-            <section class="panel">
+            <section class="panel next-action-panel">
                 <h2>Next action</h2>
                 <p class="status-pill">@SmartActionTitle</p>
                 <p class="muted">@SmartActionDescription</p>
@@ -199,22 +224,27 @@
                 </div>
             </section>
 
-            <section class="panel">
-                <h2>Debug commands</h2>
-                <p class="muted">Current local player id: @(Session.PlayerId?.ToString() ?? "unknown")</p>
-                @if (!IsLocalActor && _game.CurrentTurn is not null)
-                {
-                    <p class="status-pill">Waiting for @PlayerName(_game.CurrentTurn.CurrentPlayerId)</p>
-                }
-                <div class="actions">
-                    <button class="btn btn-secondary" @onclick="InitializeAsync" disabled="@(_busy || !CanInitialize)">Initialize</button>
-                    <button class="btn btn-secondary" @onclick="BeginTurnAsync" disabled="@(_busy || !CanBeginTurn)">Begin turn</button>
-                    <button class="btn btn-primary" @onclick="RollDiceAsync" disabled="@(_busy || !CanRollDice)">Roll dice</button>
-                    <button class="btn btn-primary" @onclick="FinalizeDiceAsync" disabled="@(_busy || !CanFinalizeDice)">Finalize dice</button>
-                    <button class="btn btn-secondary" @onclick="EndTurnAsync" disabled="@(_busy || !CanEndTurn)">End turn</button>
-                    <button class="btn btn-secondary" @onclick="AdvancePlayerAsync" disabled="@(_busy || !CanAdvancePlayer)">Advance player</button>
-                    <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
-                </div>
+            <section class="panel developer-panel">
+                <details>
+                    <summary class="dev-tools-summary">
+                        <span>Debug commands</span>
+                        <small>Optional tools while the UI is still being stabilized</small>
+                    </summary>
+                    <p class="muted">Current local player id: @(Session.PlayerId?.ToString() ?? "unknown")</p>
+                    @if (!IsLocalActor && _game.CurrentTurn is not null)
+                    {
+                        <p class="status-pill">Waiting for @PlayerName(_game.CurrentTurn.CurrentPlayerId)</p>
+                    }
+                    <div class="actions">
+                        <button class="btn btn-secondary" @onclick="InitializeAsync" disabled="@(_busy || !CanInitialize)">Initialize</button>
+                        <button class="btn btn-secondary" @onclick="BeginTurnAsync" disabled="@(_busy || !CanBeginTurn)">Begin turn</button>
+                        <button class="btn btn-primary" @onclick="RollDiceAsync" disabled="@(_busy || !CanRollDice)">Roll dice</button>
+                        <button class="btn btn-primary" @onclick="FinalizeDiceAsync" disabled="@(_busy || !CanFinalizeDice)">Finalize dice</button>
+                        <button class="btn btn-secondary" @onclick="EndTurnAsync" disabled="@(_busy || !CanEndTurn)">End turn</button>
+                        <button class="btn btn-secondary" @onclick="AdvancePlayerAsync" disabled="@(_busy || !CanAdvancePlayer)">Advance player</button>
+                        <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                    </div>
+                </details>
             </section>
 
             <section class="panel event-feed-panel">
@@ -254,6 +284,21 @@
     private string? CurrentPhase => _game?.CurrentTurn?.Phase;
     private int? CurrentActorId => _game?.CurrentTurn?.CurrentPlayerId ?? _game?.CurrentPlayerIndex;
     private bool IsLocalActor => Session.PlayerId is not null && CurrentActorId == Session.PlayerId;
+
+    private string LocalPlayerLabel => Session.PlayerId is null ? "Unknown player" : PlayerName(Session.PlayerId.Value);
+    private string ActiveTurnLabel => _game?.CurrentTurn is null ? "No active turn" : PlayerName(_game.CurrentTurn.CurrentPlayerId);
+    private string PhaseLabel => string.IsNullOrWhiteSpace(CurrentPhase) ? "No phase" : CurrentPhase;
+    private string RollsLabel => _game?.CurrentTurn is null ? "No dice yet" : $"{_game.CurrentTurn.RollCountUsed}/{_game.CurrentTurn.MaxRolls}";
+
+    private string ActorPillText
+    {
+        get
+        {
+            if (_game?.CurrentTurn is null) return "No active turn yet";
+            if (IsLocalActor) return "Your turn";
+            return $"Waiting for {PlayerName(_game.CurrentTurn.CurrentPlayerId)}";
+        }
+    }
 
     private bool IsSelectDiceToRerollDecision =>
         _game?.PendingDecision is not null &&
@@ -328,6 +373,37 @@
     }
 
     private bool IsPhase(string phase) => string.Equals(CurrentPhase, phase, StringComparison.OrdinalIgnoreCase);
+
+    private string MonsterCardClass(PlayerDto player)
+    {
+        var classes = new List<string> { "monster-card", "display-card" };
+
+        if (player.PlayerId == Session.PlayerId)
+        {
+            classes.Add("selected");
+            classes.Add("local-monster");
+        }
+
+        if (player.PlayerId == CurrentActorId)
+        {
+            classes.Add("active-monster");
+        }
+
+        if (IsTokyoOccupant(player))
+        {
+            classes.Add("tokyo-monster");
+        }
+
+        if (!player.IsAlive)
+        {
+            classes.Add("eliminated-monster");
+        }
+
+        return string.Join(" ", classes);
+    }
+
+    private bool IsTokyoOccupant(PlayerDto player) =>
+        _game?.Tokyo.CityOccupantId == player.PlayerId || _game?.Tokyo.BayOccupantId == player.PlayerId;
 
     private RenderFragment RenderTokyoSlot(string title, int? playerId, bool isEnabled) => builder =>
     {
