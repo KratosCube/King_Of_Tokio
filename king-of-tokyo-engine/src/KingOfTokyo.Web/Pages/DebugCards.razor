@@ -1,0 +1,168 @@
+@page "/games/{GameId:guid}/debug-cards"
+@inject ApiClient ApiClient
+@inject NavigationManager Navigation
+
+<div class="card debug-cards-hero">
+    <p class="status-pill danger-pill">Developer tool</p>
+    <h1>Grant cards</h1>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <p class="status-pill danger-pill">@_error</p>
+    }
+
+    @if (_game is null || _cards.Count == 0)
+    {
+        <p class="muted">Loading debug card tools...</p>
+    }
+    else
+    {
+        <section class="panel debug-card-tool-panel">
+            <h2>Add keep card</h2>
+            <p class="muted">This is a local development helper. It grants a Keep card without spending energy and without using the normal market purchase flow.</p>
+
+            <div class="debug-card-form">
+                <div class="field">
+                    <label>Target monster</label>
+                    <InputSelect @bind-Value="_targetPlayerId">
+                        @foreach (var player in _game.Players)
+                        {
+                            <option value="@player.PlayerId">@player.MonsterName — Player #@player.PlayerId</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="field">
+                    <label>Keep card</label>
+                    <InputSelect @bind-Value="_selectedCardId">
+                        @foreach (var card in _cards)
+                        {
+                            <option value="@card.CardId">@card.Name — ⚡ @card.Cost</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+
+            @if (SelectedCard is not null)
+            {
+                <article class="market-card debug-selected-card">
+                    <div class="market-card-header">
+                        <h3>@SelectedCard.Name</h3>
+                        <span class="market-cost">⚡ @SelectedCard.Cost</span>
+                    </div>
+                    <small class="market-card-type">@SelectedCard.CardType</small>
+                    <p>@SelectedCard.Description</p>
+                </article>
+            }
+
+            <div class="actions">
+                <button class="btn btn-primary" @onclick="GrantCardAsync" disabled="@_busy">Grant keep card</button>
+                <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                <button class="btn btn-secondary" @onclick="OpenGameTable">Back to game table</button>
+            </div>
+        </section>
+
+        <section class="panel debug-card-owner-panel">
+            <h2>Current keep cards</h2>
+            <div class="debug-card-player-grid">
+                @foreach (var player in _game.Players)
+                {
+                    <article class="debug-card-player">
+                        <strong>@player.MonsterName</strong>
+                        <small>HP @player.Health/@player.MaxHealth • VP @player.VictoryPoints • ⚡ @player.Energy</small>
+                        <PlayerStatusTokens Status="player.Status" />
+                        <PlayerKeepCards Cards="player.KeepCards" />
+                    </article>
+                }
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid GameId { get; set; }
+
+    private GameStateDto? _game;
+    private IReadOnlyList<DebugCardOptionDto> _cards = Array.Empty<DebugCardOptionDto>();
+    private int _targetPlayerId;
+    private string? _selectedCardId;
+    private bool _busy;
+    private string? _error;
+
+    private DebugCardOptionDto? SelectedCard =>
+        string.IsNullOrWhiteSpace(_selectedCardId)
+            ? null
+            : _cards.FirstOrDefault(card => card.CardId == _selectedCardId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            _game = await ApiClient.GetGameAsync(GameId);
+            _cards = await ApiClient.GetDebugCardsAsync();
+
+            if (_game is not null && !_game.Players.Any(player => player.PlayerId == _targetPlayerId))
+            {
+                _targetPlayerId = _game.Players.FirstOrDefault()?.PlayerId ?? 0;
+            }
+
+            if (string.IsNullOrWhiteSpace(_selectedCardId) || _cards.All(card => card.CardId != _selectedCardId))
+            {
+                _selectedCardId = _cards.FirstOrDefault()?.CardId;
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task GrantCardAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedCardId))
+        {
+            _error = "Select a card first.";
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var result = await ApiClient.DebugGrantKeepCardAsync(GameId, new DebugGrantKeepCardRequest(_targetPlayerId, _selectedCardId));
+            if (!result.Success)
+            {
+                _error = result.Error;
+                return;
+            }
+
+            _game = result.GameState;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void OpenGameTable()
+    {
+        Navigation.NavigateTo($"/games/{GameId}");
+    }
+}
