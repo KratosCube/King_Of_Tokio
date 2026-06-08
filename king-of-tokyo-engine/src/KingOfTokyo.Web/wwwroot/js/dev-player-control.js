@@ -119,7 +119,7 @@
 
                     const gameId = readGameId();
                     const controlledPlayerId = readCurrentPlayerId(readSession());
-                    if (!gameId || controlledPlayerId is null) {
+                    if (!gameId || controlledPlayerId === null) {
                         return;
                     }
 
