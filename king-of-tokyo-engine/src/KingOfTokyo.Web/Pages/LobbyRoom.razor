@@ -19,49 +19,97 @@
     }
     else
     {
-        <div class="grid-2">
-            <section>
-                <h2>@_lobby.Name</h2>
-                <p class="muted">Lobby id: <code>@_lobby.LobbyId</code></p>
-                <p>Status: <span class="status-pill">@_lobby.Status</span></p>
-                <p class="muted">
-                    Max players: @_lobby.MaxPlayers<br />
-                    Initial health: @_lobby.InitialHealth<br />
-                    Target VP/XP: @_lobby.TargetVictoryPoints<br />
-                    Visibility: @(_lobby.IsPublic ? "Public" : "Private")
-                </p>
+        <div class="lobby-status-strip">
+            <section class="lobby-status-card primary-status">
+                <span>Next step</span>
+                <strong>@LobbyActionTitle</strong>
+                <small>@LobbyActionDescription</small>
             </section>
-
-            <section class="panel">
-                <h2>Join this lobby</h2>
-                <p class="muted">Use this form from another browser/incognito window. For local solo testing, use the test monster button below.</p>
-                <div class="field">
-                    <label>Your display name</label>
-                    <InputText @bind-Value="_joinName" />
-                </div>
-                <div class="field">
-                    <label>Your monster</label>
-                    <InputSelect @bind-Value="_joinMonsterId" @onchange="OnJoinMonsterChanged">
-                        @foreach (var monster in MonsterCatalog.Monsters)
-                        {
-                            <option value="@monster.MonsterId">@monster.Emoji @monster.MonsterName</option>
-                        }
-                    </InputSelect>
-                </div>
-                <div class="actions">
-                    <button class="btn btn-secondary" @onclick="JoinAsync" disabled="@(_busy || Session.HasLobbyIdentity)">Join</button>
-                    <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
-                </div>
+            <section class="lobby-status-card">
+                <span>You</span>
+                <strong>@CurrentSeatLabel</strong>
+                <small>@CurrentSeatDetail</small>
+            </section>
+            <section class="lobby-status-card">
+                <span>Players</span>
+                <strong>@SeatCount/@_lobby.MaxPlayers</strong>
+                <small>@ReadyCount ready • @OpenSeatCount open</small>
+            </section>
+            <section class="lobby-status-card">
+                <span>Host</span>
+                <strong>@HostLabel</strong>
+                <small>Status: @_lobby.Status</small>
             </section>
         </div>
 
-        <section class="panel">
-            <h2>Choose your destroyers</h2>
+        <div class="grid-2 lobby-main-grid">
+            <section class="panel lobby-info-panel">
+                <h2>@_lobby.Name</h2>
+                <p class="muted">Lobby id: <code>@_lobby.LobbyId</code></p>
+                <div class="lobby-rules-grid">
+                    <span><strong>@_lobby.MaxPlayers</strong><small>Max players</small></span>
+                    <span><strong>@_lobby.InitialHealth</strong><small>Initial HP</small></span>
+                    <span><strong>@_lobby.TargetVictoryPoints</strong><small>Target VP</small></span>
+                    <span><strong>@(_lobby.IsPublic ? "Public" : "Private")</strong><small>Visibility</small></span>
+                </div>
+            </section>
+
+            <section class="panel lobby-join-panel">
+                @if (IsJoined)
+                {
+                    var monster = MonsterCatalog.Find(_currentSeat!.MonsterId);
+                    <h2>You are in</h2>
+                    <article class="monster-card display-card selected lobby-current-seat" style="--accent:@monster.Accent">
+                        <span class="monster-emoji">@monster.Emoji</span>
+                        <strong>@_currentSeat.MonsterName</strong>
+                        <small>@_currentSeat.DisplayName • Player #@_currentSeat.PlayerId</small>
+                        <div class="actions compact-actions">
+                            @if (_currentSeat.IsHost)
+                            {
+                                <span class="status-pill">Host</span>
+                            }
+                            <span class="status-pill @(_currentSeat.IsReady ? null : "danger-pill")">@(_currentSeat.IsReady ? "Ready" : "Not ready")</span>
+                        </div>
+                    </article>
+                }
+                else
+                {
+                    <h2>Join this lobby</h2>
+                    <p class="muted">Join as another monster. For one-browser local testing, add a ready test monster from the developer tools below.</p>
+                    <div class="field">
+                        <label>Your display name</label>
+                        <InputText @bind-Value="_joinName" />
+                    </div>
+                    <div class="field">
+                        <label>Your monster</label>
+                        <InputSelect @bind-Value="_joinMonsterId" @onchange="OnJoinMonsterChanged">
+                            @foreach (var monster in MonsterCatalog.Monsters)
+                            {
+                                <option value="@monster.MonsterId">@monster.Emoji @monster.MonsterName</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-secondary" @onclick="JoinAsync" disabled="@(_busy || Session.HasLobbyIdentity || IsLobbyClosed)">Join</button>
+                        <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                    </div>
+                }
+            </section>
+        </div>
+
+        <section class="panel lobby-seats-panel">
+            <div class="lobby-section-heading">
+                <div>
+                    <h2>Monsters in lobby</h2>
+                    <p class="muted">Ready monsters can start once the lobby has enough players.</p>
+                </div>
+                <span class="status-pill">@ReadyCount / @SeatCount ready</span>
+            </div>
             <div class="monster-grid">
                 @foreach (var seat in _lobby.Seats)
                 {
                     var monster = MonsterCatalog.Find(seat.MonsterId);
-                    <article class="monster-card display-card" style="--accent:@monster.Accent">
+                    <article class="monster-card display-card @(Session.PlayerToken == seat.PlayerToken ? "selected" : null)" style="--accent:@monster.Accent">
                         <span class="monster-emoji">@monster.Emoji</span>
                         <strong>@seat.MonsterName</strong>
                         <small>@seat.DisplayName • Player #@seat.PlayerId</small>
@@ -70,7 +118,7 @@
                             {
                                 <span class="status-pill">Host</span>
                             }
-                            <span class="status-pill">@(seat.IsReady ? "Ready" : "Not ready")</span>
+                            <span class="status-pill @(seat.IsReady ? null : "danger-pill")">@(seat.IsReady ? "Ready" : "Not ready")</span>
                             @if (Session.PlayerToken == seat.PlayerToken)
                             {
                                 <span class="status-pill">You</span>
@@ -78,20 +126,55 @@
                         </div>
                     </article>
                 }
+
+                @for (var index = SeatCount; index < _lobby.MaxPlayers; index++)
+                {
+                    <article class="lobby-empty-seat">
+                        <strong>Open seat</strong>
+                        <small>Waiting for another monster</small>
+                    </article>
+                }
             </div>
         </section>
 
-        <div class="actions">
-            <button class="btn btn-primary" @onclick="ToggleReadyAsync" disabled="@(!_canToggleReady || _busy)">
-                @(_currentSeat?.IsReady == true ? "Set not ready" : "Set ready")
-            </button>
-            <button class="btn btn-primary" @onclick="StartAsync" disabled="@(!_canStart || _busy)">Start game</button>
-            <button class="btn btn-secondary" @onclick="AddReadyTestMonsterAsync" disabled="@(!_canAddTestMonster || _busy)">Add ready test monster</button>
-            @if (_lobby.GameId is not null)
-            {
-                <NavLink class="btn btn-secondary" href="@($"games/{_lobby.GameId}")">Open game</NavLink>
-            }
-        </div>
+        <section class="panel lobby-action-panel">
+            <h2>Next action</h2>
+            <p class="status-pill">@LobbyActionTitle</p>
+            <p class="muted">@LobbyActionDescription</p>
+            <div class="actions">
+                @if (_canToggleReady)
+                {
+                    <button class="btn btn-primary" @onclick="ToggleReadyAsync" disabled="@_busy">
+                        @(_currentSeat?.IsReady == true ? "Set not ready" : "Set ready")
+                    </button>
+                }
+                else if (!IsJoined && !IsLobbyClosed)
+                {
+                    <button class="btn btn-secondary" disabled>Join first</button>
+                }
+
+                <button class="btn btn-primary" @onclick="StartAsync" disabled="@(!_canStart || _busy)">Start game</button>
+                <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                @if (_lobby.GameId is not null)
+                {
+                    <NavLink class="btn btn-primary" href="@($"games/{_lobby.GameId}")">Open game</NavLink>
+                }
+            </div>
+        </section>
+
+        <section class="panel developer-panel lobby-dev-panel">
+            <details>
+                <summary class="dev-tools-summary">
+                    <span>Developer lobby tools</span>
+                    <small>Optional helpers for local MVP testing.</small>
+                </summary>
+                <p class="muted">Use this only for local testing when you want to fill the lobby from one browser session.</p>
+                <div class="actions">
+                    <button class="btn btn-secondary" @onclick="AddReadyTestMonsterAsync" disabled="@(!_canAddTestMonster || _busy)">Add ready test monster</button>
+                    <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh lobby</button>
+                </div>
+            </details>
+        </section>
     }
 </div>
 
@@ -107,9 +190,50 @@
     private string _joinName = "Guest";
     private string _joinMonsterId = MonsterCatalog.Default.MonsterId;
     private MonsterOption _joinMonster = MonsterCatalog.Default;
-    private bool _canToggleReady => _lobby is not null && Session.PlayerToken is not null && _currentSeat is not null && _lobby.Status is not "Started" and not "Closed";
-    private bool _canStart => _lobby?.Status == "ReadyToStart" && _currentSeat?.IsHost == true && Session.PlayerToken is not null;
-    private bool _canAddTestMonster => _lobby is not null && _currentSeat?.IsHost == true && _lobby.Status is not "Started" and not "Closed" && _lobby.Seats.Count < _lobby.MaxPlayers;
+
+    private bool IsJoined => _currentSeat is not null && Session.PlayerToken is not null;
+    private bool IsLobbyClosed => IsLobbyStatus("Started") || IsLobbyStatus("Closed");
+    private int SeatCount => _lobby?.Seats.Count ?? 0;
+    private int ReadyCount => _lobby?.Seats.Count(seat => seat.IsReady) ?? 0;
+    private int OpenSeatCount => _lobby is null ? 0 : Math.Max(0, _lobby.MaxPlayers - _lobby.Seats.Count);
+    private LobbySeatDto? HostSeat => _lobby?.Seats.FirstOrDefault(seat => seat.IsHost);
+    private string HostLabel => HostSeat is null ? "No host" : HostSeat.MonsterName;
+    private string CurrentSeatLabel => _currentSeat is null ? "Not joined" : _currentSeat.MonsterName;
+    private string CurrentSeatDetail => _currentSeat is null
+        ? "Join with the form on this page."
+        : $"{_currentSeat.DisplayName} • Player #{_currentSeat.PlayerId}";
+
+    private bool _canToggleReady => _lobby is not null && Session.PlayerToken is not null && _currentSeat is not null && !IsLobbyClosed;
+    private bool _canStart => IsLobbyStatus("ReadyToStart") && _currentSeat?.IsHost == true && Session.PlayerToken is not null;
+    private bool _canAddTestMonster => _lobby is not null && _currentSeat?.IsHost == true && !IsLobbyClosed && _lobby.Seats.Count < _lobby.MaxPlayers;
+
+    private string LobbyActionTitle
+    {
+        get
+        {
+            if (_lobby?.GameId is not null || IsLobbyStatus("Started")) return "Open game";
+            if (!IsJoined) return "Join this lobby";
+            if (_currentSeat?.IsReady != true) return "Set ready";
+            if (_canStart) return "Start game";
+            if (OpenSeatCount > 0) return "Waiting for players";
+            if (ReadyCount < SeatCount) return "Waiting for ready players";
+            return _currentSeat?.IsHost == true ? "Waiting" : "Waiting for host";
+        }
+    }
+
+    private string LobbyActionDescription
+    {
+        get
+        {
+            if (_lobby?.GameId is not null || IsLobbyStatus("Started")) return "The match has been created. Open the game table when you are ready.";
+            if (!IsJoined) return "Join the lobby or use the developer tools to add a ready test monster.";
+            if (_currentSeat?.IsReady != true) return "Mark your monster as ready when you are happy with the lobby setup.";
+            if (_canStart) return "All required monsters are ready. As host, you can start the match.";
+            if (OpenSeatCount > 0) return "Waiting for more monsters to join. For local testing, the host can add a ready test monster below.";
+            if (ReadyCount < SeatCount) return "At least one joined monster is not ready yet.";
+            return _currentSeat?.IsHost == true ? "Refresh if you expected the lobby to be startable." : "The host must start the game.";
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -125,6 +249,8 @@
         _timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
         _ = PollAsync(_cts.Token);
     }
+
+    private bool IsLobbyStatus(string status) => string.Equals(_lobby?.Status, status, StringComparison.OrdinalIgnoreCase);
 
     private void OnJoinMonsterChanged(ChangeEventArgs args)
     {
