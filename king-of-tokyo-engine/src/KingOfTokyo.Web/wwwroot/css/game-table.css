@@ -181,6 +181,30 @@
     margin-top: 0.7rem;
 }
 
+.dev-control-player-button {
+    align-self: start;
+    border-color: rgba(56, 189, 248, 0.46);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.45), 0 12px 22px rgba(56, 189, 248, 0.12);
+    font-size: 0.68rem;
+    justify-self: start;
+    letter-spacing: 0.06em;
+    margin-top: 0.45rem;
+    min-height: 1.9rem;
+    padding: 0.32rem 0.55rem;
+}
+
+.dev-control-player-button::before {
+    content: "🎮 ";
+}
+
+.dev-control-player-button:disabled {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.95), rgba(132, 204, 22, 0.75));
+    border-color: rgba(187, 247, 208, 0.65);
+    color: #052e16;
+    filter: none;
+    opacity: 1;
+}
+
 .dice-row::before {
     color: var(--muted);
     content: "Click dice or drag across them to select rerolls.";
@@ -274,6 +298,13 @@
 
     .decision-panel p strong {
         font-size: 0.68rem;
+    }
+
+    .dev-control-player-button {
+        font-size: 0.62rem;
+        margin-top: 0.28rem;
+        min-height: 1.65rem;
+        padding: 0.24rem 0.46rem;
     }
 
     .dice-row::before {
