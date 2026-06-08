@@ -1,0 +1,56 @@
+.debug-cards-hero {
+    display: grid;
+    gap: 1rem;
+}
+
+.debug-card-tool-panel,
+.debug-card-owner-panel {
+    margin-top: 0.5rem;
+}
+
+.debug-card-form {
+    display: grid;
+    gap: 0.85rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 1rem;
+}
+
+.debug-selected-card {
+    margin-top: 1rem;
+    max-width: 620px;
+}
+
+.debug-card-player-grid {
+    display: grid;
+    gap: 0.85rem;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    margin-top: 1rem;
+}
+
+.debug-card-player {
+    background:
+        radial-gradient(circle at top left, rgba(250, 204, 21, 0.12), transparent 42%),
+        rgba(3, 7, 18, 0.58);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 1rem;
+    display: grid;
+    gap: 0.45rem;
+    padding: 0.85rem;
+}
+
+.debug-card-player strong {
+    color: #fff7ed;
+    font-size: 1rem;
+    font-weight: 950;
+    text-transform: uppercase;
+}
+
+.debug-card-player small {
+    color: var(--muted);
+}
+
+@media (max-width: 900px) {
+    .debug-card-form {
+        grid-template-columns: 1fr;
+    }
+}
