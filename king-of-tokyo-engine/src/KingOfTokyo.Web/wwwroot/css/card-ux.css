@@ -1,0 +1,109 @@
+.market-card,
+.owned-card-chip {
+    position: relative;
+    transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease, background 0.14s ease;
+}
+
+.market-card:hover,
+.market-card:focus-within,
+.owned-card-chip:hover,
+.owned-card-chip:focus {
+    border-color: rgba(250, 204, 21, 0.56);
+    box-shadow: 0 14px 36px rgba(250, 204, 21, 0.14);
+    transform: translateY(-1px);
+}
+
+.market-card::after,
+.owned-card-chip::after {
+    background: rgba(250, 204, 21, 0.16);
+    border: 1px solid rgba(250, 204, 21, 0.28);
+    border-radius: 999px;
+    color: #fef3c7;
+    content: "hover for detail";
+    font-size: 0.58rem;
+    font-weight: 950;
+    letter-spacing: 0.05em;
+    opacity: 0;
+    padding: 0.12rem 0.32rem;
+    pointer-events: none;
+    position: absolute;
+    right: 0.45rem;
+    top: 0.45rem;
+    text-transform: uppercase;
+    transition: opacity 0.14s ease;
+}
+
+.market-card:hover::after,
+.market-card:focus-within::after,
+.owned-card-chip:hover::after,
+.owned-card-chip:focus::after {
+    opacity: 1;
+}
+
+.owned-card-chip {
+    cursor: help;
+    outline: none;
+}
+
+.owned-card-chip:focus {
+    outline: 3px solid rgba(250, 204, 21, 0.55);
+    outline-offset: 2px;
+}
+
+.market-card p,
+.owned-card-chip p {
+    overflow: hidden;
+    transition: max-height 0.16s ease;
+}
+
+.market-card p {
+    max-height: 3.2rem;
+}
+
+.owned-card-chip p {
+    max-height: 2.75rem;
+}
+
+.market-card:hover p,
+.market-card:focus-within p,
+.owned-card-chip:hover p,
+.owned-card-chip:focus p {
+    max-height: 14rem;
+}
+
+.market-card-header h3,
+.owned-card-chip strong {
+    padding-right: 4.6rem;
+}
+
+.market-card-type,
+.owned-card-chip small {
+    text-transform: uppercase;
+}
+
+.market-card .btn {
+    margin-top: 0.15rem;
+}
+
+@media (min-width: 901px) {
+    .market-card::after,
+    .owned-card-chip::after {
+        content: "detail";
+        font-size: 0.5rem;
+        right: 0.35rem;
+        top: 0.35rem;
+    }
+
+    .market-card-header h3,
+    .owned-card-chip strong {
+        padding-right: 3.1rem;
+    }
+
+    .market-card p {
+        max-height: 2.55rem;
+    }
+
+    .owned-card-chip p {
+        max-height: 2.45rem;
+    }
+}
