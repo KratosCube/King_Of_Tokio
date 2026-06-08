@@ -129,6 +129,15 @@ public sealed record BuyFaceUpCardRequest(int? ActorPlayerId, int SlotIndex);
 
 public sealed record ChooseLeaveTokyoRequest(int ActorPlayerId, bool LeaveTokyo);
 
+public sealed record DebugGrantKeepCardRequest(int TargetPlayerId, string CardId);
+
+public sealed record DebugCardOptionDto(
+    string CardId,
+    string Name,
+    string Description,
+    int Cost,
+    string CardType);
+
 public sealed record ApiCommandResultDto(
     bool Success,
     string? Error,
