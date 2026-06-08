@@ -36,6 +36,13 @@ public sealed record PsychicProbeRequest(int ActorPlayerId, int TargetDieIndex);
 
 public sealed record DebugGrantKeepCardRequest(int TargetPlayerId, string CardId);
 
+public sealed record DebugCardOptionDto(
+    string CardId,
+    string Name,
+    string Description,
+    int Cost,
+    MarketCardType CardType);
+
 public sealed record ApiCommandResultDto(
     bool Success,
     string? Error,
