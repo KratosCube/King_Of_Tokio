@@ -20,7 +20,7 @@ public sealed class MarketSetupService
         gameState.Market.Initialize(_starterDeck);
     }
 
-    private static IReadOnlyList<MarketCardState> BuildDefaultDeck()
+    public static IReadOnlyList<MarketCardState> BuildDefaultDeck()
     {
         return new List<MarketCardState>
         {
