@@ -10,7 +10,7 @@
     {
         @foreach (var card in Cards)
         {
-            <div class="owned-card-chip">
+            <div class="owned-card-chip" data-card-id="@card.CardId" data-card-name="@card.Name">
                 <strong>@card.Name</strong>
                 <small>@card.CardType • Cost @card.Cost</small>
                 @if (!string.IsNullOrWhiteSpace(card.Description))
