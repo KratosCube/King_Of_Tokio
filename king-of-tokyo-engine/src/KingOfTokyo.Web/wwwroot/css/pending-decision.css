@@ -1,0 +1,106 @@
+.decision-status-card {
+    background:
+        radial-gradient(circle at top left, rgba(239, 68, 68, 0.24), transparent 48%),
+        linear-gradient(145deg, rgba(249, 115, 22, 0.28), rgba(3, 7, 18, 0.76));
+    border-color: rgba(239, 68, 68, 0.58);
+    box-shadow: 0 10px 32px rgba(239, 68, 68, 0.14);
+}
+
+.pending-decision-banner {
+    align-items: center;
+    background:
+        radial-gradient(circle at top left, rgba(250, 204, 21, 0.3), transparent 42%),
+        radial-gradient(circle at bottom right, rgba(239, 68, 68, 0.24), transparent 44%),
+        linear-gradient(135deg, rgba(127, 29, 29, 0.74), rgba(3, 7, 18, 0.86));
+    border: 2px solid rgba(250, 204, 21, 0.5);
+    border-radius: 1rem;
+    box-shadow: 0 18px 52px rgba(239, 68, 68, 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    display: grid;
+    gap: 0.85rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0.9rem 1rem;
+}
+
+.pending-decision-banner h2 {
+    color: var(--energy-yellow);
+    font-size: clamp(1.25rem, 2.4vw, 1.85rem);
+    line-height: 0.95;
+    margin: 0.45rem 0 0;
+    text-shadow: 2px 2px 0 #000, 0 0 24px rgba(250, 204, 21, 0.34);
+    text-transform: uppercase;
+}
+
+.pending-decision-banner p {
+    color: #fee2e2;
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 0.35rem 0 0;
+}
+
+.pending-decision-banner .actions {
+    justify-content: flex-end;
+    margin-top: 0;
+}
+
+.pending-decision-banner .btn {
+    white-space: nowrap;
+}
+
+.decision-monster {
+    border-color: rgba(239, 68, 68, 0.86) !important;
+    box-shadow: 0 18px 52px rgba(239, 68, 68, 0.24), 0 0 0 3px rgba(250, 204, 21, 0.32);
+    position: relative;
+}
+
+.decision-monster::after {
+    background: linear-gradient(135deg, var(--danger-red), var(--tokyo-orange));
+    border: 2px solid rgba(0, 0, 0, 0.48);
+    border-radius: 999px;
+    color: #fff7ed;
+    content: "DECISION";
+    font-size: 0.58rem;
+    font-weight: 950;
+    letter-spacing: 0.08em;
+    padding: 0.1rem 0.36rem;
+    position: absolute;
+    right: 0.55rem;
+    top: 2rem;
+}
+
+@media (min-width: 901px) {
+    .pending-decision-banner {
+        flex: 0 0 auto;
+        padding: 0.68rem 0.8rem;
+    }
+
+    .pending-decision-banner h2 {
+        font-size: clamp(1.05rem, 1.8vw, 1.35rem);
+        margin-top: 0.28rem;
+    }
+
+    .pending-decision-banner p {
+        font-size: 0.78rem;
+    }
+
+    .pending-decision-banner .btn {
+        min-height: 2.2rem;
+        padding: 0.42rem 0.68rem;
+    }
+
+    .decision-monster::after {
+        font-size: 0.5rem;
+        padding: 0.08rem 0.28rem;
+        right: 0.4rem;
+        top: 1.6rem;
+    }
+}
+
+@media (max-width: 900px) {
+    .pending-decision-banner {
+        grid-template-columns: 1fr;
+    }
+
+    .pending-decision-banner .actions {
+        justify-content: flex-start;
+    }
+}
