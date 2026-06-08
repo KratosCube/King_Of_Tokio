@@ -34,6 +34,8 @@ public sealed record MetamorphRequest(int? ActorPlayerId, string CardIdToDiscard
 
 public sealed record PsychicProbeRequest(int ActorPlayerId, int TargetDieIndex);
 
+public sealed record DebugGrantKeepCardRequest(int TargetPlayerId, string CardId);
+
 public sealed record ApiCommandResultDto(
     bool Success,
     string? Error,
