@@ -18,9 +18,10 @@ public sealed class ApiClient
         return await ReadRequiredAsync<LobbyJoinResultDto>(response, cancellationToken);
     }
 
-    public async Task<LobbyDto?> GetLobbyAsync(Guid lobbyId, CancellationToken cancellationToken = default)
+    public async Task<LobbyDto> GetLobbyAsync(Guid lobbyId, CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<LobbyDto>($"api/lobbies/{lobbyId}", cancellationToken);
+        var response = await _httpClient.GetAsync($"api/lobbies/{lobbyId}", cancellationToken);
+        return await ReadRequiredAsync<LobbyDto>(response, cancellationToken);
     }
 
     public async Task<LobbyJoinResultDto> JoinLobbyAsync(Guid lobbyId, JoinLobbyRequest request, CancellationToken cancellationToken = default)
@@ -41,14 +42,16 @@ public sealed class ApiClient
         return await ReadRequiredAsync<LobbyStartResultDto>(response, cancellationToken);
     }
 
-    public async Task<GameStateDto?> GetGameAsync(Guid gameId, CancellationToken cancellationToken = default)
+    public async Task<GameStateDto> GetGameAsync(Guid gameId, CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<GameStateDto>($"api/games/{gameId}", cancellationToken);
+        var response = await _httpClient.GetAsync($"api/games/{gameId}", cancellationToken);
+        return await ReadRequiredAsync<GameStateDto>(response, cancellationToken);
     }
 
-    public async Task<GameEventCursorDto?> GetEventsAsync(Guid gameId, long after, CancellationToken cancellationToken = default)
+    public async Task<GameEventCursorDto> GetEventsAsync(Guid gameId, long after, CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<GameEventCursorDto>($"api/games/{gameId}/events?after={after}", cancellationToken);
+        var response = await _httpClient.GetAsync($"api/games/{gameId}/events?after={after}", cancellationToken);
+        return await ReadRequiredAsync<GameEventCursorDto>(response, cancellationToken);
     }
 
     public Task<ApiCommandResultDto> InitializeGameAsync(Guid gameId, CancellationToken cancellationToken = default)
