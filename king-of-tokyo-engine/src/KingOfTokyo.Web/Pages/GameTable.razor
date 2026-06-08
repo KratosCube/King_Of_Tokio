@@ -34,9 +34,9 @@
                 <strong>@ActiveTurnLabel</strong>
                 <small>@ActorPillText</small>
             </section>
-            <section class="status-card">
-                <span>State</span>
-                <strong>@_game.Status</strong>
+            <section class="status-card @(HasPendingDecision ? "decision-status-card" : null)">
+                <span>@(HasPendingDecision ? "Decision" : "State")</span>
+                <strong>@(HasPendingDecision ? PendingDecisionLabel : _game.Status)</strong>
                 <small>Phase: @PhaseLabel • Rolls: @RollsLabel • Events: @Session.LastEventSequence</small>
             </section>
         </div>
@@ -44,6 +44,38 @@
         @if (_game.WinnerPlayerId is not null)
         {
             <p class="status-pill">Winner: @PlayerName(_game.WinnerPlayerId.Value) — @_game.WinnerReason</p>
+        }
+
+        @if (HasPendingDecision)
+        {
+            <section class="pending-decision-banner">
+                <div>
+                    <span class="status-pill danger-pill">Decision required</span>
+                    <h2>@PendingDecisionLabel</h2>
+                    <p>@PendingDecisionDescription</p>
+                </div>
+                <div class="actions">
+                    @if (CanAnswerLeaveTokyoDecision)
+                    {
+                        <button class="btn btn-primary" @onclick="() => ChooseLeaveTokyoAsync(true)" disabled="@_busy">Leave Tokyo</button>
+                        <button class="btn btn-secondary" @onclick="() => ChooseLeaveTokyoAsync(false)" disabled="@_busy">Stay in Tokyo</button>
+                    }
+                    else if (CanControlDecisionActor)
+                    {
+                        <button class="btn btn-primary" @onclick="ControlDecisionPlayerAsync" disabled="@_busy">Control decision monster</button>
+                        <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                    }
+                    else if (IsSelectDiceToRerollDecision)
+                    {
+                        <button class="btn btn-primary" disabled>Select dice below</button>
+                        <button class="btn btn-secondary" @onclick="FinalizeDiceAsync" disabled="@(_busy || !CanFinalizeDice)">Finalize dice</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                    }
+                </div>
+            </section>
         }
 
         <div class="game-grid">
@@ -65,6 +97,10 @@
                                 @if (player.PlayerId == CurrentActorId)
                                 {
                                     <span class="status-pill turn-pill">Active turn</span>
+                                }
+                                @if (player.PlayerId == PendingDecisionPlayerId)
+                                {
+                                    <span class="status-pill danger-pill">Decision</span>
                                 }
                                 @if (IsTokyoOccupant(player))
                                 {
@@ -94,27 +130,12 @@
                     @RenderTokyoSlot("Tokyo Bay", _game.Tokyo.BayOccupantId, _game.Tokyo.BayEnabled)
                 </div>
 
-                @if (_game.PendingDecision is not null)
+                @if (HasPendingDecision)
                 {
                     <section class="decision-panel">
                         <h2>Pending decision</h2>
-                        <p><strong>@_game.PendingDecision.DecisionType</strong> <span class="muted">for @PlayerName(_game.PendingDecision.PlayerId)</span></p>
-                        @if (CanAnswerLeaveTokyoDecision)
-                        {
-                            <p class="muted">Tokyo is under attack. Choose whether your monster retreats after taking damage.</p>
-                            <div class="actions">
-                                <button class="btn btn-primary" @onclick="() => ChooseLeaveTokyoAsync(true)" disabled="@_busy">Leave Tokyo</button>
-                                <button class="btn btn-secondary" @onclick="() => ChooseLeaveTokyoAsync(false)" disabled="@_busy">Stay in Tokyo</button>
-                            </div>
-                        }
-                        else if (IsSelectDiceToRerollDecision)
-                        {
-                            <p class="muted">Select dice below and press Reroll selected dice, or finalize dice to keep the current result.</p>
-                        }
-                        else
-                        {
-                            <p class="muted">Waiting for @PlayerName(_game.PendingDecision.PlayerId) to answer this decision.</p>
-                        }
+                        <p><strong>@_game.PendingDecision!.DecisionType</strong> <span class="muted">for @PlayerName(_game.PendingDecision.PlayerId)</span></p>
+                        <p class="muted">@PendingDecisionDescription</p>
                     </section>
                 }
 
@@ -182,7 +203,17 @@
                 <p class="status-pill">@SmartActionTitle</p>
                 <p class="muted">@SmartActionDescription</p>
                 <div class="actions">
-                    @if (CanInitialize)
+                    @if (CanAnswerLeaveTokyoDecision)
+                    {
+                        <button class="btn btn-primary" @onclick="() => ChooseLeaveTokyoAsync(true)" disabled="@_busy">Leave Tokyo</button>
+                        <button class="btn btn-secondary" @onclick="() => ChooseLeaveTokyoAsync(false)" disabled="@_busy">Stay in Tokyo</button>
+                    }
+                    else if (CanControlDecisionActor)
+                    {
+                        <button class="btn btn-primary" @onclick="ControlDecisionPlayerAsync" disabled="@_busy">Control decision monster</button>
+                        <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                    }
+                    else if (CanInitialize)
                     {
                         <button class="btn btn-primary" @onclick="InitializeAsync" disabled="@_busy">Initialize game</button>
                     }
@@ -301,12 +332,38 @@
     private int? CurrentActorId => IsAwaitingNextTurnStart
         ? CurrentPlayerIdFromIndex
         : _game?.CurrentTurn?.CurrentPlayerId ?? CurrentPlayerIdFromIndex;
+    private int? PendingDecisionPlayerId => _game?.PendingDecision?.PlayerId;
     private bool IsLocalActor => Session.PlayerId is not null && CurrentActorId == Session.PlayerId;
+    private bool IsLocalDecisionActor => PendingDecisionPlayerId is not null && Session.PlayerId == PendingDecisionPlayerId;
+    private bool CanControlDecisionActor => PendingDecisionPlayerId is not null && !IsLocalDecisionActor;
 
     private string LocalPlayerLabel => Session.PlayerId is null ? "Unknown player" : PlayerName(Session.PlayerId.Value);
     private string ActiveTurnLabel => CurrentActorId is null ? "No active turn" : PlayerName(CurrentActorId.Value);
     private string PhaseLabel => string.IsNullOrWhiteSpace(CurrentPhase) ? "No phase" : CurrentPhase;
     private string RollsLabel => _game?.CurrentTurn is null ? "No dice yet" : $"{_game.CurrentTurn.RollCountUsed}/{_game.CurrentTurn.MaxRolls}";
+    private string PendingDecisionLabel => _game?.PendingDecision is null ? "No decision" : $"{_game.PendingDecision.DecisionType} for {PlayerName(_game.PendingDecision.PlayerId)}";
+
+    private string PendingDecisionDescription
+    {
+        get
+        {
+            if (_game?.PendingDecision is null) return "No pending decision.";
+            if (CanAnswerLeaveTokyoDecision) return "Tokyo is under attack. Choose whether your monster retreats after taking damage.";
+            if (string.Equals(_game.PendingDecision.DecisionType, "LeaveTokyo", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{PlayerName(_game.PendingDecision.PlayerId)} must choose whether to leave Tokyo. For one-browser testing, switch control to that monster.";
+            }
+
+            if (IsSelectDiceToRerollDecision)
+            {
+                return IsLocalDecisionActor
+                    ? "Select dice below and reroll them, or finalize the current dice result."
+                    : $"{PlayerName(_game.PendingDecision.PlayerId)} must choose dice to reroll.";
+            }
+
+            return $"Waiting for {PlayerName(_game.PendingDecision.PlayerId)} to answer this decision.";
+        }
+    }
 
     private string ActorPillText
     {
@@ -341,6 +398,8 @@
         get
         {
             if (_game?.WinnerPlayerId is not null) return "Game finished";
+            if (CanAnswerLeaveTokyoDecision) return "Answer Tokyo decision";
+            if (CanControlDecisionActor) return "Control decision monster";
             if (CanInitialize) return "Initialize game";
             if (CanBeginTurn) return "Begin your turn";
             if (CanRollDice) return "Roll dice";
@@ -360,6 +419,8 @@
         get
         {
             if (_game?.WinnerPlayerId is not null) return "The match has a winner.";
+            if (CanAnswerLeaveTokyoDecision) return PendingDecisionDescription;
+            if (CanControlDecisionActor) return PendingDecisionDescription;
             if (CanInitialize) return "Start the match state and deal the initial market.";
             if (CanBeginTurn) return "Start the active monster's turn.";
             if (CanRollDice) return "Make the first roll of this turn.";
@@ -368,7 +429,7 @@
             if (CanFinalizeDice) return "Resolve the current dice result and move to the next step.";
             if (CanUseMarketActions) return "Buy cards from the market, refresh the market, or end and advance the turn.";
             if (CanAdvancePlayer) return "The current turn is finished. Move to the next monster.";
-            if (_game?.PendingDecision is not null) return "Another decision must be answered before the game can continue.";
+            if (_game?.PendingDecision is not null) return PendingDecisionDescription;
             if (CurrentActorId is not null && !IsLocalActor) return $"This session controls {LocalPlayerLabel}. Use Control active monster to control {PlayerName(CurrentActorId.Value)} for local testing.";
             return "Refresh the game if you expect a new state.";
         }
@@ -405,6 +466,11 @@
         if (player.PlayerId == CurrentActorId)
         {
             classes.Add("active-monster");
+        }
+
+        if (player.PlayerId == PendingDecisionPlayerId)
+        {
+            classes.Add("decision-monster");
         }
 
         if (IsTokyoOccupant(player))
@@ -478,6 +544,8 @@
         "Attack" => "🗯",
         _ => face
     };
+
+    private Task ControlDecisionPlayerAsync() => PendingDecisionPlayerId is null ? Task.CompletedTask : ControlPlayerAsync(PendingDecisionPlayerId.Value);
 
     private async Task ControlPlayerAsync(int playerId)
     {
