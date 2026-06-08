@@ -1,7 +1,10 @@
 using KingOfTokyo.Api.Contracts;
 using KingOfTokyo.Api.GameSessions;
 using KingOfTokyo.Core.Commands;
+using KingOfTokyo.Core.Domain.Entities;
+using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Engine;
+using KingOfTokyo.Core.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace KingOfTokyo.Api.Endpoints;
@@ -46,6 +49,49 @@ public static class GameEndpoints
             {
                 return Results.BadRequest(new { error = ex.Message });
             }
+        });
+
+        games.MapGet("/debug/cards", () =>
+        {
+            var cards = MarketSetupService.BuildDefaultDeck()
+                .Where(card => card.CardType == MarketCardType.Keep)
+                .OrderBy(card => card.Name)
+                .Select(card => new DebugCardOptionDto(card.CardId, card.Name, card.Description, card.Cost, card.CardType))
+                .ToArray();
+
+            return Results.Ok(cards);
+        });
+
+        games.MapPost("/{gameId:guid}/debug/grant-keep-card", (Guid gameId, DebugGrantKeepCardRequest request, [FromServices] IGameSessionStore store) =>
+        {
+            return Execute(gameId, store, (_, state) =>
+            {
+                var player = state.GetPlayerById(request.TargetPlayerId);
+                var template = MarketSetupService.BuildDefaultDeck()
+                    .FirstOrDefault(card => string.Equals(card.CardId, request.CardId, StringComparison.OrdinalIgnoreCase));
+
+                if (template is null)
+                {
+                    throw new InvalidOperationException("Debug card was not found in the default deck.");
+                }
+
+                if (template.CardType != MarketCardType.Keep)
+                {
+                    throw new InvalidOperationException("Debug card grant only supports keep cards.");
+                }
+
+                if (player.HasKeepCard(template.CardId))
+                {
+                    throw new InvalidOperationException($"{player.MonsterName} already owns {template.Name}.");
+                }
+
+                var clonedCard = CloneCard(template);
+                player.AddKeepCard(clonedCard);
+
+                ApplyDebugGainEffects(player, clonedCard);
+
+                return CommandResult.Successful(state);
+            });
         });
 
         games.MapPost("/{gameId:guid}/commands/initialize", (Guid gameId, [FromServices] IGameSessionStore store) =>
@@ -179,6 +225,33 @@ public static class GameEndpoints
         });
 
         return endpoints;
+    }
+
+    private static MarketCardState CloneCard(MarketCardState card)
+    {
+        return new MarketCardState(
+            card.CardId,
+            card.Name,
+            card.Description,
+            card.Cost,
+            card.CardType,
+            card.PurchaseEffect,
+            card.Counters,
+            card.StoredEnergy,
+            card.MimicTarget is null ? null : new MimicTargetState(card.MimicTarget.OwnerPlayerId, card.MimicTarget.CardId, card.MimicTarget.CardName));
+    }
+
+    private static void ApplyDebugGainEffects(PlayerState player, MarketCardState card)
+    {
+        if (card.PurchaseEffect.IncreaseMaxHealth > 0)
+        {
+            player.IncreaseMaxHealth(card.PurchaseEffect.IncreaseMaxHealth);
+        }
+
+        if (card.PurchaseEffect.Heal > 0)
+        {
+            player.Heal(card.PurchaseEffect.Heal);
+        }
     }
 
     private static IResult Execute(
