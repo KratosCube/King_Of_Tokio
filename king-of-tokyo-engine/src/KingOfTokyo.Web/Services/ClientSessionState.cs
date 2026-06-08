@@ -6,6 +6,11 @@ namespace KingOfTokyo.Web.Services;
 public sealed class ClientSessionState
 {
     private const string StorageKey = "king-of-tokyo.client-session";
+    private static readonly JsonSerializerOptions SessionJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     private readonly IJSRuntime _jsRuntime;
     private bool _loaded;
 
@@ -38,7 +43,7 @@ public sealed class ClientSessionState
 
         try
         {
-            var persisted = JsonSerializer.Deserialize<PersistedClientSessionState>(json);
+            var persisted = JsonSerializer.Deserialize<PersistedClientSessionState>(json, SessionJsonOptions);
             if (persisted is null)
             {
                 return;
@@ -64,7 +69,7 @@ public sealed class ClientSessionState
             PlayerId,
             PlayerToken,
             LastEventSequence);
-        var json = JsonSerializer.Serialize(persisted);
+        var json = JsonSerializer.Serialize(persisted, SessionJsonOptions);
         await _jsRuntime.InvokeVoidAsync("localStorage.setItem", StorageKey, json);
     }
 
