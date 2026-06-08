@@ -210,7 +210,8 @@
                     }
                     else if (CanUseMarketActions)
                     {
-                        <button class="btn btn-primary" @onclick="EndTurnAsync" disabled="@_busy">End turn</button>
+                        <button class="btn btn-primary" @onclick="EndTurnAndAdvanceAsync" disabled="@_busy">End turn & advance</button>
+                        <button class="btn btn-secondary" @onclick="EndTurnAsync" disabled="@_busy">End turn only</button>
                         <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@_busy">Refresh market</button>
                     }
                     else if (CanAdvancePlayer)
@@ -282,11 +283,14 @@
     private bool IsSetup => string.Equals(_game?.Status, "Setup", StringComparison.OrdinalIgnoreCase);
     private bool HasPendingDecision => _game?.PendingDecision is not null;
     private string? CurrentPhase => _game?.CurrentTurn?.Phase;
-    private int? CurrentActorId => _game?.CurrentTurn?.CurrentPlayerId ?? _game?.CurrentPlayerIndex;
+    private int? CurrentPlayerIdFromIndex => _game is null || _game.CurrentPlayerIndex < 0 || _game.CurrentPlayerIndex >= _game.Players.Count
+        ? null
+        : _game.Players[_game.CurrentPlayerIndex].PlayerId;
+    private int? CurrentActorId => _game?.CurrentTurn?.CurrentPlayerId ?? CurrentPlayerIdFromIndex;
     private bool IsLocalActor => Session.PlayerId is not null && CurrentActorId == Session.PlayerId;
 
     private string LocalPlayerLabel => Session.PlayerId is null ? "Unknown player" : PlayerName(Session.PlayerId.Value);
-    private string ActiveTurnLabel => _game?.CurrentTurn is null ? "No active turn" : PlayerName(_game.CurrentTurn.CurrentPlayerId);
+    private string ActiveTurnLabel => CurrentActorId is null ? "No active turn" : PlayerName(CurrentActorId.Value);
     private string PhaseLabel => string.IsNullOrWhiteSpace(CurrentPhase) ? "No phase" : CurrentPhase;
     private string RollsLabel => _game?.CurrentTurn is null ? "No dice yet" : $"{_game.CurrentTurn.RollCountUsed}/{_game.CurrentTurn.MaxRolls}";
 
@@ -294,9 +298,9 @@
     {
         get
         {
-            if (_game?.CurrentTurn is null) return "No active turn yet";
+            if (CurrentActorId is null) return "No active turn yet";
             if (IsLocalActor) return "Your turn";
-            return $"Waiting for {PlayerName(_game.CurrentTurn.CurrentPlayerId)}";
+            return $"Waiting for {PlayerName(CurrentActorId.Value)}";
         }
     }
 
@@ -315,7 +319,7 @@
     private bool CanFinalizeDice => IsRunning && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed > 0 && _game.CurrentTurn.DiceResolved == false && (!HasPendingDecision || IsSelectDiceToRerollDecision);
     private bool CanUseMarketActions => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Purchase");
     private bool CanEndTurn => CanUseMarketActions;
-    private bool CanAdvancePlayer => IsRunning && !HasPendingDecision && IsPhase("Finished");
+    private bool CanAdvancePlayer => IsRunning && !HasPendingDecision && _game?.CurrentTurn is not null && IsPhase("Finished");
     private bool CanAnswerLeaveTokyoDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "LeaveTokyo", StringComparison.OrdinalIgnoreCase);
 
     private string SmartActionTitle
@@ -332,7 +336,7 @@
             if (CanUseMarketActions) return "Buy cards or end turn";
             if (CanAdvancePlayer) return "Advance to next player";
             if (_game?.PendingDecision is not null) return $"Waiting for {PlayerName(_game.PendingDecision.PlayerId)}";
-            if (_game?.CurrentTurn is not null && !IsLocalActor) return $"Waiting for {PlayerName(_game.CurrentTurn.CurrentPlayerId)}";
+            if (CurrentActorId is not null && !IsLocalActor) return $"Waiting for {PlayerName(CurrentActorId.Value)}";
             return "Waiting";
         }
     }
@@ -348,10 +352,10 @@
             if (CanRerollSelected) return "Reroll the dice you selected below, or finalize if you want to keep the current result.";
             if (CanSelectDiceForReroll) return "Click dice below to select them for reroll, or finalize the current result.";
             if (CanFinalizeDice) return "Resolve the current dice result and move to the next step.";
-            if (CanUseMarketActions) return "Buy cards from the market, refresh the market, or end your turn.";
+            if (CanUseMarketActions) return "Buy cards from the market, refresh the market, or end and advance the turn.";
             if (CanAdvancePlayer) return "The current turn is finished. Move to the next monster.";
             if (_game?.PendingDecision is not null) return "Another decision must be answered before the game can continue.";
-            if (_game?.CurrentTurn is not null && !IsLocalActor) return "This browser is not controlling the active monster.";
+            if (CurrentActorId is not null && !IsLocalActor) return "This browser is not controlling the active monster.";
             return "Refresh the game if you expect a new state.";
         }
     }
@@ -599,6 +603,17 @@
     }
 
     private Task EndTurnAsync() => ExecuteAsync(() => ApiClient.EndTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
+
+    private async Task EndTurnAndAdvanceAsync()
+    {
+        await EndTurnAsync();
+
+        if (_error is null && CanAdvancePlayer)
+        {
+            await AdvancePlayerAsync();
+        }
+    }
+
     private Task AdvancePlayerAsync() => ExecuteAsync(() => ApiClient.AdvancePlayerAsync(GameId, new ActorRequest(Session.PlayerId)));
 
     public void Dispose()
