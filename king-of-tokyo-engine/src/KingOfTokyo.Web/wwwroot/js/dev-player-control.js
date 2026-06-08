@@ -10,6 +10,11 @@
         }
     };
 
+    const readCurrentPlayerId = (session) => {
+        const value = session.PlayerId ?? session.playerId;
+        return Number.isInteger(value) ? value : null;
+    };
+
     const writeSession = (session) => {
         localStorage.setItem(storageKey, JSON.stringify(session));
     };
@@ -21,6 +26,12 @@
 
         const match = details?.match(/Player #(\d+)/);
         return match ? Number.parseInt(match[1], 10) : null;
+    };
+
+    const reloadWithCacheBust = () => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('controlPlayerRefresh', Date.now().toString());
+        window.location.replace(url.toString());
     };
 
     const installControlButton = (card) => {
@@ -40,8 +51,9 @@
 
         const updateText = () => {
             const session = readSession();
-            button.textContent = session.PlayerId === playerId ? 'Controlling' : 'Control';
-            button.disabled = session.PlayerId === playerId;
+            const currentPlayerId = readCurrentPlayerId(session);
+            button.textContent = currentPlayerId === playerId ? 'Controlling' : 'Control';
+            button.disabled = currentPlayerId === playerId;
         };
 
         updateText();
@@ -51,8 +63,9 @@
 
             const session = readSession();
             session.PlayerId = playerId;
+            session.playerId = playerId;
             writeSession(session);
-            window.location.reload();
+            reloadWithCacheBust();
         });
 
         card.appendChild(button);
