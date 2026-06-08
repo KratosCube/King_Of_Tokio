@@ -1,0 +1,114 @@
+.dice-row {
+    background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 42%),
+        rgba(3, 7, 18, 0.34);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 1rem;
+    padding: 0.75rem;
+}
+
+.dice-row::before {
+    background: rgba(3, 7, 18, 0.58);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.8rem;
+    color: #dbeafe;
+    content: "Dice · click dice to select rerolls · green = selected · orange = locked";
+    display: block;
+    font-weight: 850;
+    letter-spacing: 0.02em;
+    padding: 0.45rem 0.6rem;
+    text-transform: uppercase;
+}
+
+.die-button {
+    border-radius: 0.9rem;
+    min-width: 3.65rem;
+    padding: 0.25rem;
+    position: relative;
+}
+
+.die-button:not(:disabled) {
+    cursor: pointer;
+}
+
+.die-button:not(:disabled):hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.die-button.selected {
+    background: rgba(34, 197, 94, 0.13);
+}
+
+.die-button.selected::after {
+    background: linear-gradient(135deg, var(--toxic-green), rgba(132, 204, 22, 0.95));
+    border: 2px solid rgba(0, 0, 0, 0.42);
+    border-radius: 999px;
+    color: #052e16;
+    content: "REROLL";
+    font-size: 0.52rem;
+    font-weight: 950;
+    letter-spacing: 0.06em;
+    padding: 0.08rem 0.28rem;
+    position: absolute;
+    right: -0.18rem;
+    top: -0.18rem;
+}
+
+.die-face {
+    position: relative;
+}
+
+.die-face.locked::after {
+    background: linear-gradient(135deg, var(--tokyo-orange), var(--energy-yellow));
+    border: 2px solid rgba(0, 0, 0, 0.45);
+    border-radius: 999px;
+    color: #111827;
+    content: "LOCK";
+    font-size: 0.48rem;
+    font-weight: 950;
+    letter-spacing: 0.06em;
+    padding: 0.05rem 0.24rem;
+    position: absolute;
+    right: -0.3rem;
+    top: -0.3rem;
+}
+
+.die-button small {
+    color: #cbd5e1;
+    min-height: 1rem;
+}
+
+.die-button.selected small {
+    color: #bbf7d0;
+}
+
+.die-button:disabled:not(.selected) .die-face:not(.locked) {
+    filter: grayscale(0.45) brightness(0.9);
+}
+
+.compact-actions .btn {
+    min-height: 2.25rem;
+}
+
+@media (min-width: 901px) {
+    .dice-row {
+        gap: 0.42rem;
+        padding: 0.58rem;
+    }
+
+    .dice-row::before {
+        font-size: 0.62rem;
+        padding: 0.35rem 0.48rem;
+    }
+
+    .die-button {
+        min-width: 3.05rem;
+        padding: 0.16rem;
+    }
+
+    .die-button.selected::after,
+    .die-face.locked::after {
+        font-size: 0.42rem;
+        padding: 0.04rem 0.2rem;
+    }
+}
