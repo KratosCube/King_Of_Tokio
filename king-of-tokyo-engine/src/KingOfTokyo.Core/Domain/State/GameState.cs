@@ -141,6 +141,7 @@ public sealed class GameState
             throw new InvalidOperationException("Cannot advance turn when all players are dead.");
         }
 
+        CurrentTurn = null;
         _nextScheduledTurn = null;
 
         while (_scheduledTurns.Count > 0)
