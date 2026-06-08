@@ -46,6 +46,12 @@ public sealed class ApiClient
         return await _httpClient.GetFromJsonAsync<GameStateDto>($"api/games/{gameId}", cancellationToken);
     }
 
+    public async Task<IReadOnlyList<DebugCardOptionDto>> GetDebugCardsAsync(CancellationToken cancellationToken = default)
+    {
+        return await _httpClient.GetFromJsonAsync<IReadOnlyList<DebugCardOptionDto>>("api/games/debug/cards", cancellationToken)
+            ?? Array.Empty<DebugCardOptionDto>();
+    }
+
     public async Task<GameEventCursorDto?> GetEventsAsync(Guid gameId, long after, CancellationToken cancellationToken = default)
     {
         return await _httpClient.GetFromJsonAsync<GameEventCursorDto>($"api/games/{gameId}/events?after={after}", cancellationToken);
@@ -80,6 +86,12 @@ public sealed class ApiClient
 
     public Task<ApiCommandResultDto> AdvancePlayerAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "advance-player", request, cancellationToken);
+
+    public async Task<ApiCommandResultDto> DebugGrantKeepCardAsync(Guid gameId, DebugGrantKeepCardRequest request, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync($"api/games/{gameId}/debug/grant-keep-card", request, cancellationToken);
+        return await ReadRequiredAsync<ApiCommandResultDto>(response, cancellationToken);
+    }
 
     private async Task<ApiCommandResultDto> PostCommandAsync(Guid gameId, string commandName, object? request, CancellationToken cancellationToken)
     {
