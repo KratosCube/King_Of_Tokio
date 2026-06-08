@@ -25,7 +25,7 @@
                 <small>@SmartActionDescription</small>
             </section>
             <section class="status-card">
-                <span>You</span>
+                <span>You control</span>
                 <strong>@LocalPlayerLabel</strong>
                 <small>Local player id: @(Session.PlayerId?.ToString() ?? "unknown")</small>
             </section>
@@ -60,7 +60,7 @@
                             <div class="monster-badge-row">
                                 @if (player.PlayerId == Session.PlayerId)
                                 {
-                                    <span class="status-pill">You</span>
+                                    <span class="status-pill">You control</span>
                                 }
                                 @if (player.PlayerId == CurrentActorId)
                                 {
@@ -218,6 +218,11 @@
                     {
                         <button class="btn btn-primary" @onclick="AdvancePlayerAsync" disabled="@_busy">Advance player</button>
                     }
+                    else if (CurrentActorId is not null && !IsLocalActor)
+                    {
+                        <button class="btn btn-primary" @onclick="() => ControlPlayerAsync(CurrentActorId.Value)" disabled="@_busy">Control active monster</button>
+                        <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                    }
                     else
                     {
                         <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
@@ -232,10 +237,16 @@
                         <small>Optional tools while the UI is still being stabilized</small>
                     </summary>
                     <p class="muted">Current local player id: @(Session.PlayerId?.ToString() ?? "unknown")</p>
-                    @if (!IsLocalActor && _game.CurrentTurn is not null)
+                    @if (!IsLocalActor && CurrentActorId is not null)
                     {
-                        <p class="status-pill">Waiting for @PlayerName(_game.CurrentTurn.CurrentPlayerId)</p>
+                        <p class="status-pill">Waiting for @PlayerName(CurrentActorId.Value)</p>
                     }
+                    <div class="actions compact-actions">
+                        @foreach (var player in _game.Players)
+                        {
+                            <button class="btn btn-secondary" @onclick="() => ControlPlayerAsync(player.PlayerId)" disabled="@(_busy || Session.PlayerId == player.PlayerId)">Control @player.MonsterName</button>
+                        }
+                    </div>
                     <div class="actions">
                         <button class="btn btn-secondary" @onclick="InitializeAsync" disabled="@(_busy || !CanInitialize)">Initialize</button>
                         <button class="btn btn-secondary" @onclick="BeginTurnAsync" disabled="@(_busy || !CanBeginTurn)">Begin turn</button>
@@ -283,10 +294,13 @@
     private bool IsSetup => string.Equals(_game?.Status, "Setup", StringComparison.OrdinalIgnoreCase);
     private bool HasPendingDecision => _game?.PendingDecision is not null;
     private string? CurrentPhase => _game?.CurrentTurn?.Phase;
+    private bool IsAwaitingNextTurnStart => _game?.CurrentTurn is null || IsPhase("Finished");
     private int? CurrentPlayerIdFromIndex => _game is null || _game.CurrentPlayerIndex < 0 || _game.CurrentPlayerIndex >= _game.Players.Count
         ? null
         : _game.Players[_game.CurrentPlayerIndex].PlayerId;
-    private int? CurrentActorId => _game?.CurrentTurn?.CurrentPlayerId ?? CurrentPlayerIdFromIndex;
+    private int? CurrentActorId => IsAwaitingNextTurnStart
+        ? CurrentPlayerIdFromIndex
+        : _game?.CurrentTurn?.CurrentPlayerId ?? CurrentPlayerIdFromIndex;
     private bool IsLocalActor => Session.PlayerId is not null && CurrentActorId == Session.PlayerId;
 
     private string LocalPlayerLabel => Session.PlayerId is null ? "Unknown player" : PlayerName(Session.PlayerId.Value);
@@ -311,7 +325,7 @@
         _game.PendingDecision.PlayerId == _game.CurrentTurn.CurrentPlayerId;
 
     private bool CanInitialize => IsSetup;
-    private bool CanBeginTurn => IsRunning && !HasPendingDecision && IsLocalActor && (_game?.CurrentTurn is null || IsPhase("Finished"));
+    private bool CanBeginTurn => IsRunning && !HasPendingDecision && IsLocalActor && IsAwaitingNextTurnStart;
     private bool CanRollDice => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed == 0;
     private bool CanRerollStep => IsRunning && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed > 0 && _game.CurrentTurn.RollCountUsed < _game.CurrentTurn.MaxRolls && (!HasPendingDecision || IsSelectDiceToRerollDecision);
     private bool CanSelectDiceForReroll => CanRerollStep && _game?.CurrentTurn?.DiceResolved == false;
@@ -355,7 +369,7 @@
             if (CanUseMarketActions) return "Buy cards from the market, refresh the market, or end and advance the turn.";
             if (CanAdvancePlayer) return "The current turn is finished. Move to the next monster.";
             if (_game?.PendingDecision is not null) return "Another decision must be answered before the game can continue.";
-            if (CurrentActorId is not null && !IsLocalActor) return "This browser is not controlling the active monster.";
+            if (CurrentActorId is not null && !IsLocalActor) return $"This session controls {LocalPlayerLabel}. Use Control active monster to control {PlayerName(CurrentActorId.Value)} for local testing.";
             return "Refresh the game if you expect a new state.";
         }
     }
@@ -464,6 +478,14 @@
         "Attack" => "🗯",
         _ => face
     };
+
+    private async Task ControlPlayerAsync(int playerId)
+    {
+        Session.PlayerId = playerId;
+        _selectedDiceIndexes.Clear();
+        await Session.SaveAsync();
+        await RefreshAsync();
+    }
 
     private void ToggleDieSelection(int dieIndex)
     {
