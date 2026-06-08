@@ -544,7 +544,8 @@
     {
         try
         {
-            var cursor = await ApiClient.GetEventsAsync(GameId, Session.LastEventSequence);
+            var afterSequence = _eventFeed.Count == 0 ? 0 : Session.LastEventSequence;
+            var cursor = await ApiClient.GetEventsAsync(GameId, afterSequence);
             if (cursor is null)
             {
                 return;
