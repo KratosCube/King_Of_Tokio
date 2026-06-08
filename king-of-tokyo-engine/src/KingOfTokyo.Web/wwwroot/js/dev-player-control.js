@@ -1,5 +1,6 @@
 (() => {
     const storageKey = 'king-of-tokyo.client-session';
+    const apiBaseUrl = 'http://localhost:5000';
 
     const readSession = () => {
         try {
@@ -33,8 +34,35 @@
         return match ? match[1] : null;
     };
 
+    const readActivePlayerIdFromPage = () => {
+        const currentTurnText = Array.from(document.querySelectorAll('.game-hero p'))
+            .map((element) => element.textContent ?? '')
+            .find((text) => text.includes('Current turn:'));
+
+        if (currentTurnText) {
+            const monsterName = currentTurnText
+                .replace(/^.*Current turn:\s*/i, '')
+                .split('•')[0]
+                .trim()
+                .toLowerCase();
+
+            const matchingCard = Array.from(document.querySelectorAll('.monster-card.display-card'))
+                .find((card) => {
+                    const name = card.querySelector('strong')?.textContent?.trim().toLowerCase();
+                    return name && name === monsterName;
+                });
+
+            if (matchingCard) {
+                return readPlayerId(matchingCard);
+            }
+        }
+
+        return null;
+    };
+
     const postJson = async (url, payload) => {
-        const response = await fetch(url, {
+        const absoluteUrl = url.startsWith('http') ? url : `${apiBaseUrl}${url}`;
+        const response = await fetch(absoluteUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload ?? {})
@@ -51,6 +79,45 @@
         const url = new URL(window.location.href);
         url.searchParams.set('controlPlayerRefresh', Date.now().toString());
         window.location.replace(url.toString());
+    };
+
+    const setBadge = (card, className, text) => {
+        let badge = card.querySelector(`.${className}`);
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = `dev-monster-badge ${className}`;
+            card.insertBefore(badge, card.firstChild);
+        }
+
+        badge.textContent = text;
+    };
+
+    const clearBadge = (card, className) => {
+        card.querySelector(`.${className}`)?.remove();
+    };
+
+    const updateMonsterStateIndicators = () => {
+        const controlledPlayerId = readCurrentPlayerId(readSession());
+        const activePlayerId = readActivePlayerIdFromPage();
+
+        document.querySelectorAll('.monster-card.display-card')
+            .forEach((card) => {
+                const playerId = readPlayerId(card);
+                card.classList.toggle('dev-controlled-monster', playerId === controlledPlayerId);
+                card.classList.toggle('dev-active-turn-monster', playerId === activePlayerId);
+
+                if (playerId === controlledPlayerId) {
+                    setBadge(card, 'dev-controlled-badge', '🎮 You control');
+                } else {
+                    clearBadge(card, 'dev-controlled-badge');
+                }
+
+                if (playerId === activePlayerId) {
+                    setBadge(card, 'dev-active-turn-badge', '⚡ Active turn');
+                } else {
+                    clearBadge(card, 'dev-active-turn-badge');
+                }
+            });
     };
 
     const installControlButton = (card) => {
@@ -148,6 +215,7 @@
     const installDevHelpers = () => {
         installControlButtons();
         installAdvanceHelper();
+        updateMonsterStateIndicators();
     };
 
     const observer = new MutationObserver(installDevHelpers);
