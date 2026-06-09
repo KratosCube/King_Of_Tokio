@@ -25,6 +25,8 @@ public sealed record SetLobbyReadyRequest(Guid PlayerToken, bool IsReady);
 
 public sealed record StartLobbyRequest(Guid PlayerToken);
 
+public sealed record LeaveLobbyRequest(Guid PlayerToken);
+
 public sealed record LobbyDto(
     Guid LobbyId,
     string Name,
@@ -50,6 +52,10 @@ public sealed record LobbyJoinResultDto(
     LobbyDto Lobby,
     Guid PlayerToken,
     int PlayerId);
+
+public sealed record LobbyLeaveResultDto(
+    bool Deleted,
+    LobbyDto? Lobby);
 
 public sealed record LobbyStartPreparationDto(
     LobbyDto Lobby,
