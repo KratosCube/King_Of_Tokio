@@ -46,7 +46,7 @@
             <section class="panel lobby-info-panel">
                 <h2>@_lobby.Name</h2>
                 <p class="muted">Lobby id: <code>@_lobby.LobbyId</code></p>
-                <p class="muted">This room auto-refreshes while the API is running. Other browser sessions should appear here within a few seconds.</p>
+                <p class="muted">This room auto-refreshes. When the host starts the game, joined sessions auto-open the game table.</p>
                 <div class="lobby-rules-grid">
                     <span><strong>@_lobby.MaxPlayers</strong><small>Max players</small></span>
                     <span><strong>@_lobby.InitialHealth</strong><small>Initial HP</small></span>
@@ -99,7 +99,7 @@
                     </div>
                     <div class="field">
                         <label>Your monster</label>
-                        <InputSelect @bind-Value="_joinMonsterId" @onchange="OnJoinMonsterChanged">
+                        <InputSelect @bind-Value="_joinMonsterId">
                             @foreach (var monster in MonsterCatalog.Monsters)
                             {
                                 <option value="@monster.MonsterId">@monster.Emoji @monster.MonsterName</option>
@@ -108,7 +108,7 @@
                     </div>
                     <div class="actions">
                         <button class="btn btn-primary" @onclick="JoinAsync" disabled="@(_busy || IsLobbyClosed || SeatCount >= _lobby.MaxPlayers)">Join lobby</button>
-                        <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                        <button class="btn btn-secondary" @onclick="RefreshAndRenderAsync" disabled="@_busy">Refresh</button>
                     </div>
                 }
             </section>
@@ -175,7 +175,7 @@
                 {
                     <button class="btn btn-secondary" @onclick="AskLeaveLobby" disabled="@_busy">@(IsLastJoinedSeat ? "Delete lobby" : "Leave lobby")</button>
                 }
-                <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                <button class="btn btn-secondary" @onclick="RefreshAndRenderAsync" disabled="@_busy">Refresh</button>
                 @if (_lobby.GameId is not null)
                 {
                     <NavLink class="btn btn-primary" href="@($"games/{_lobby.GameId}")">Open game</NavLink>
@@ -192,7 +192,7 @@
                 <p class="muted">Use this only for local testing when you want to fill the lobby from one browser session.</p>
                 <div class="actions">
                     <button class="btn btn-secondary" @onclick="AddReadyTestMonsterAsync" disabled="@(!_canAddTestMonster || _busy)">Add ready test monster</button>
-                    <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh lobby</button>
+                    <button class="btn btn-secondary" @onclick="RefreshAndRenderAsync" disabled="@_busy">Refresh lobby</button>
                 </div>
             </details>
         </section>
@@ -208,11 +208,12 @@
     private CancellationTokenSource? _cts;
     private bool _busy;
     private bool _confirmLeave;
+    private bool _navigatingToGame;
     private string? _error;
     private string _joinName = "Guest";
     private string _joinMonsterId = MonsterCatalog.Default.MonsterId;
-    private MonsterOption _joinMonster = MonsterCatalog.Default;
 
+    private MonsterOption JoinMonster => MonsterCatalog.Find(_joinMonsterId);
     private bool IsJoined => _currentSeat is not null && Session.PlayerToken is not null;
     private bool IsLobbyClosed => IsLobbyStatus("Started") || IsLobbyStatus("Closed");
     private bool IsLastJoinedSeat => IsJoined && SeatCount == 1;
@@ -234,6 +235,7 @@
     {
         get
         {
+            if (_navigatingToGame) return "Opening game";
             if (_lobby?.GameId is not null || IsLobbyStatus("Started")) return "Open game";
             if (!IsJoined) return "Join this lobby";
             if (_currentSeat?.IsReady != true) return "Set ready";
@@ -248,7 +250,10 @@
     {
         get
         {
-            if (_lobby?.GameId is not null || IsLobbyStatus("Started")) return "The match has been created. Open the game table when you are ready.";
+            if (_navigatingToGame) return "The game has started. Opening the game table for this session.";
+            if (_lobby?.GameId is not null || IsLobbyStatus("Started")) return IsJoined
+                ? "The match has been created. This session should open the game table automatically."
+                : "The match has been created. Join is closed, but you can open the game as a spectator/debug view.";
             if (!IsJoined) return "Join this lobby from this browser. The room auto-refreshes for all sessions.";
             if (_currentSeat?.IsReady != true) return "Mark your monster as ready when you are happy with the lobby setup.";
             if (_canStart) return "All joined monsters are ready. As host, you can start the match.";
@@ -277,12 +282,6 @@
 
     private bool IsLobbyStatus(string status) => string.Equals(_lobby?.Status, status, StringComparison.OrdinalIgnoreCase);
 
-    private void OnJoinMonsterChanged(ChangeEventArgs args)
-    {
-        _joinMonsterId = args.Value?.ToString() ?? MonsterCatalog.Default.MonsterId;
-        _joinMonster = MonsterCatalog.Find(_joinMonsterId);
-    }
-
     private async Task PollAsync(CancellationToken cancellationToken)
     {
         try
@@ -308,6 +307,12 @@
                 StateHasChanged();
             });
         }
+    }
+
+    private async Task RefreshAndRenderAsync()
+    {
+        await RefreshAsync();
+        StateHasChanged();
     }
 
     private async Task RefreshAsync()
@@ -341,10 +346,25 @@
                 await Session.SaveAsync();
             }
 
-            if (_lobby.GameId is not null && Session.GameId != _lobby.GameId.Value)
+            if (_lobby.GameId is not null)
             {
                 Session.RememberGame(_lobby.GameId.Value);
                 await Session.SaveAsync();
+
+                if (_currentSeat is not null && !_navigatingToGame)
+                {
+                    _navigatingToGame = true;
+                    await Session.DebugLogAsync("lobby.auto-open-game", new
+                    {
+                        LobbyId,
+                        _lobby.GameId,
+                        Session.PlayerId,
+                        Session.PlayerToken,
+                        currentSeatPlayerId = _currentSeat.PlayerId
+                    });
+                    Navigation.NavigateTo($"/games/{_lobby.GameId.Value}", replace: true);
+                    return;
+                }
             }
 
             await Session.DebugLogAsync("lobby.refresh", new
@@ -384,11 +404,12 @@
 
         try
         {
+            var monster = JoinMonster;
             var result = await ApiClient.JoinLobbyAsync(LobbyId, new JoinLobbyRequest(
                 _joinName,
-                _joinMonster.MonsterId,
-                _joinMonster.MonsterName,
-                _joinMonster.AvatarId));
+                monster.MonsterId,
+                monster.MonsterName,
+                monster.AvatarId));
             Session.RememberLobby(LobbyId, result.PlayerId, result.PlayerToken);
             await Session.SaveAsync();
             _lobby = result.Lobby;
@@ -516,7 +537,7 @@
 
             if (result.Deleted)
             {
-                Navigation.NavigateTo("/");
+                Navigation.NavigateTo("/", replace: true);
                 return;
             }
 
@@ -550,7 +571,9 @@
             var result = await ApiClient.StartLobbyAsync(LobbyId, new StartLobbyRequest(Session.PlayerToken.Value));
             Session.RememberGame(result.Game.GameId);
             await Session.SaveAsync();
-            Navigation.NavigateTo($"/games/{result.Game.GameId}");
+            _navigatingToGame = true;
+            await Session.DebugLogAsync("lobby.start", new { LobbyId, result.Game.GameId, Session.PlayerId, Session.PlayerToken });
+            Navigation.NavigateTo($"/games/{result.Game.GameId}", replace: true);
         }
         catch (Exception ex)
         {
