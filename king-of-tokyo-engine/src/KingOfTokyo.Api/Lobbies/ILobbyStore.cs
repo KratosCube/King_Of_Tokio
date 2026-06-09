@@ -12,6 +12,8 @@ public interface ILobbyStore
 
     bool TrySetReady(Guid lobbyId, SetLobbyReadyRequest request, out LobbyDto? lobby, out string? error);
 
+    bool TryLeaveLobby(Guid lobbyId, LeaveLobbyRequest request, out LobbyLeaveResultDto? result, out string? error);
+
     bool TryPrepareStart(Guid lobbyId, StartLobbyRequest request, out LobbyStartPreparationDto? result, out string? error);
 
     bool TryAttachGame(Guid lobbyId, Guid gameId, out LobbyDto? lobby, out string? error);
