@@ -1,0 +1,74 @@
+.status-token-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.32rem;
+    margin-top: 0.45rem;
+}
+
+.status-token {
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 999px;
+    display: inline-flex;
+    font-size: 0.72rem;
+    font-weight: 950;
+    gap: 0.22rem;
+    letter-spacing: 0.03em;
+    line-height: 1;
+    padding: 0.28rem 0.5rem;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.status-token strong {
+    background: rgba(0, 0, 0, 0.28);
+    border-radius: 999px;
+    display: inline-flex;
+    min-width: 1.05rem;
+    padding: 0.12rem 0.26rem;
+    place-content: center;
+}
+
+.poison-token {
+    background:
+        radial-gradient(circle at top left, rgba(132, 204, 22, 0.34), transparent 52%),
+        rgba(22, 101, 52, 0.44);
+    border-color: rgba(132, 204, 22, 0.52);
+    color: #dcfce7;
+    box-shadow: 0 8px 24px rgba(132, 204, 22, 0.12);
+}
+
+.shrink-token {
+    background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.34), transparent 52%),
+        rgba(12, 74, 110, 0.44);
+    border-color: rgba(56, 189, 248, 0.52);
+    color: #e0f2fe;
+    box-shadow: 0 8px 24px rgba(56, 189, 248, 0.12);
+}
+
+.monster-card .status-token-list {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 0.45rem;
+}
+
+@media (min-width: 901px) {
+    .status-token-list {
+        gap: 0.22rem;
+        margin-top: 0.32rem;
+    }
+
+    .status-token {
+        font-size: 0.62rem;
+        padding: 0.2rem 0.36rem;
+    }
+
+    .status-token strong {
+        min-width: 0.9rem;
+        padding: 0.08rem 0.2rem;
+    }
+
+    .monster-card .status-token-list {
+        padding-top: 0.32rem;
+    }
+}
