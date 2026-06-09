@@ -21,6 +21,7 @@ public sealed class LobbyEndpointsTests
         Assert.Contains("/api/lobbies/{lobbyId:guid}", routePatterns);
         Assert.Contains("/api/lobbies/{lobbyId:guid}/join", routePatterns);
         Assert.Contains("/api/lobbies/{lobbyId:guid}/ready", routePatterns);
+        Assert.Contains("/api/lobbies/{lobbyId:guid}/leave", routePatterns);
         Assert.Contains("/api/lobbies/{lobbyId:guid}/start", routePatterns);
     }
 
@@ -31,7 +32,7 @@ public sealed class LobbyEndpointsTests
 
         var routePatterns = GetRoutePatterns(app);
 
-        Assert.Equal(5, routePatterns.Count);
+        Assert.Equal(6, routePatterns.Count);
     }
 
     private static WebApplication CreateAppWithLobbyEndpoints()
