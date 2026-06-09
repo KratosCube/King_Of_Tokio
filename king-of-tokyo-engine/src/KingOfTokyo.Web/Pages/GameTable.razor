@@ -24,10 +24,10 @@
                 <strong>@SmartActionTitle</strong>
                 <small>@SmartActionDescription</small>
             </section>
-            <section class="status-card">
+            <section class="status-card @(HasResolvedLobbyIdentity ? "your-turn-card" : null)">
                 <span>You control</span>
                 <strong>@LocalPlayerLabel</strong>
-                <small>Local player id: @(Session.PlayerId?.ToString() ?? "unknown")</small>
+                <small>@IdentityLabel</small>
             </section>
             <section class="status-card @(IsLocalActor ? "your-turn-card" : null)">
                 <span>Active monster</span>
@@ -40,11 +40,6 @@
                 <small>Phase: @PhaseLabel • Rolls: @RollsLabel • Events: @Session.LastEventSequence</small>
             </section>
         </div>
-
-        @if (_game.WinnerPlayerId is not null)
-        {
-            <p class="status-pill">Winner: @PlayerName(_game.WinnerPlayerId.Value) — @_game.WinnerReason</p>
-        }
 
         @if (HasPendingDecision)
         {
@@ -63,19 +58,19 @@
                     else if (CanControlDecisionActor)
                     {
                         <button class="btn btn-primary" @onclick="ControlDecisionPlayerAsync" disabled="@_busy">Control decision monster</button>
-                        <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
-                    }
-                    else if (IsSelectDiceToRerollDecision)
-                    {
-                        <button class="btn btn-primary" disabled>Select dice below</button>
-                        <button class="btn btn-secondary" @onclick="FinalizeDiceAsync" disabled="@(_busy || !CanFinalizeDice)">Finalize dice</button>
+                        <button class="btn btn-secondary" @onclick="RefreshAllAsync" disabled="@_busy">Refresh</button>
                     }
                     else
                     {
-                        <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                        <button class="btn btn-secondary" @onclick="RefreshAllAsync" disabled="@_busy">Refresh</button>
                     }
                 </div>
             </section>
+        }
+
+        @if (_game.WinnerPlayerId is not null)
+        {
+            <p class="status-pill">Winner: @PlayerName(_game.WinnerPlayerId.Value) — @_game.WinnerReason</p>
         }
 
         <div class="game-grid">
@@ -156,10 +151,6 @@
                         <button class="btn btn-primary" @onclick="RerollSelectedDiceAsync" disabled="@(!CanRerollSelected || _busy)">Reroll selected dice</button>
                         <button class="btn btn-secondary" @onclick="ClearSelectedDice" disabled="@(_busy || _selectedDiceIndexes.Count == 0)">Clear dice selection</button>
                     </div>
-                    @if (_selectedDiceIndexes.Count > 0 && !CanRerollSelected)
-                    {
-                        <p class="muted">Dice are selected. Reroll becomes available only during your reroll decision.</p>
-                    }
                 }
                 else
                 {
@@ -211,7 +202,7 @@
                     else if (CanControlDecisionActor)
                     {
                         <button class="btn btn-primary" @onclick="ControlDecisionPlayerAsync" disabled="@_busy">Control decision monster</button>
-                        <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                        <button class="btn btn-secondary" @onclick="RefreshAllAsync" disabled="@_busy">Refresh</button>
                     }
                     else if (CanInitialize)
                     {
@@ -249,14 +240,14 @@
                     {
                         <button class="btn btn-primary" @onclick="AdvancePlayerAsync" disabled="@_busy">Advance player</button>
                     }
-                    else if (CurrentActorId is not null && !IsLocalActor)
+                    else if (AllowDevPlayerControl && CurrentActorId is not null && !IsLocalActor)
                     {
                         <button class="btn btn-primary" @onclick="() => ControlPlayerAsync(CurrentActorId.Value)" disabled="@_busy">Control active monster</button>
-                        <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                        <button class="btn btn-secondary" @onclick="RefreshAllAsync" disabled="@_busy">Refresh</button>
                     }
                     else
                     {
-                        <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                        <button class="btn btn-secondary" @onclick="RefreshAllAsync" disabled="@_busy">Refresh</button>
                     }
                 </div>
             </section>
@@ -265,19 +256,18 @@
                 <details>
                     <summary class="dev-tools-summary">
                         <span>Debug commands</span>
-                        <small>Optional tools while the UI is still being stabilized</small>
+                        <small>@(AllowDevPlayerControl ? "Local single-browser tools" : "Player switching disabled for lobby multiplayer")</small>
                     </summary>
                     <p class="muted">Current local player id: @(Session.PlayerId?.ToString() ?? "unknown")</p>
-                    @if (!IsLocalActor && CurrentActorId is not null)
+                    @if (AllowDevPlayerControl)
                     {
-                        <p class="status-pill">Waiting for @PlayerName(CurrentActorId.Value)</p>
+                        <div class="actions compact-actions">
+                            @foreach (var player in _game.Players)
+                            {
+                                <button class="btn btn-secondary" @onclick="() => ControlPlayerAsync(player.PlayerId)" disabled="@(_busy || Session.PlayerId == player.PlayerId)">Control @player.MonsterName</button>
+                            }
+                        </div>
                     }
-                    <div class="actions compact-actions">
-                        @foreach (var player in _game.Players)
-                        {
-                            <button class="btn btn-secondary" @onclick="() => ControlPlayerAsync(player.PlayerId)" disabled="@(_busy || Session.PlayerId == player.PlayerId)">Control @player.MonsterName</button>
-                        }
-                    </div>
                     <div class="actions">
                         <button class="btn btn-secondary" @onclick="InitializeAsync" disabled="@(_busy || !CanInitialize)">Initialize</button>
                         <button class="btn btn-secondary" @onclick="BeginTurnAsync" disabled="@(_busy || !CanBeginTurn)">Begin turn</button>
@@ -285,7 +275,7 @@
                         <button class="btn btn-primary" @onclick="FinalizeDiceAsync" disabled="@(_busy || !CanFinalizeDice)">Finalize dice</button>
                         <button class="btn btn-secondary" @onclick="EndTurnAsync" disabled="@(_busy || !CanEndTurn)">End turn</button>
                         <button class="btn btn-secondary" @onclick="AdvancePlayerAsync" disabled="@(_busy || !CanAdvancePlayer)">Advance player</button>
-                        <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
+                        <button class="btn btn-secondary" @onclick="RefreshAllAsync" disabled="@_busy">Refresh</button>
                     </div>
                 </details>
             </section>
@@ -316,6 +306,7 @@
     private readonly List<EventFeedItem> _eventFeed = new();
     private readonly HashSet<int> _selectedDiceIndexes = new();
     private GameStateDto? _game;
+    private LobbyDto? _sourceLobby;
     private PeriodicTimer? _timer;
     private CancellationTokenSource? _cts;
     private bool _busy;
@@ -324,46 +315,27 @@
     private bool IsRunning => string.Equals(_game?.Status, "Running", StringComparison.OrdinalIgnoreCase);
     private bool IsSetup => string.Equals(_game?.Status, "Setup", StringComparison.OrdinalIgnoreCase);
     private bool HasPendingDecision => _game?.PendingDecision is not null;
+    private bool HasResolvedLobbyIdentity => _sourceLobby is not null && Session.PlayerToken is not null && Session.PlayerId is not null;
+    private bool AllowDevPlayerControl => !HasResolvedLobbyIdentity;
     private string? CurrentPhase => _game?.CurrentTurn?.Phase;
     private bool IsAwaitingNextTurnStart => _game?.CurrentTurn is null || IsPhase("Finished");
     private int? CurrentPlayerIdFromIndex => _game is null || _game.CurrentPlayerIndex < 0 || _game.CurrentPlayerIndex >= _game.Players.Count
         ? null
         : _game.Players[_game.CurrentPlayerIndex].PlayerId;
-    private int? CurrentActorId => IsAwaitingNextTurnStart
-        ? CurrentPlayerIdFromIndex
-        : _game?.CurrentTurn?.CurrentPlayerId ?? CurrentPlayerIdFromIndex;
+    private int? CurrentActorId => IsAwaitingNextTurnStart ? CurrentPlayerIdFromIndex : _game?.CurrentTurn?.CurrentPlayerId ?? CurrentPlayerIdFromIndex;
     private int? PendingDecisionPlayerId => _game?.PendingDecision?.PlayerId;
     private bool IsLocalActor => Session.PlayerId is not null && CurrentActorId == Session.PlayerId;
     private bool IsLocalDecisionActor => PendingDecisionPlayerId is not null && Session.PlayerId == PendingDecisionPlayerId;
-    private bool CanControlDecisionActor => PendingDecisionPlayerId is not null && !IsLocalDecisionActor;
+    private bool CanControlDecisionActor => AllowDevPlayerControl && PendingDecisionPlayerId is not null && !IsLocalDecisionActor;
 
     private string LocalPlayerLabel => Session.PlayerId is null ? "Unknown player" : PlayerName(Session.PlayerId.Value);
     private string ActiveTurnLabel => CurrentActorId is null ? "No active turn" : PlayerName(CurrentActorId.Value);
     private string PhaseLabel => string.IsNullOrWhiteSpace(CurrentPhase) ? "No phase" : CurrentPhase;
     private string RollsLabel => _game?.CurrentTurn is null ? "No dice yet" : $"{_game.CurrentTurn.RollCountUsed}/{_game.CurrentTurn.MaxRolls}";
+    private string IdentityLabel => HasResolvedLobbyIdentity
+        ? $"Locked from lobby token • player #{Session.PlayerId}"
+        : "No lobby token lock • debug switching available";
     private string PendingDecisionLabel => _game?.PendingDecision is null ? "No decision" : $"{_game.PendingDecision.DecisionType} for {PlayerName(_game.PendingDecision.PlayerId)}";
-
-    private string PendingDecisionDescription
-    {
-        get
-        {
-            if (_game?.PendingDecision is null) return "No pending decision.";
-            if (CanAnswerLeaveTokyoDecision) return "Tokyo is under attack. Choose whether your monster retreats after taking damage.";
-            if (string.Equals(_game.PendingDecision.DecisionType, "LeaveTokyo", StringComparison.OrdinalIgnoreCase))
-            {
-                return $"{PlayerName(_game.PendingDecision.PlayerId)} must choose whether to leave Tokyo. For one-browser testing, switch control to that monster.";
-            }
-
-            if (IsSelectDiceToRerollDecision)
-            {
-                return IsLocalDecisionActor
-                    ? "Select dice below and reroll them, or finalize the current dice result."
-                    : $"{PlayerName(_game.PendingDecision.PlayerId)} must choose dice to reroll.";
-            }
-
-            return $"Waiting for {PlayerName(_game.PendingDecision.PlayerId)} to answer this decision.";
-        }
-    }
 
     private string ActorPillText
     {
@@ -372,6 +344,18 @@
             if (CurrentActorId is null) return "No active turn yet";
             if (IsLocalActor) return "Your turn";
             return $"Waiting for {PlayerName(CurrentActorId.Value)}";
+        }
+    }
+
+    private string PendingDecisionDescription
+    {
+        get
+        {
+            if (_game?.PendingDecision is null) return "No pending decision.";
+            if (CanAnswerLeaveTokyoDecision) return "Tokyo is under attack. Choose whether your monster retreats after taking damage.";
+            if (IsSelectDiceToRerollDecision && IsLocalDecisionActor) return "Select dice below and reroll them, or finalize the current dice result.";
+            if (AllowDevPlayerControl) return $"{PlayerName(_game.PendingDecision.PlayerId)} must answer this decision. You can switch control in local debug mode.";
+            return $"Waiting for {PlayerName(_game.PendingDecision.PlayerId)} in their browser session.";
         }
     }
 
@@ -419,36 +403,67 @@
         get
         {
             if (_game?.WinnerPlayerId is not null) return "The match has a winner.";
-            if (CanAnswerLeaveTokyoDecision) return PendingDecisionDescription;
-            if (CanControlDecisionActor) return PendingDecisionDescription;
+            if (!HasResolvedLobbyIdentity && _sourceLobby is not null) return "This browser is not matched to a lobby seat. Go back to the lobby and join first.";
+            if (CanAnswerLeaveTokyoDecision || CanControlDecisionActor || _game?.PendingDecision is not null) return PendingDecisionDescription;
             if (CanInitialize) return "Start the match state and deal the initial market.";
-            if (CanBeginTurn) return "Start the active monster's turn.";
+            if (CanBeginTurn) return "Start your monster's turn.";
             if (CanRollDice) return "Make the first roll of this turn.";
             if (CanRerollSelected) return "Reroll the dice you selected below, or finalize if you want to keep the current result.";
             if (CanSelectDiceForReroll) return "Click dice below to select them for reroll, or finalize the current result.";
             if (CanFinalizeDice) return "Resolve the current dice result and move to the next step.";
             if (CanUseMarketActions) return "Buy cards from the market, refresh the market, or end and advance the turn.";
             if (CanAdvancePlayer) return "The current turn is finished. Move to the next monster.";
-            if (_game?.PendingDecision is not null) return PendingDecisionDescription;
-            if (CurrentActorId is not null && !IsLocalActor) return $"This session controls {LocalPlayerLabel}. Use Control active monster to control {PlayerName(CurrentActorId.Value)} for local testing.";
-            return "Refresh the game if you expect a new state.";
+            if (CurrentActorId is not null && !IsLocalActor) return $"This browser controls {LocalPlayerLabel}. Waiting for {PlayerName(CurrentActorId.Value)} in their session.";
+            return "Waiting for the game state to change.";
         }
     }
 
     protected override async Task OnInitializedAsync()
     {
         await Session.LoadAsync();
-        if (Session.GameId is null || Session.GameId != GameId)
-        {
-            Session.RememberGame(GameId);
-            await Session.SaveAsync();
-        }
-
-        await RefreshAsync();
-        await RefreshEventsAsync();
+        await ResolveLobbyIdentityAsync();
+        await RefreshAllAsync();
         _cts = new CancellationTokenSource();
         _timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
         _ = PollAsync(_cts.Token);
+    }
+
+    private async Task ResolveLobbyIdentityAsync()
+    {
+        if (Session.LobbyId is null)
+        {
+            _sourceLobby = null;
+            return;
+        }
+
+        try
+        {
+            _sourceLobby = await ApiClient.GetLobbyAsync(Session.LobbyId.Value);
+            if (_sourceLobby is null)
+            {
+                return;
+            }
+
+            if (_sourceLobby.GameId is not null && _sourceLobby.GameId.Value == GameId && Session.GameId != GameId)
+            {
+                Session.RememberGame(GameId);
+            }
+
+            if (Session.PlayerToken is not null)
+            {
+                var seat = _sourceLobby.Seats.FirstOrDefault(seat => seat.PlayerToken == Session.PlayerToken.Value);
+                if (seat is not null && Session.PlayerId != seat.PlayerId)
+                {
+                    Session.PlayerId = seat.PlayerId;
+                }
+            }
+
+            await Session.SaveAsync();
+        }
+        catch
+        {
+            _sourceLobby = null;
+        }
     }
 
     private bool IsPhase(string phase) => string.Equals(CurrentPhase, phase, StringComparison.OrdinalIgnoreCase);
@@ -456,38 +471,15 @@
     private string MonsterCardClass(PlayerDto player)
     {
         var classes = new List<string> { "monster-card", "display-card" };
-
-        if (player.PlayerId == Session.PlayerId)
-        {
-            classes.Add("selected");
-            classes.Add("local-monster");
-        }
-
-        if (player.PlayerId == CurrentActorId)
-        {
-            classes.Add("active-monster");
-        }
-
-        if (player.PlayerId == PendingDecisionPlayerId)
-        {
-            classes.Add("decision-monster");
-        }
-
-        if (IsTokyoOccupant(player))
-        {
-            classes.Add("tokyo-monster");
-        }
-
-        if (!player.IsAlive)
-        {
-            classes.Add("eliminated-monster");
-        }
-
+        if (player.PlayerId == Session.PlayerId) classes.Add("selected local-monster");
+        if (player.PlayerId == CurrentActorId) classes.Add("active-monster");
+        if (player.PlayerId == PendingDecisionPlayerId) classes.Add("decision-monster");
+        if (IsTokyoOccupant(player)) classes.Add("tokyo-monster");
+        if (!player.IsAlive) classes.Add("eliminated-monster");
         return string.Join(" ", classes);
     }
 
-    private bool IsTokyoOccupant(PlayerDto player) =>
-        _game?.Tokyo.CityOccupantId == player.PlayerId || _game?.Tokyo.BayOccupantId == player.PlayerId;
+    private bool IsTokyoOccupant(PlayerDto player) => _game?.Tokyo.CityOccupantId == player.PlayerId || _game?.Tokyo.BayOccupantId == player.PlayerId;
 
     private RenderFragment RenderTokyoSlot(string title, int? playerId, bool isEnabled) => builder =>
     {
@@ -549,10 +541,15 @@
 
     private async Task ControlPlayerAsync(int playerId)
     {
+        if (!AllowDevPlayerControl)
+        {
+            return;
+        }
+
         Session.PlayerId = playerId;
         _selectedDiceIndexes.Clear();
         await Session.SaveAsync();
-        await RefreshAsync();
+        await RefreshAllAsync();
     }
 
     private void ToggleDieSelection(int dieIndex)
@@ -573,14 +570,21 @@
             {
                 await InvokeAsync(async () =>
                 {
-                    await RefreshAsync();
-                    await RefreshEventsAsync();
+                    await ResolveLobbyIdentityAsync();
+                    await RefreshAllAsync();
+                    StateHasChanged();
                 });
             }
         }
         catch (OperationCanceledException)
         {
         }
+    }
+
+    private async Task RefreshAllAsync()
+    {
+        await RefreshAsync();
+        await RefreshEventsAsync();
     }
 
     private async Task RefreshAsync()
@@ -682,6 +686,8 @@
     private Task FinalizeDiceAsync() => ExecuteAsync(() => ApiClient.FinalizeDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
     private Task BuyFaceUpCardAsync(int slotIndex) => ExecuteAsync(() => ApiClient.BuyFaceUpCardAsync(GameId, new BuyFaceUpCardRequest(Session.PlayerId, slotIndex)));
     private Task RefreshMarketAsync() => ExecuteAsync(() => ApiClient.RefreshMarketAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task EndTurnAsync() => ExecuteAsync(() => ApiClient.EndTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task AdvancePlayerAsync() => ExecuteAsync(() => ApiClient.AdvancePlayerAsync(GameId, new ActorRequest(Session.PlayerId)));
 
     private Task ChooseLeaveTokyoAsync(bool leaveTokyo)
     {
@@ -693,19 +699,14 @@
         return ExecuteAsync(() => ApiClient.ChooseLeaveTokyoAsync(GameId, new ChooseLeaveTokyoRequest(_game.PendingDecision.PlayerId, leaveTokyo)));
     }
 
-    private Task EndTurnAsync() => ExecuteAsync(() => ApiClient.EndTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
-
     private async Task EndTurnAndAdvanceAsync()
     {
         await EndTurnAsync();
-
         if (_error is null && CanAdvancePlayer)
         {
             await AdvancePlayerAsync();
         }
     }
-
-    private Task AdvancePlayerAsync() => ExecuteAsync(() => ApiClient.AdvancePlayerAsync(GameId, new ActorRequest(Session.PlayerId)));
 
     public void Dispose()
     {
@@ -721,7 +722,6 @@
         public static EventFeedItem From(long sequence, System.Text.Json.JsonElement json, Func<int, string> playerName)
         {
             var eventName = ReadString(json, "eventName") ?? "GameEvent";
-            var cleanName = eventName.Replace("Event", string.Empty);
             var playerId = ReadInt(json, "playerId");
             var sourcePlayerId = ReadInt(json, "sourcePlayerId");
             var targetPlayerId = ReadInt(json, "targetPlayerId");
@@ -733,29 +733,18 @@
             return eventName switch
             {
                 "TurnStartedEvent" => new(sequence, "Turn started", $"{Name(playerName, playerId)} started their turn."),
-                "DiceRolledEvent" => new(sequence, "Dice rolled", $"{Name(playerName, playerId)} rolled {FormatFaces(json)} on roll {ReadInt(json, "rollNumber") ?? 1}."),
-                "DiceFinalizedEvent" => new(sequence, "Dice resolved", $"{Name(playerName, playerId)} resolved dice: {FormatDiceSummary(json)}."),
-                "DamageDealtEvent" => new(sequence, "Damage dealt", $"{Name(playerName, sourcePlayerId)} dealt {amount ?? 0} damage to {Name(playerName, targetPlayerId)}{FormatSuffix(ReadString(json, "damageKind"))}."),
+                "DiceRolledEvent" => new(sequence, "Dice rolled", $"{Name(playerName, playerId)} rolled {FormatFaces(json)}."),
+                "DiceFinalizedEvent" => new(sequence, "Dice resolved", $"{Name(playerName, playerId)} resolved dice."),
+                "DamageDealtEvent" => new(sequence, "Damage dealt", $"{Name(playerName, sourcePlayerId)} dealt {amount ?? 0} damage to {Name(playerName, targetPlayerId)}."),
                 "DamageCanceledEvent" => new(sequence, "Damage canceled", $"Damage against {Name(playerName, targetPlayerId ?? playerId)} was canceled{FormatSuffix(reason)}."),
                 "PlayerHealedEvent" => new(sequence, "Healing", $"{Name(playerName, playerId)} healed {amount ?? 0} HP{FormatSuffix(reason)}."),
                 "TokyoEnteredEvent" => new(sequence, "Tokyo entered", $"{Name(playerName, playerId)} entered {FormatTokyoSlot(slot)}."),
                 "TokyoLeftEvent" => new(sequence, "Tokyo left", $"{Name(playerName, playerId)} left {FormatTokyoSlot(slot)}."),
-                "CardBoughtEvent" => new(sequence, "Card bought", $"{Name(playerName, playerId)} bought {cardName ?? "a card"} for {ReadInt(json, "cost") ?? ReadInt(json, "costSpent") ?? 0} energy."),
+                "CardBoughtEvent" => new(sequence, "Card bought", $"{Name(playerName, playerId)} bought {cardName ?? "a card"}."),
                 "MarketRefreshedEvent" => new(sequence, "Market refreshed", playerId is null ? "The market was refreshed." : $"{Name(playerName, playerId)} refreshed the market."),
-                "StatusTokensAddedEvent" => new(sequence, "Status tokens", $"{Name(playerName, sourcePlayerId)} gave {FormatStatusTokens(json, added: true)} to {Name(playerName, targetPlayerId)}."),
-                "StatusTokensRemovedEvent" => new(sequence, "Status tokens removed", $"{FormatStatusTokens(json, added: false)} were removed from {Name(playerName, targetPlayerId ?? playerId)}."),
-                "KeepCardDiscardedEvent" => new(sequence, "Card discarded", $"{Name(playerName, playerId)} discarded {cardName ?? "a keep card"}."),
-                "GameEndedEvent" => FormatGameEnded(sequence, json, playerName, reason),
-                _ => new EventFeedItem(sequence, SplitTitle(cleanName), FormatFallback(json, playerName))
+                "GameEndedEvent" => new(sequence, "Game ended", reason ?? "The game ended."),
+                _ => new(sequence, SplitTitle(eventName.Replace("Event", string.Empty)), FormatFallback(json, playerName))
             };
-        }
-
-        private static EventFeedItem FormatGameEnded(long sequence, System.Text.Json.JsonElement json, Func<int, string> playerName, string? reason)
-        {
-            var winnerPlayerId = ReadInt(json, "winnerPlayerId");
-            return winnerPlayerId is null
-                ? new EventFeedItem(sequence, "Game ended", $"The game ended without a winner{FormatSuffix(reason)}.")
-                : new EventFeedItem(sequence, "Game ended", $"{Name(playerName, winnerPlayerId)} won the game{FormatSuffix(reason)}.");
         }
 
         private static string FormatFallback(System.Text.Json.JsonElement json, Func<int, string> playerName)
@@ -783,29 +772,6 @@
             return formatted.Length == 0 ? "dice" : string.Join(" ", formatted);
         }
 
-        private static string FormatDiceSummary(System.Text.Json.JsonElement json)
-        {
-            if (!json.TryGetProperty("summary", out var summary) || summary.ValueKind != System.Text.Json.JsonValueKind.Object)
-            {
-                return "result applied";
-            }
-
-            var parts = new List<string>();
-            AddCount(parts, ReadInt(summary, "attackCount"), "attack");
-            AddCount(parts, ReadInt(summary, "energyCount"), "energy");
-            AddCount(parts, ReadInt(summary, "heartCount"), "heal");
-            AddCount(parts, ReadInt(summary, "victoryPointsFromNumbers"), "VP");
-            return parts.Count == 0 ? "no direct effect" : string.Join(", ", parts);
-        }
-
-        private static string FormatStatusTokens(System.Text.Json.JsonElement json, bool added)
-        {
-            var parts = new List<string>();
-            AddCount(parts, ReadInt(json, added ? "poisonTokensAdded" : "poisonTokensRemoved"), "poison");
-            AddCount(parts, ReadInt(json, added ? "shrinkTokensAdded" : "shrinkTokensRemoved"), "shrink");
-            return parts.Count == 0 ? "status tokens" : string.Join(" and ", parts);
-        }
-
         private static string FaceIcon(string? face) => face switch
         {
             "One" => "1",
@@ -827,11 +793,6 @@
         private static string FormatSuffix(string? value) => string.IsNullOrWhiteSpace(value) ? string.Empty : $" ({value})";
         private static string Name(Func<int, string> playerName, int? playerId) => playerId is null ? "Unknown monster" : playerName(playerId.Value);
         private static string SplitTitle(string value) => string.Concat(value.SelectMany((character, index) => index > 0 && char.IsUpper(character) ? new[] { ' ', character } : new[] { character }));
-
-        private static void AddCount(List<string> parts, int? value, string label)
-        {
-            if (value is > 0) parts.Add($"{value} {label}");
-        }
 
         private static void Add(List<string> parts, int? value, string label)
         {
