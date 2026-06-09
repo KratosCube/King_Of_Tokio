@@ -23,6 +23,12 @@ public static class LobbyEndpoints
             }
         });
 
+        lobbies.MapGet("/", (bool? publicOnly, [FromServices] ILobbyStore store) =>
+        {
+            var result = store.ListLobbies(publicOnly ?? true);
+            return Results.Ok(result);
+        });
+
         lobbies.MapGet("/{lobbyId:guid}", (Guid lobbyId, [FromServices] ILobbyStore store) =>
         {
             return store.TryGetLobby(lobbyId, out var lobby)
