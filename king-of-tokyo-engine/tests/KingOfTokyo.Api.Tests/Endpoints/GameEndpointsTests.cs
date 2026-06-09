@@ -22,6 +22,17 @@ public sealed class GameEndpointsTests
     }
 
     [Fact]
+    public void MapKingOfTokyoGameEndpoints_Should_RegisterDebugRoutes()
+    {
+        using var app = CreateAppWithGameEndpoints();
+
+        var routePatterns = GetRoutePatterns(app);
+
+        Assert.Contains("/api/games/debug/cards", routePatterns);
+        Assert.Contains("/api/games/{gameId:guid}/debug/grant-keep-card", routePatterns);
+    }
+
+    [Fact]
     public void MapKingOfTokyoGameEndpoints_Should_RegisterCoreTurnCommandRoutes()
     {
         using var app = CreateAppWithGameEndpoints();
@@ -72,7 +83,7 @@ public sealed class GameEndpointsTests
 
         var routePatterns = GetRoutePatterns(app);
 
-        Assert.Equal(29, routePatterns.Count);
+        Assert.Equal(31, routePatterns.Count);
     }
 
     private static WebApplication CreateAppWithGameEndpoints()
