@@ -18,6 +18,12 @@ public sealed class ApiClient
         return await ReadRequiredAsync<LobbyJoinResultDto>(response, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<LobbyDto>> ListLobbiesAsync(bool publicOnly = true, CancellationToken cancellationToken = default)
+    {
+        return await _httpClient.GetFromJsonAsync<IReadOnlyList<LobbyDto>>($"api/lobbies?publicOnly={publicOnly.ToString().ToLowerInvariant()}", cancellationToken)
+            ?? Array.Empty<LobbyDto>();
+    }
+
     public async Task<LobbyDto?> GetLobbyAsync(Guid lobbyId, CancellationToken cancellationToken = default)
     {
         return await _httpClient.GetFromJsonAsync<LobbyDto>($"api/lobbies/{lobbyId}", cancellationToken);
