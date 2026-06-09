@@ -26,8 +26,17 @@
         const style = document.createElement("style");
         style.id = "kot-mvp-ui-cleanup-style";
         style.textContent = `
-            .pending-decision-banner {
+            .pending-decision-banner,
+            .game-status-strip {
                 display: none !important;
+            }
+
+            .game-hero > .status-pill:first-child {
+                margin-bottom: 0.15rem !important;
+            }
+
+            .game-hero > h1 {
+                margin-bottom: 0.45rem !important;
             }
         `;
         document.head.appendChild(style);
@@ -93,7 +102,8 @@
             hiddenMainActionLabels: Array.from(hiddenMainActionLabels),
             renamedMainActionLabels: Array.from(renameMainActionLabels.entries()),
             duplicateDiceActionLabels: Array.from(duplicateDiceActionLabels),
-            hidesPendingDecisionBanner: true
+            hidesPendingDecisionBanner: true,
+            hidesGameStatusStrip: true
         });
     }
 
