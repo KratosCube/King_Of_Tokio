@@ -289,11 +289,24 @@
         {
             while (_timer is not null && await _timer.WaitForNextTickAsync(cancellationToken))
             {
-                await InvokeAsync(RefreshAsync);
+                await InvokeAsync(async () =>
+                {
+                    await RefreshAsync();
+                    StateHasChanged();
+                });
             }
         }
         catch (OperationCanceledException)
         {
+        }
+        catch (Exception ex)
+        {
+            await InvokeAsync(async () =>
+            {
+                _error = ex.Message;
+                await Session.DebugLogAsync("lobby.poll.error", new { LobbyId, error = ex.Message });
+                StateHasChanged();
+            });
         }
     }
 
@@ -301,17 +314,28 @@
     {
         try
         {
-            _lobby = await ApiClient.GetLobbyAsync(LobbyId);
+            var lobby = await ApiClient.GetLobbyAsync(LobbyId);
+            _lobby = lobby;
             _currentSeat = _lobby?.Seats.FirstOrDefault(seat => seat.PlayerToken == Session.PlayerToken);
 
             if (_lobby is null)
             {
                 _error = "Lobby was not found. It may have been deleted.";
+                await Session.DebugLogAsync("lobby.refresh.missing", new { LobbyId });
                 return;
             }
 
+            _error = null;
+
             if (Session.PlayerToken is not null && _currentSeat is null && Session.LobbyId == LobbyId)
             {
+                await Session.DebugLogAsync("lobby.identity.stale", new
+                {
+                    LobbyId,
+                    Session.PlayerId,
+                    Session.PlayerToken,
+                    seatCount = _lobby.Seats.Count
+                });
                 Session.PlayerId = null;
                 Session.PlayerToken = null;
                 await Session.SaveAsync();
@@ -322,10 +346,34 @@
                 Session.RememberGame(_lobby.GameId.Value);
                 await Session.SaveAsync();
             }
+
+            await Session.DebugLogAsync("lobby.refresh", new
+            {
+                LobbyId,
+                _lobby.Name,
+                _lobby.Status,
+                _lobby.GameId,
+                players = _lobby.Seats.Count,
+                ready = _lobby.Seats.Count(seat => seat.IsReady),
+                maxPlayers = _lobby.MaxPlayers,
+                sessionPlayerId = Session.PlayerId,
+                sessionPlayerToken = Session.PlayerToken,
+                currentSeatPlayerId = _currentSeat?.PlayerId,
+                seats = _lobby.Seats.Select(seat => new
+                {
+                    seat.PlayerId,
+                    seat.DisplayName,
+                    seat.MonsterName,
+                    seat.IsReady,
+                    seat.IsHost,
+                    isCurrentSession = Session.PlayerToken == seat.PlayerToken
+                }).ToArray()
+            });
         }
         catch (Exception ex)
         {
             _error = ex.Message;
+            await Session.DebugLogAsync("lobby.refresh.error", new { LobbyId, error = ex.Message });
         }
     }
 
@@ -346,10 +394,19 @@
             _lobby = result.Lobby;
             _currentSeat = result.Lobby.Seats.FirstOrDefault(seat => seat.PlayerToken == result.PlayerToken);
             _confirmLeave = false;
+            await Session.DebugLogAsync("lobby.join", new
+            {
+                LobbyId,
+                result.PlayerId,
+                result.PlayerToken,
+                players = result.Lobby.Seats.Count
+            });
+            StateHasChanged();
         }
         catch (Exception ex)
         {
             _error = ex.Message;
+            await Session.DebugLogAsync("lobby.join.error", new { LobbyId, error = ex.Message });
         }
         finally
         {
@@ -377,10 +434,12 @@
                 monster.AvatarId));
             await ApiClient.SetReadyAsync(LobbyId, new SetLobbyReadyRequest(result.PlayerToken, IsReady: true));
             await RefreshAsync();
+            StateHasChanged();
         }
         catch (Exception ex)
         {
             _error = ex.Message;
+            await Session.DebugLogAsync("lobby.add-test.error", new { LobbyId, error = ex.Message });
         }
         finally
         {
@@ -404,10 +463,21 @@
             _currentSeat = _lobby.Seats.FirstOrDefault(seat => seat.PlayerToken == Session.PlayerToken);
             _confirmLeave = false;
             await Session.SaveAsync();
+            await Session.DebugLogAsync("lobby.ready.toggle", new
+            {
+                LobbyId,
+                Session.PlayerId,
+                Session.PlayerToken,
+                isReady = _currentSeat?.IsReady,
+                players = _lobby.Seats.Count,
+                ready = _lobby.Seats.Count(seat => seat.IsReady)
+            });
+            StateHasChanged();
         }
         catch (Exception ex)
         {
             _error = ex.Message;
+            await Session.DebugLogAsync("lobby.ready.error", new { LobbyId, error = ex.Message });
         }
         finally
         {
@@ -452,10 +522,12 @@
 
             _lobby = result.Lobby;
             _currentSeat = null;
+            StateHasChanged();
         }
         catch (Exception ex)
         {
             _error = ex.Message;
+            await Session.DebugLogAsync("lobby.leave.error", new { LobbyId, error = ex.Message });
         }
         finally
         {
@@ -483,6 +555,7 @@
         catch (Exception ex)
         {
             _error = ex.Message;
+            await Session.DebugLogAsync("lobby.start.error", new { LobbyId, error = ex.Message });
         }
         finally
         {
