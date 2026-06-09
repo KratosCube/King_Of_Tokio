@@ -1,5 +1,6 @@
 using KingOfTokyo.Api.GameSessions;
 using KingOfTokyo.Api.Lobbies;
+using KingOfTokyo.Core.Commands;
 using Microsoft.AspNetCore.Mvc;
 
 namespace KingOfTokyo.Api.Endpoints;
@@ -93,6 +94,24 @@ public static class LobbyEndpoints
             }
 
             var game = gameSessionStore.CreateGame(preparation.GameRequest);
+            if (!gameSessionStore.TryExecute(game.GameId, (engine, state) =>
+                {
+                    var initializeResult = engine.Execute(state, new InitializeGameCommand());
+                    return !initializeResult.Success
+                        ? initializeResult
+                        : engine.Execute(state, new BeginTurnCommand());
+                }, out var autoStartResult) || autoStartResult is null)
+            {
+                return Results.NotFound(new { error = "Game was not found after creation." });
+            }
+
+            if (!autoStartResult.Success)
+            {
+                return Results.BadRequest(new { error = autoStartResult.Error ?? "Game could not be initialized." });
+            }
+
+            game = autoStartResult.GameState;
+
             var attached = lobbyStore.TryAttachGame(lobbyId, game.GameId, out var startedLobby, out var attachError);
             if (!attached)
             {
