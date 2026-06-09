@@ -1,6 +1,7 @@
 @page "/"
 @implements IDisposable
 @inject ApiClient ApiClient
+@inject ClientSessionState Session
 
 <section class="hero home-hero">
     <div class="card">
@@ -89,9 +90,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await Session.LoadAsync();
         await RefreshLobbiesAsync();
         _cts = new CancellationTokenSource();
-        _timer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
         _ = PollAsync(_cts.Token);
     }
 
@@ -101,11 +103,24 @@
         {
             while (_timer is not null && await _timer.WaitForNextTickAsync(cancellationToken))
             {
-                await InvokeAsync(RefreshLobbiesAsync);
+                await InvokeAsync(async () =>
+                {
+                    await RefreshLobbiesAsync();
+                    StateHasChanged();
+                });
             }
         }
         catch (OperationCanceledException)
         {
+        }
+        catch (Exception ex)
+        {
+            await InvokeAsync(async () =>
+            {
+                _error = ex.Message;
+                await Session.DebugLogAsync("home.poll.error", new { error = ex.Message });
+                StateHasChanged();
+            });
         }
     }
 
@@ -119,10 +134,24 @@
             var lobbies = await ApiClient.ListLobbiesAsync(publicOnly: true);
             _lobbies.Clear();
             _lobbies.AddRange(lobbies);
+            await Session.DebugLogAsync("home.lobbies.refresh", new
+            {
+                count = _lobbies.Count,
+                lobbies = _lobbies.Select(lobby => new
+                {
+                    lobby.LobbyId,
+                    lobby.Name,
+                    lobby.Status,
+                    lobby.GameId,
+                    players = lobby.Seats.Count,
+                    lobby.MaxPlayers
+                }).ToArray()
+            });
         }
         catch (Exception ex)
         {
             _error = ex.Message;
+            await Session.DebugLogAsync("home.lobbies.error", new { error = ex.Message });
         }
         finally
         {
