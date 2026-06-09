@@ -4,6 +4,8 @@ public interface ILobbyStore
 {
     LobbyJoinResultDto CreateLobby(CreateLobbyRequest request);
 
+    IReadOnlyList<LobbyDto> ListLobbies(bool publicOnly = true);
+
     bool TryGetLobby(Guid lobbyId, out LobbyDto? lobby);
 
     bool TryJoinLobby(Guid lobbyId, JoinLobbyRequest request, out LobbyJoinResultDto? result, out string? error);
