@@ -41,6 +41,12 @@ public sealed class ApiClient
         return await ReadRequiredAsync<LobbyDto>(response, cancellationToken);
     }
 
+    public async Task<LobbyLeaveResultDto> LeaveLobbyAsync(Guid lobbyId, LeaveLobbyRequest request, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync($"api/lobbies/{lobbyId}/leave", request, cancellationToken);
+        return await ReadRequiredAsync<LobbyLeaveResultDto>(response, cancellationToken);
+    }
+
     public async Task<LobbyStartResultDto> StartLobbyAsync(Guid lobbyId, StartLobbyRequest request, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync($"api/lobbies/{lobbyId}/start", request, cancellationToken);
