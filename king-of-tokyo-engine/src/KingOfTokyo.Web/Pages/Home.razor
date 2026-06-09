@@ -1,26 +1,144 @@
 @page "/"
+@implements IDisposable
+@inject ApiClient ApiClient
 
-<section class="hero">
+<section class="hero home-hero">
     <div class="card">
-        <p class="status-pill">First playable web prototype</p>
+        <p class="status-pill">Online lobby MVP</p>
         <h1>Become the King of Tokyo</h1>
         <p class="muted">
-            Create a lobby, invite another monster, and start a headless-engine powered online match.
-            This UI is intentionally simple first: validate the full flow, then polish.
+            Create a lobby, join from another browser session, ready up, and start an online match for 2–6 monsters.
         </p>
         <div class="actions">
             <NavLink class="btn btn-primary" href="lobbies/new">Create lobby</NavLink>
+            <button class="btn btn-secondary" @onclick="RefreshLobbiesAsync" disabled="@_busy">Refresh lobbies</button>
         </div>
     </div>
 
     <div class="panel">
-        <h2>Prototype scope</h2>
+        <h2>Test multiplayer sessions</h2>
         <ul class="muted">
-            <li>Lobby creation and join flow</li>
-            <li>Ready and host start</li>
-            <li>Snapshot-driven game table</li>
-            <li>Basic turn command buttons</li>
-            <li>Event cursor integration next</li>
+            <li>Create a public lobby in one browser profile.</li>
+            <li>Open the home page in incognito or another browser.</li>
+            <li>Join the public lobby from the list below.</li>
+            <li>Ready all players, then the host starts the game.</li>
         </ul>
     </div>
 </section>
+
+<section class="panel lobby-browser-panel">
+    <div class="lobby-section-heading">
+        <div>
+            <h2>Public lobbies</h2>
+            <p class="muted">Open lobbies are stored in the running API process. Restarting the API clears this list.</p>
+        </div>
+        <span class="status-pill">@_lobbies.Count lobby/lobbies</span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <p class="status-pill danger-pill">@_error</p>
+    }
+    else if (_busy && _lobbies.Count == 0)
+    {
+        <p class="muted">Loading public lobbies...</p>
+    }
+    else if (_lobbies.Count == 0)
+    {
+        <div class="placeholder-box">No public lobbies yet. Create one to start testing multiple sessions.</div>
+    }
+    else
+    {
+        <div class="lobby-browser-list">
+            @foreach (var lobby in _lobbies)
+            {
+                <article class="lobby-browser-card @(IsJoinable(lobby) ? null : "not-joinable")">
+                    <div>
+                        <h3>@lobby.Name</h3>
+                        <p class="muted">@lobby.Seats.Count/@lobby.MaxPlayers players • @lobby.Seats.Count(seat => seat.IsReady) ready • @lobby.Status</p>
+                    </div>
+                    <div class="lobby-browser-seats">
+                        @foreach (var seat in lobby.Seats)
+                        {
+                            var monster = MonsterCatalog.Find(seat.MonsterId);
+                            <span title="@seat.DisplayName" style="--accent:@monster.Accent">@monster.Emoji @seat.MonsterName</span>
+                        }
+                    </div>
+                    <div class="actions compact-actions">
+                        @if (lobby.GameId is not null)
+                        {
+                            <NavLink class="btn btn-primary" href="@($"games/{lobby.GameId}")">Open game</NavLink>
+                        }
+                        else
+                        {
+                            <NavLink class="btn btn-primary" href="@($"lobbies/{lobby.LobbyId}")">Open lobby</NavLink>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    private readonly List<LobbyDto> _lobbies = new();
+    private PeriodicTimer? _timer;
+    private CancellationTokenSource? _cts;
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshLobbiesAsync();
+        _cts = new CancellationTokenSource();
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+        _ = PollAsync(_cts.Token);
+    }
+
+    private async Task PollAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (_timer is not null && await _timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await InvokeAsync(RefreshLobbiesAsync);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task RefreshLobbiesAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var lobbies = await ApiClient.ListLobbiesAsync(publicOnly: true);
+            _lobbies.Clear();
+            _lobbies.AddRange(lobbies);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static bool IsJoinable(LobbyDto lobby) =>
+        lobby.GameId is null &&
+        lobby.Seats.Count < lobby.MaxPlayers &&
+        string.Equals(lobby.Status, "WaitingForPlayers", StringComparison.OrdinalIgnoreCase);
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _timer?.Dispose();
+    }
+}
