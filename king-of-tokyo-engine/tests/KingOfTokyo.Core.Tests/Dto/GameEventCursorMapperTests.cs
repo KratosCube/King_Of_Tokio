@@ -1,10 +1,10 @@
+using System.Text.Json;
 using KingOfTokyo.Core.Commands;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Dto;
 using KingOfTokyo.Core.Engine;
-using KingOfTokyo.Core.Events;
 using Xunit;
 
 namespace KingOfTokyo.Core.Tests.Dto;
@@ -28,7 +28,7 @@ public sealed class GameEventCursorMapperTests
         Assert.Equal(gameState.Version, cursor.CurrentGameVersion);
         Assert.Single(cursor.Events);
         Assert.Equal(1, cursor.Events[0].EventSequence);
-        Assert.IsType<TurnStartedEvent>(cursor.Events[0].Event);
+        AssertEventName("TurnStartedEvent", cursor.Events[0].Event);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public sealed class GameEventCursorMapperTests
         Assert.Equal(gameState.Version, cursor.CurrentGameVersion);
         Assert.Single(cursor.Events);
         Assert.Equal(afterBeginTurnEventSequence + 1, cursor.Events[0].EventSequence);
-        Assert.IsType<DiceRolledEvent>(cursor.Events[0].Event);
+        AssertEventName("DiceRolledEvent", cursor.Events[0].Event);
     }
 
     [Fact]
@@ -109,6 +109,13 @@ public sealed class GameEventCursorMapperTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             GameEventCursorMapper.MapEventsSince(gameState, -1));
+    }
+
+    private static void AssertEventName(string expectedEventName, JsonElement eventJson)
+    {
+        Assert.Equal(JsonValueKind.Object, eventJson.ValueKind);
+        Assert.True(eventJson.TryGetProperty("eventName", out var eventName));
+        Assert.Equal(expectedEventName, eventName.GetString());
     }
 
     private static GameState CreateGameState(int playerCount)
