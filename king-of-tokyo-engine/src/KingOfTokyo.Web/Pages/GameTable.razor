@@ -4,9 +4,6 @@
 @inject ClientSessionState Session
 
 <div class="card game-hero">
-    <p class="status-pill">Tokyo battle arena</p>
-    <h1>Tokyo arena</h1>
-
     @if (!string.IsNullOrWhiteSpace(_error))
     {
         <p class="status-pill danger-pill">@_error</p>
@@ -18,56 +15,6 @@
     }
     else
     {
-        <div class="game-status-strip">
-            <section class="status-card primary-status">
-                <span>Next action</span>
-                <strong>@SmartActionTitle</strong>
-                <small>@SmartActionDescription</small>
-            </section>
-            <section class="status-card @(HasResolvedLobbyIdentity ? "your-turn-card" : null)">
-                <span>You control</span>
-                <strong>@LocalPlayerLabel</strong>
-                <small>@IdentityLabel</small>
-            </section>
-            <section class="status-card @(IsLocalActor ? "your-turn-card" : null)">
-                <span>Active monster</span>
-                <strong>@ActiveTurnLabel</strong>
-                <small>@ActorPillText</small>
-            </section>
-            <section class="status-card @(HasPendingDecision ? "decision-status-card" : null)">
-                <span>@(HasPendingDecision ? "Decision" : "State")</span>
-                <strong>@(HasPendingDecision ? PendingDecisionLabel : _game.Status)</strong>
-                <small>Phase: @PhaseLabel • Rolls: @RollsLabel • Events: @Session.LastEventSequence</small>
-            </section>
-        </div>
-
-        @if (HasPendingDecision)
-        {
-            <section class="pending-decision-banner">
-                <div>
-                    <span class="status-pill danger-pill">Decision required</span>
-                    <h2>@PendingDecisionLabel</h2>
-                    <p>@PendingDecisionDescription</p>
-                </div>
-                <div class="actions">
-                    @if (CanAnswerLeaveTokyoDecision)
-                    {
-                        <button class="btn btn-primary" @onclick="() => ChooseLeaveTokyoAsync(true)" disabled="@_busy">Leave Tokyo</button>
-                        <button class="btn btn-secondary" @onclick="() => ChooseLeaveTokyoAsync(false)" disabled="@_busy">Stay in Tokyo</button>
-                    }
-                    else if (CanControlDecisionActor)
-                    {
-                        <button class="btn btn-primary" @onclick="ControlDecisionPlayerAsync" disabled="@_busy">Control decision monster</button>
-                        <button class="btn btn-secondary" @onclick="RefreshAllAsync" disabled="@_busy">Refresh</button>
-                    }
-                    else
-                    {
-                        <button class="btn btn-secondary" @onclick="RefreshAllAsync" disabled="@_busy">Refresh</button>
-                    }
-                </div>
-            </section>
-        }
-
         @if (_game.WinnerPlayerId is not null)
         {
             <p class="status-pill">Winner: @PlayerName(_game.WinnerPlayerId.Value) — @_game.WinnerReason</p>
@@ -148,7 +95,6 @@
                         }
                     </div>
                     <div class="actions compact-actions">
-                        <button class="btn btn-primary" @onclick="RerollSelectedDiceAsync" disabled="@(!CanRerollSelected || _busy)">Reroll selected dice</button>
                         <button class="btn btn-secondary" @onclick="ClearSelectedDice" disabled="@(_busy || _selectedDiceIndexes.Count == 0)">Clear dice selection</button>
                     </div>
                 }
@@ -204,14 +150,6 @@
                         <button class="btn btn-primary" @onclick="ControlDecisionPlayerAsync" disabled="@_busy">Control decision monster</button>
                         <button class="btn btn-secondary" @onclick="RefreshAllAsync" disabled="@_busy">Refresh</button>
                     }
-                    else if (CanInitialize)
-                    {
-                        <button class="btn btn-primary" @onclick="InitializeAsync" disabled="@_busy">Initialize game</button>
-                    }
-                    else if (CanBeginTurn)
-                    {
-                        <button class="btn btn-primary" @onclick="BeginTurnAsync" disabled="@_busy">Begin turn</button>
-                    }
                     else if (CanRollDice)
                     {
                         <button class="btn btn-primary" @onclick="RollDiceAsync" disabled="@_busy">Roll dice</button>
@@ -232,13 +170,8 @@
                     }
                     else if (CanUseMarketActions)
                     {
-                        <button class="btn btn-primary" @onclick="EndTurnAndAdvanceAsync" disabled="@_busy">End turn & advance</button>
-                        <button class="btn btn-secondary" @onclick="EndTurnAsync" disabled="@_busy">End turn only</button>
+                        <button class="btn btn-primary" @onclick="EndTurnAndAdvanceAsync" disabled="@_busy">End turn</button>
                         <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@_busy">Refresh market</button>
-                    }
-                    else if (CanAdvancePlayer)
-                    {
-                        <button class="btn btn-primary" @onclick="AdvancePlayerAsync" disabled="@_busy">Advance player</button>
                     }
                     else if (AllowDevPlayerControl && CurrentActorId is not null && !IsLocalActor)
                     {
@@ -329,23 +262,7 @@
     private bool CanControlDecisionActor => AllowDevPlayerControl && PendingDecisionPlayerId is not null && !IsLocalDecisionActor;
 
     private string LocalPlayerLabel => Session.PlayerId is null ? "Unknown player" : PlayerName(Session.PlayerId.Value);
-    private string ActiveTurnLabel => CurrentActorId is null ? "No active turn" : PlayerName(CurrentActorId.Value);
-    private string PhaseLabel => string.IsNullOrWhiteSpace(CurrentPhase) ? "No phase" : CurrentPhase;
-    private string RollsLabel => _game?.CurrentTurn is null ? "No dice yet" : $"{_game.CurrentTurn.RollCountUsed}/{_game.CurrentTurn.MaxRolls}";
-    private string IdentityLabel => HasResolvedLobbyIdentity
-        ? $"Locked from lobby token • player #{Session.PlayerId}"
-        : "No lobby token lock • debug switching available";
     private string PendingDecisionLabel => _game?.PendingDecision is null ? "No decision" : $"{_game.PendingDecision.DecisionType} for {PlayerName(_game.PendingDecision.PlayerId)}";
-
-    private string ActorPillText
-    {
-        get
-        {
-            if (CurrentActorId is null) return "No active turn yet";
-            if (IsLocalActor) return "Your turn";
-            return $"Waiting for {PlayerName(CurrentActorId.Value)}";
-        }
-    }
 
     private string PendingDecisionDescription
     {
@@ -384,14 +301,11 @@
             if (_game?.WinnerPlayerId is not null) return "Game finished";
             if (CanAnswerLeaveTokyoDecision) return "Answer Tokyo decision";
             if (CanControlDecisionActor) return "Control decision monster";
-            if (CanInitialize) return "Initialize game";
-            if (CanBeginTurn) return "Begin your turn";
             if (CanRollDice) return "Roll dice";
             if (CanRerollSelected) return "Reroll selected dice";
             if (CanSelectDiceForReroll) return "Choose dice or finalize";
             if (CanFinalizeDice) return "Finalize dice";
             if (CanUseMarketActions) return "Buy cards or end turn";
-            if (CanAdvancePlayer) return "Advance to next player";
             if (_game?.PendingDecision is not null) return $"Waiting for {PlayerName(_game.PendingDecision.PlayerId)}";
             if (CurrentActorId is not null && !IsLocalActor) return $"Waiting for {PlayerName(CurrentActorId.Value)}";
             return "Waiting";
@@ -405,14 +319,11 @@
             if (_game?.WinnerPlayerId is not null) return "The match has a winner.";
             if (!HasResolvedLobbyIdentity && _sourceLobby is not null) return "This browser is not matched to a lobby seat. Go back to the lobby and join first.";
             if (CanAnswerLeaveTokyoDecision || CanControlDecisionActor || _game?.PendingDecision is not null) return PendingDecisionDescription;
-            if (CanInitialize) return "Start the match state and deal the initial market.";
-            if (CanBeginTurn) return "Start your monster's turn.";
             if (CanRollDice) return "Make the first roll of this turn.";
             if (CanRerollSelected) return "Reroll the dice you selected below, or finalize if you want to keep the current result.";
             if (CanSelectDiceForReroll) return "Click dice below to select them for reroll, or finalize the current result.";
             if (CanFinalizeDice) return "Resolve the current dice result and move to the next step.";
-            if (CanUseMarketActions) return "Buy cards from the market, refresh the market, or end and advance the turn.";
-            if (CanAdvancePlayer) return "The current turn is finished. Move to the next monster.";
+            if (CanUseMarketActions) return "Buy cards from the market, refresh the market, or end your turn.";
             if (CurrentActorId is not null && !IsLocalActor) return $"This browser controls {LocalPlayerLabel}. Waiting for {PlayerName(CurrentActorId.Value)} in their session.";
             return "Waiting for the game state to change.";
         }
