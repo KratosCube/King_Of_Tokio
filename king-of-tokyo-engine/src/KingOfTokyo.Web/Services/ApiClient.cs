@@ -20,13 +20,13 @@ public sealed class ApiClient
 
     public async Task<IReadOnlyList<LobbyDto>> ListLobbiesAsync(bool publicOnly = true, CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<IReadOnlyList<LobbyDto>>($"api/lobbies?publicOnly={publicOnly.ToString().ToLowerInvariant()}", cancellationToken)
+        return await _httpClient.GetFromJsonAsync<IReadOnlyList<LobbyDto>>($"api/lobbies?publicOnly={publicOnly.ToString().ToLowerInvariant()}&poll={PollStamp()}", cancellationToken)
             ?? Array.Empty<LobbyDto>();
     }
 
     public async Task<LobbyDto?> GetLobbyAsync(Guid lobbyId, CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<LobbyDto>($"api/lobbies/{lobbyId}", cancellationToken);
+        return await _httpClient.GetFromJsonAsync<LobbyDto>($"api/lobbies/{lobbyId}?poll={PollStamp()}", cancellationToken);
     }
 
     public async Task<LobbyJoinResultDto> JoinLobbyAsync(Guid lobbyId, JoinLobbyRequest request, CancellationToken cancellationToken = default)
@@ -55,18 +55,18 @@ public sealed class ApiClient
 
     public async Task<GameStateDto?> GetGameAsync(Guid gameId, CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<GameStateDto>($"api/games/{gameId}", cancellationToken);
+        return await _httpClient.GetFromJsonAsync<GameStateDto>($"api/games/{gameId}?poll={PollStamp()}", cancellationToken);
     }
 
     public async Task<IReadOnlyList<DebugCardOptionDto>> GetDebugCardsAsync(CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<IReadOnlyList<DebugCardOptionDto>>("api/games/debug/cards", cancellationToken)
+        return await _httpClient.GetFromJsonAsync<IReadOnlyList<DebugCardOptionDto>>($"api/games/debug/cards?poll={PollStamp()}", cancellationToken)
             ?? Array.Empty<DebugCardOptionDto>();
     }
 
     public async Task<GameEventCursorDto?> GetEventsAsync(Guid gameId, long after, CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<GameEventCursorDto>($"api/games/{gameId}/events?after={after}", cancellationToken);
+        return await _httpClient.GetFromJsonAsync<GameEventCursorDto>($"api/games/{gameId}/events?after={after}&poll={PollStamp()}", cancellationToken);
     }
 
     public Task<ApiCommandResultDto> InitializeGameAsync(Guid gameId, CancellationToken cancellationToken = default)
@@ -113,6 +113,8 @@ public sealed class ApiClient
 
         return await ReadRequiredAsync<ApiCommandResultDto>(response, cancellationToken);
     }
+
+    private static long PollStamp() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
     private static async Task<T> ReadRequiredAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)
     {
