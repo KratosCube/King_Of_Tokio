@@ -33,7 +33,7 @@
             <section class="lobby-status-card">
                 <span>Players</span>
                 <strong>@SeatCount/@_lobby.MaxPlayers</strong>
-                <small>@ReadyCount ready • @OpenSeatCount open</small>
+                <small>@ReadyCount ready now • @OpenSeatCount open seats</small>
             </section>
             <section class="lobby-status-card">
                 <span>Host</span>
@@ -46,6 +46,7 @@
             <section class="panel lobby-info-panel">
                 <h2>@_lobby.Name</h2>
                 <p class="muted">Lobby id: <code>@_lobby.LobbyId</code></p>
+                <p class="muted">This room auto-refreshes while the API is running. Other browser sessions should appear here within a few seconds.</p>
                 <div class="lobby-rules-grid">
                     <span><strong>@_lobby.MaxPlayers</strong><small>Max players</small></span>
                     <span><strong>@_lobby.InitialHealth</strong><small>Initial HP</small></span>
@@ -71,11 +72,27 @@
                             <span class="status-pill @(_currentSeat.IsReady ? null : "danger-pill")">@(_currentSeat.IsReady ? "Ready" : "Not ready")</span>
                         </div>
                     </article>
+
+                    @if (_confirmLeave)
+                    {
+                        <div class="leave-confirm-box">
+                            <strong>@(IsLastJoinedSeat ? "Delete this lobby?" : "Leave this lobby?")</strong>
+                            <p class="muted">
+                                @(IsLastJoinedSeat
+                                    ? "You are the last monster in this lobby. Leaving will delete it from the public lobby list."
+                                    : "You will leave this lobby. Other joined monsters can continue waiting.")
+                            </p>
+                            <div class="actions compact-actions">
+                                <button class="btn btn-primary" @onclick="LeaveLobbyAsync" disabled="@_busy">@(IsLastJoinedSeat ? "Delete lobby" : "Leave lobby")</button>
+                                <button class="btn btn-secondary" @onclick="CancelLeave" disabled="@_busy">Cancel</button>
+                            </div>
+                        </div>
+                    }
                 }
                 else
                 {
                     <h2>Join this lobby</h2>
-                    <p class="muted">Join as another monster. For one-browser local testing, add a ready test monster from the developer tools below.</p>
+                    <p class="muted">Join as another monster from this browser session. Use incognito or another browser to test multiple real sessions.</p>
                     <div class="field">
                         <label>Your display name</label>
                         <InputText @bind-Value="_joinName" />
@@ -90,7 +107,7 @@
                         </InputSelect>
                     </div>
                     <div class="actions">
-                        <button class="btn btn-secondary" @onclick="JoinAsync" disabled="@(_busy || Session.HasLobbyIdentity || IsLobbyClosed)">Join</button>
+                        <button class="btn btn-primary" @onclick="JoinAsync" disabled="@(_busy || IsLobbyClosed || SeatCount >= _lobby.MaxPlayers)">Join lobby</button>
                         <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
                     </div>
                 }
@@ -101,9 +118,9 @@
             <div class="lobby-section-heading">
                 <div>
                     <h2>Monsters in lobby</h2>
-                    <p class="muted">Ready monsters can start once the lobby has enough players.</p>
+                    <p class="muted">Ready count is for currently joined monsters. The game can start with 2+ ready monsters; open seats do not need to be filled.</p>
                 </div>
-                <span class="status-pill">@ReadyCount / @SeatCount ready</span>
+                <span class="status-pill">@ReadyCount / @SeatCount joined ready</span>
             </div>
             <div class="monster-grid">
                 @foreach (var seat in _lobby.Seats)
@@ -150,10 +167,14 @@
                 }
                 else if (!IsJoined && !IsLobbyClosed)
                 {
-                    <button class="btn btn-secondary" disabled>Join first</button>
+                    <button class="btn btn-primary" @onclick="JoinAsync" disabled="@(_busy || SeatCount >= _lobby.MaxPlayers)">Join lobby</button>
                 }
 
                 <button class="btn btn-primary" @onclick="StartAsync" disabled="@(!_canStart || _busy)">Start game</button>
+                @if (IsJoined && !IsLobbyClosed)
+                {
+                    <button class="btn btn-secondary" @onclick="AskLeaveLobby" disabled="@_busy">@(IsLastJoinedSeat ? "Delete lobby" : "Leave lobby")</button>
+                }
                 <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
                 @if (_lobby.GameId is not null)
                 {
@@ -186,6 +207,7 @@
     private PeriodicTimer? _timer;
     private CancellationTokenSource? _cts;
     private bool _busy;
+    private bool _confirmLeave;
     private string? _error;
     private string _joinName = "Guest";
     private string _joinMonsterId = MonsterCatalog.Default.MonsterId;
@@ -193,6 +215,7 @@
 
     private bool IsJoined => _currentSeat is not null && Session.PlayerToken is not null;
     private bool IsLobbyClosed => IsLobbyStatus("Started") || IsLobbyStatus("Closed");
+    private bool IsLastJoinedSeat => IsJoined && SeatCount == 1;
     private int SeatCount => _lobby?.Seats.Count ?? 0;
     private int ReadyCount => _lobby?.Seats.Count(seat => seat.IsReady) ?? 0;
     private int OpenSeatCount => _lobby is null ? 0 : Math.Max(0, _lobby.MaxPlayers - _lobby.Seats.Count);
@@ -226,10 +249,10 @@
         get
         {
             if (_lobby?.GameId is not null || IsLobbyStatus("Started")) return "The match has been created. Open the game table when you are ready.";
-            if (!IsJoined) return "Join the lobby or use the developer tools to add a ready test monster.";
+            if (!IsJoined) return "Join this lobby from this browser. The room auto-refreshes for all sessions.";
             if (_currentSeat?.IsReady != true) return "Mark your monster as ready when you are happy with the lobby setup.";
-            if (_canStart) return "All required monsters are ready. As host, you can start the match.";
-            if (OpenSeatCount > 0) return "Waiting for more monsters to join. For local testing, the host can add a ready test monster below.";
+            if (_canStart) return "All joined monsters are ready. As host, you can start the match.";
+            if (OpenSeatCount > 0) return "Waiting for more monsters to join, or start once at least two joined monsters are ready.";
             if (ReadyCount < SeatCount) return "At least one joined monster is not ready yet.";
             return _currentSeat?.IsHost == true ? "Refresh if you expected the lobby to be startable." : "The host must start the game.";
         }
@@ -241,6 +264,8 @@
         if (Session.LobbyId is null || Session.LobbyId != LobbyId)
         {
             Session.LobbyId = LobbyId;
+            Session.PlayerId = null;
+            Session.PlayerToken = null;
             await Session.SaveAsync();
         }
 
@@ -279,7 +304,20 @@
             _lobby = await ApiClient.GetLobbyAsync(LobbyId);
             _currentSeat = _lobby?.Seats.FirstOrDefault(seat => seat.PlayerToken == Session.PlayerToken);
 
-            if (_lobby?.GameId is not null && Session.GameId != _lobby.GameId.Value)
+            if (_lobby is null)
+            {
+                _error = "Lobby was not found. It may have been deleted.";
+                return;
+            }
+
+            if (Session.PlayerToken is not null && _currentSeat is null && Session.LobbyId == LobbyId)
+            {
+                Session.PlayerId = null;
+                Session.PlayerToken = null;
+                await Session.SaveAsync();
+            }
+
+            if (_lobby.GameId is not null && Session.GameId != _lobby.GameId.Value)
             {
                 Session.RememberGame(_lobby.GameId.Value);
                 await Session.SaveAsync();
@@ -307,6 +345,7 @@
             await Session.SaveAsync();
             _lobby = result.Lobby;
             _currentSeat = result.Lobby.Seats.FirstOrDefault(seat => seat.PlayerToken == result.PlayerToken);
+            _confirmLeave = false;
         }
         catch (Exception ex)
         {
@@ -363,7 +402,56 @@
         {
             _lobby = await ApiClient.SetReadyAsync(LobbyId, new SetLobbyReadyRequest(Session.PlayerToken.Value, !_currentSeat.IsReady));
             _currentSeat = _lobby.Seats.FirstOrDefault(seat => seat.PlayerToken == Session.PlayerToken);
+            _confirmLeave = false;
             await Session.SaveAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void AskLeaveLobby()
+    {
+        _confirmLeave = true;
+    }
+
+    private void CancelLeave()
+    {
+        _confirmLeave = false;
+    }
+
+    private async Task LeaveLobbyAsync()
+    {
+        if (Session.PlayerToken is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var result = await ApiClient.LeaveLobbyAsync(LobbyId, new LeaveLobbyRequest(Session.PlayerToken.Value));
+            Session.LobbyId = null;
+            Session.PlayerId = null;
+            Session.PlayerToken = null;
+            await Session.SaveAsync();
+            _confirmLeave = false;
+
+            if (result.Deleted)
+            {
+                Navigation.NavigateTo("/");
+                return;
+            }
+
+            _lobby = result.Lobby;
+            _currentSeat = null;
         }
         catch (Exception ex)
         {
