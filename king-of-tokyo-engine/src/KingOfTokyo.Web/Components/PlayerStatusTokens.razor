@@ -2,14 +2,14 @@
 
 @if (Status.PoisonTokens > 0 || Status.ShrinkTokens > 0)
 {
-    <div class="status-token-list">
+    <div class="status-token-list" aria-label="Status tokens">
         @if (Status.PoisonTokens > 0)
         {
-            <span class="status-token poison-token">☠ Poison @Status.PoisonTokens</span>
+            <span class="status-token poison-token" title="Poison tokens on this monster">☠ Poison <strong>@Status.PoisonTokens</strong></span>
         }
         @if (Status.ShrinkTokens > 0)
         {
-            <span class="status-token shrink-token">⬇ Shrink @Status.ShrinkTokens</span>
+            <span class="status-token shrink-token" title="Shrink tokens on this monster">⬇ Shrink <strong>@Status.ShrinkTokens</strong></span>
         }
     </div>
 }
