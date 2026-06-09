@@ -1,10 +1,10 @@
+using System.Text.Json;
 using KingOfTokyo.Api.Contracts;
 using KingOfTokyo.Core.Commands;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Engine;
-using KingOfTokyo.Core.Events;
 using Xunit;
 
 namespace KingOfTokyo.Api.Tests.Contracts;
@@ -27,7 +27,7 @@ public sealed class ApiCommandResultDtoTests
         Assert.Equal(gameState.Version, dto.GameState.Version);
         Assert.Equal(gameState.EventLog.Count, dto.CurrentEventSequence);
         Assert.Single(dto.NewEvents);
-        Assert.IsType<TurnStartedEvent>(dto.NewEvents[0]);
+        AssertEventName("TurnStartedEvent", dto.NewEvents[0]);
     }
 
     [Fact]
@@ -58,6 +58,13 @@ public sealed class ApiCommandResultDtoTests
         Assert.Equal(1, dto.GameState.Version);
         Assert.Equal(0, dto.CurrentEventSequence);
         Assert.Empty(dto.NewEvents);
+    }
+
+    private static void AssertEventName(string expectedEventName, JsonElement eventJson)
+    {
+        Assert.Equal(JsonValueKind.Object, eventJson.ValueKind);
+        Assert.True(eventJson.TryGetProperty("eventName", out var eventName));
+        Assert.Equal(expectedEventName, eventName.GetString());
     }
 
     private static GameState CreateGameState()
