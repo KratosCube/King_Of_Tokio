@@ -30,7 +30,7 @@ public sealed class ClientSessionState
         }
 
         _loaded = true;
-        var json = await _jsRuntime.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+        var json = await _jsRuntime.InvokeAsync<string?>("sessionStorage.getItem", StorageKey);
         if (string.IsNullOrWhiteSpace(json))
         {
             return;
@@ -49,6 +49,15 @@ public sealed class ClientSessionState
             PlayerId = persisted.PlayerId;
             PlayerToken = persisted.PlayerToken;
             LastEventSequence = persisted.LastEventSequence;
+            await DebugLogAsync("session.load", new
+            {
+                storage = "sessionStorage",
+                LobbyId,
+                GameId,
+                PlayerId,
+                PlayerToken,
+                LastEventSequence
+            });
         }
         catch (JsonException)
         {
@@ -65,7 +74,16 @@ public sealed class ClientSessionState
             PlayerToken,
             LastEventSequence);
         var json = JsonSerializer.Serialize(persisted);
-        await _jsRuntime.InvokeVoidAsync("localStorage.setItem", StorageKey, json);
+        await _jsRuntime.InvokeVoidAsync("sessionStorage.setItem", StorageKey, json);
+        await DebugLogAsync("session.save", new
+        {
+            storage = "sessionStorage",
+            LobbyId,
+            GameId,
+            PlayerId,
+            PlayerToken,
+            LastEventSequence
+        });
     }
 
     public async Task ClearAsync()
@@ -75,7 +93,8 @@ public sealed class ClientSessionState
         PlayerId = null;
         PlayerToken = null;
         LastEventSequence = 0;
-        await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", StorageKey);
+        await _jsRuntime.InvokeVoidAsync("sessionStorage.removeItem", StorageKey);
+        await DebugLogAsync("session.clear", new { storage = "sessionStorage" });
     }
 
     public void RememberLobby(Guid lobbyId, int playerId, Guid playerToken)
@@ -89,6 +108,20 @@ public sealed class ClientSessionState
     {
         GameId = gameId;
         LastEventSequence = 0;
+    }
+
+    public async Task DebugLogAsync(string scope, object payload)
+    {
+        try
+        {
+            await _jsRuntime.InvokeVoidAsync("tokyoDebug.log", scope, payload);
+        }
+        catch (JSException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 
     private sealed record PersistedClientSessionState(
