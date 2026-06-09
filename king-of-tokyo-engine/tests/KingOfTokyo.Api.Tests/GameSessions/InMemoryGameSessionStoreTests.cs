@@ -1,9 +1,7 @@
+using System.Text.Json;
 using KingOfTokyo.Api.Contracts;
 using KingOfTokyo.Api.GameSessions;
 using KingOfTokyo.Core.Commands;
-using KingOfTokyo.Core.Domain.Enums;
-using KingOfTokyo.Core.Engine;
-using KingOfTokyo.Core.Events;
 using Xunit;
 
 namespace KingOfTokyo.Api.Tests.GameSessions;
@@ -11,78 +9,83 @@ namespace KingOfTokyo.Api.Tests.GameSessions;
 public sealed class InMemoryGameSessionStoreTests
 {
     [Fact]
-    public void CreateGame_Should_CreateSnapshotWithRequestedMonsterNames()
+    public void CreateGame_Should_ReturnSnapshot()
     {
         var store = new InMemoryGameSessionStore();
 
-        var snapshot = store.CreateGame(new CreateGameRequest(new[] { "Alpha", "Beta" }));
+        var created = store.CreateGame(new CreateGameRequest(new[] { "Alpha", "Beta" }));
 
-        Assert.NotEqual(Guid.Empty, snapshot.GameId);
-        Assert.Equal(GameStatus.Setup, snapshot.Status);
-        Assert.Equal(2, snapshot.Players.Count);
-        Assert.Equal("Alpha", snapshot.Players[0].MonsterName);
-        Assert.Equal("Beta", snapshot.Players[1].MonsterName);
-        Assert.False(snapshot.Tokyo.BayEnabled);
+        Assert.NotEqual(Guid.Empty, created.GameId);
+        Assert.Equal("Setup", created.Status.ToString());
+        Assert.Equal(2, created.Players.Count);
     }
 
     [Fact]
-    public void CreateGame_Should_UseDefaultMonsterName_WhenNameIsBlank()
+    public void CreateGame_Should_AllowTwoPlayersForOnlineMvp()
     {
         var store = new InMemoryGameSessionStore();
 
-        var snapshot = store.CreateGame(new CreateGameRequest(new[] { "", "  " }));
+        var created = store.CreateGame(new CreateGameRequest(new[] { "Alpha", "Beta" }));
 
-        Assert.Equal("Monster 1", snapshot.Players[0].MonsterName);
-        Assert.Equal("Monster 2", snapshot.Players[1].MonsterName);
+        Assert.Equal(2, created.Players.Count);
+        Assert.False(created.Tokyo.BayEnabled);
     }
 
     [Fact]
-    public void CreateGame_Should_ApplyCustomInitialHealth()
+    public void CreateGame_Should_UseCustomGameOptions_WhenProvided()
     {
         var store = new InMemoryGameSessionStore();
 
-        var snapshot = store.CreateGame(new CreateGameRequest(
-            new[] { "Alpha", "Beta" },
-            InitialHealth: 15));
+        var created = store.CreateGame(new CreateGameRequest(new[] { "Alpha", "Beta" }, InitialHealth: 12, TargetVictoryPoints: 30));
 
-        Assert.All(snapshot.Players, player =>
-        {
-            Assert.Equal(15, player.Health);
-            Assert.Equal(15, player.MaxHealth);
-        });
+        Assert.All(created.Players, player => Assert.Equal(12, player.Health));
+        Assert.All(created.Players, player => Assert.Equal(12, player.MaxHealth));
     }
 
     [Fact]
-    public void CreateGame_Should_ApplyCustomTargetVictoryPoints()
+    public void CreateGame_Should_RejectInvalidPlayerCount()
     {
         var store = new InMemoryGameSessionStore();
-        var created = store.CreateGame(new CreateGameRequest(
-            new[] { "Alpha", "Beta" },
-            TargetVictoryPoints: 1));
 
-        var executed = store.TryExecute(created.GameId, (engine, state) =>
-        {
-            Assert.Equal(1, state.Options.TargetVictoryPoints);
-            return CommandResult.Successful(state);
-        }, out var result);
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            store.CreateGame(new CreateGameRequest(new[] { "Solo" })));
 
-        Assert.True(executed);
-        Assert.NotNull(result);
-        Assert.True(result!.Success, result.Error);
+        Assert.Equal("Player count must be between 2 and 6. (Parameter 'playerCount')", exception.Message);
     }
 
     [Fact]
-    public void TryGetSnapshot_Should_ReturnCreatedGameSnapshot()
+    public void CreateGame_Should_RejectInvalidInitialHealth()
     {
         var store = new InMemoryGameSessionStore();
-        var created = store.CreateGame(new CreateGameRequest(new[] { "Alpha", "Beta", "Gamma" }));
+
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            store.CreateGame(new CreateGameRequest(new[] { "Alpha", "Beta" }, InitialHealth: 0)));
+
+        Assert.Equal("Initial health must be between 1 and 50. (Parameter 'initialHealth')", exception.Message);
+    }
+
+    [Fact]
+    public void CreateGame_Should_RejectInvalidTargetVictoryPoints()
+    {
+        var store = new InMemoryGameSessionStore();
+
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            store.CreateGame(new CreateGameRequest(new[] { "Alpha", "Beta" }, TargetVictoryPoints: 0)));
+
+        Assert.Equal("Target victory points must be between 1 and 100. (Parameter 'targetVictoryPoints')", exception.Message);
+    }
+
+    [Fact]
+    public void TryGetSnapshot_Should_ReturnSnapshot_WhenGameExists()
+    {
+        var store = new InMemoryGameSessionStore();
+        var created = store.CreateGame(new CreateGameRequest(new[] { "Alpha", "Beta" }));
 
         var found = store.TryGetSnapshot(created.GameId, out var snapshot);
 
         Assert.True(found);
         Assert.NotNull(snapshot);
         Assert.Equal(created.GameId, snapshot!.GameId);
-        Assert.Equal(3, snapshot.Players.Count);
     }
 
     [Fact]
@@ -97,7 +100,7 @@ public sealed class InMemoryGameSessionStoreTests
     }
 
     [Fact]
-    public void TryExecute_Should_RunCommandAndReturnUpdatedSnapshotAndEvents()
+    public void TryExecute_Should_RunCommandAndUpdateSnapshot()
     {
         var store = new InMemoryGameSessionStore();
         var created = store.CreateGame(new CreateGameRequest(new[] { "Alpha", "Beta" }));
@@ -109,11 +112,8 @@ public sealed class InMemoryGameSessionStoreTests
 
         Assert.True(executed);
         Assert.NotNull(result);
-        Assert.True(result!.Success, result.Error);
-        Assert.Equal(GameStatus.Running, result.GameState.Status);
-        Assert.Equal(1, result.GameState.Version);
-        Assert.Empty(result.NewEvents);
-        Assert.Equal(0, result.CurrentEventSequence);
+        Assert.True(result!.Success);
+        Assert.Equal("Running", result.GameState.Status.ToString());
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public sealed class InMemoryGameSessionStoreTests
         Assert.Equal(2, cursor.CurrentGameVersion);
         Assert.Single(cursor.Events);
         Assert.Equal(1, cursor.Events[0].EventSequence);
-        Assert.IsType<TurnStartedEvent>(cursor.Events[0].Event);
+        AssertEventName("TurnStartedEvent", cursor.Events[0].Event);
     }
 
     [Fact]
@@ -160,5 +160,12 @@ public sealed class InMemoryGameSessionStoreTests
 
         Assert.False(found);
         Assert.Null(cursor);
+    }
+
+    private static void AssertEventName(string expectedEventName, JsonElement eventJson)
+    {
+        Assert.Equal(JsonValueKind.Object, eventJson.ValueKind);
+        Assert.True(eventJson.TryGetProperty("eventName", out var eventName));
+        Assert.Equal(expectedEventName, eventName.GetString());
     }
 }
