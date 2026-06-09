@@ -149,6 +149,46 @@ public sealed class InMemoryLobbyStore : ILobbyStore
         }
     }
 
+    public bool TryLeaveLobby(Guid lobbyId, LeaveLobbyRequest request, out LobbyLeaveResultDto? result, out string? error)
+    {
+        result = null;
+        error = null;
+
+        if (!_lobbies.TryGetValue(lobbyId, out var state))
+        {
+            return false;
+        }
+
+        lock (state.SyncRoot)
+        {
+            if (state.Status is LobbyStatus.Started)
+            {
+                error = "Cannot leave a lobby after the game has started.";
+                return true;
+            }
+
+            var seat = state.Seats.SingleOrDefault(s => s.PlayerToken == request.PlayerToken);
+            if (seat is null)
+            {
+                error = "Player token was not found in this lobby.";
+                return true;
+            }
+
+            state.RemoveSeat(seat);
+            if (state.Seats.Count == 0)
+            {
+                _lobbies.TryRemove(lobbyId, out _);
+                result = new LobbyLeaveResultDto(Deleted: true, Lobby: null);
+                return true;
+            }
+
+            state.EnsureHost();
+            state.RecalculateStatus();
+            result = new LobbyLeaveResultDto(Deleted: false, ToDto(state));
+            return true;
+        }
+    }
+
     public bool TryPrepareStart(Guid lobbyId, StartLobbyRequest request, out LobbyStartPreparationDto? result, out string? error)
     {
         result = null;
@@ -341,7 +381,7 @@ public sealed class InMemoryLobbyStore : ILobbyStore
         public LobbySeatState AddSeat(string displayName, bool isHost, string monsterId, string monsterName, string avatarId)
         {
             var seat = new LobbySeatState(
-                Seats.Count,
+                Seats.Count == 0 ? 0 : Seats.Max(existingSeat => existingSeat.PlayerId) + 1,
                 displayName,
                 isHost,
                 Guid.NewGuid(),
@@ -351,6 +391,21 @@ public sealed class InMemoryLobbyStore : ILobbyStore
             Seats.Add(seat);
             RecalculateStatus();
             return seat;
+        }
+
+        public void RemoveSeat(LobbySeatState seat)
+        {
+            Seats.Remove(seat);
+        }
+
+        public void EnsureHost()
+        {
+            if (Seats.Count == 0 || Seats.Any(seat => seat.IsHost))
+            {
+                return;
+            }
+
+            Seats[0].IsHost = true;
         }
 
         public void AttachGame(Guid gameId)
@@ -394,7 +449,7 @@ public sealed class InMemoryLobbyStore : ILobbyStore
 
         public int PlayerId { get; }
         public string DisplayName { get; }
-        public bool IsHost { get; }
+        public bool IsHost { get; set; }
         public Guid PlayerToken { get; }
         public string MonsterId { get; }
         public string MonsterName { get; }
