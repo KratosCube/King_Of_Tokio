@@ -62,6 +62,19 @@ public static class LobbyEndpoints
                 : Results.BadRequest(new { error });
         });
 
+        lobbies.MapPost("/{lobbyId:guid}/leave", (Guid lobbyId, LeaveLobbyRequest request, [FromServices] ILobbyStore store) =>
+        {
+            var found = store.TryLeaveLobby(lobbyId, request, out var result, out var error);
+            if (!found)
+            {
+                return Results.NotFound(new { error = "Lobby was not found." });
+            }
+
+            return error is null
+                ? Results.Ok(result)
+                : Results.BadRequest(new { error });
+        });
+
         lobbies.MapPost("/{lobbyId:guid}/start", (
             Guid lobbyId,
             StartLobbyRequest request,
