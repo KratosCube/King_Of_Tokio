@@ -41,6 +41,29 @@ public sealed class InMemoryLobbyStore : ILobbyStore
         return new LobbyJoinResultDto(ToDto(lobby), hostSeat.PlayerToken, hostSeat.PlayerId);
     }
 
+    public IReadOnlyList<LobbyDto> ListLobbies(bool publicOnly = true)
+    {
+        var lobbies = new List<LobbyDto>();
+
+        foreach (var state in _lobbies.Values)
+        {
+            lock (state.SyncRoot)
+            {
+                if (publicOnly && !state.IsPublic)
+                {
+                    continue;
+                }
+
+                lobbies.Add(ToDto(state));
+            }
+        }
+
+        return lobbies
+            .OrderBy(lobby => lobby.Status is LobbyStatus.WaitingForPlayers or LobbyStatus.ReadyToStart ? 0 : 1)
+            .ThenBy(lobby => lobby.Name)
+            .ToArray();
+    }
+
     public bool TryGetLobby(Guid lobbyId, out LobbyDto? lobby)
     {
         lobby = null;
