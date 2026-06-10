@@ -8,16 +8,41 @@ namespace KingOfTokyo.Core.Services;
 public sealed class MarketSetupService
 {
     private readonly IReadOnlyList<MarketCardState> _starterDeck;
+    private readonly Random _random;
+    private readonly bool _shuffleDeck;
 
-    public MarketSetupService(IReadOnlyList<MarketCardState>? starterDeck = null)
+    public MarketSetupService(IReadOnlyList<MarketCardState>? starterDeck = null, Random? random = null, bool? shuffleDeck = null)
     {
         _starterDeck = starterDeck ?? BuildDefaultDeck();
+        _random = random ?? Random.Shared;
+        _shuffleDeck = shuffleDeck ?? starterDeck is null;
     }
 
     public void InitializeMarket(GameState gameState)
     {
         ArgumentNullException.ThrowIfNull(gameState);
-        gameState.Market.Initialize(_starterDeck);
+
+        var deck = _shuffleDeck
+            ? ShuffleDeck(_starterDeck, _random)
+            : _starterDeck.ToArray();
+
+        gameState.Market.Initialize(deck);
+    }
+
+    internal static IReadOnlyList<MarketCardState> ShuffleDeck(IReadOnlyList<MarketCardState> deck, Random random)
+    {
+        ArgumentNullException.ThrowIfNull(deck);
+        ArgumentNullException.ThrowIfNull(random);
+
+        var shuffled = deck.ToArray();
+
+        for (var i = shuffled.Length - 1; i > 0; i--)
+        {
+            var swapIndex = random.Next(i + 1);
+            (shuffled[i], shuffled[swapIndex]) = (shuffled[swapIndex], shuffled[i]);
+        }
+
+        return shuffled;
     }
 
     public static IReadOnlyList<MarketCardState> BuildDefaultDeck()
