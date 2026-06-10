@@ -27,6 +27,7 @@
                     @foreach (var player in _game.Players)
                     {
                         var monster = MonsterCatalog.FindByName(player.MonsterName);
+                        var playerId = player.PlayerId;
                         <article class="@MonsterCardClass(player)" style="--accent:@monster.Accent">
                             <span class="monster-emoji">@monster.Emoji</span>
                             <strong>@player.MonsterName</strong>
@@ -59,7 +60,11 @@
                                 <span>⚡ @player.Energy</span>
                             </div>
                             <PlayerStatusTokens Status="player.Status" />
-                            <PlayerKeepCards Cards="player.KeepCards" />
+                            <PlayerKeepCards OwnerPlayerId="@player.PlayerId"
+                                             Cards="player.KeepCards"
+                                             OnCardClicked="HandleKeepCardClickedAsync"
+                                             IsActionAvailable="@(card => IsKeepCardActionAvailable(playerId, card))"
+                                             IsSelected="@(card => IsKeepCardSelected(playerId, card))" />
                         </article>
                     }
                 </div>
@@ -78,19 +83,27 @@
                         <h2>Pending decision</h2>
                         <p><strong>@_game.PendingDecision!.DecisionType</strong> <span class="muted">for @PlayerName(_game.PendingDecision.PlayerId)</span></p>
                         <p class="muted">@PendingDecisionDescription</p>
-                        @if (IsPeekTopDeckCardPurchaseDecision && PeekedTopDeckCard is not null)
+                        @if (IsPeekTopDeckCardPurchaseDecision && IsLocalDecisionActor && PeekedTopDeckCard is not null)
                         {
-                            <div class="special-card-action-card">
-                                <strong>@PeekedTopDeckCard.CardName</strong>
-                                <small>@PeekedTopDeckCard.CardType • Cost @PeekedTopDeckCard.EffectiveCost</small>
-                                <p>@PeekedTopDeckCard.Description</p>
-                                @if (IsLocalDecisionActor)
-                                {
-                                    <div class="actions compact-actions">
-                                        <button class="btn btn-primary" @onclick="BuyPeekedTopDeckCardAsync" disabled="@_busy">Buy top card</button>
-                                        <button class="btn btn-secondary" @onclick="DeclinePeekedTopDeckCardAsync" disabled="@_busy">Skip</button>
+                            <div class="special-card-action-card revealed-card-action-card">
+                                <div class="revealed-card-layout">
+                                    <div class="card-art-frame compact-card-art revealed-card-art">
+                                        <img src="@CardImagePath(PeekedTopDeckCard.CardId)" alt="@PeekedTopDeckCard.CardName card art" loading="lazy" onerror="this.closest('.revealed-card-art')?.classList.add('missing-card-art'); this.remove();" />
+                                        <div class="card-art-fallback">
+                                            <strong>@PeekedTopDeckCard.CardName</strong>
+                                            <small>@PeekedTopDeckCard.CardType • Cost @PeekedTopDeckCard.EffectiveCost</small>
+                                        </div>
                                     </div>
-                                }
+                                    <div>
+                                        <strong>@PeekedTopDeckCard.CardName</strong>
+                                        <small>@PeekedTopDeckCard.CardType • Cost @PeekedTopDeckCard.EffectiveCost</small>
+                                        <p>@PeekedTopDeckCard.Description</p>
+                                        <div class="actions compact-actions">
+                                            <button class="btn btn-primary" @onclick="BuyPeekedTopDeckCardAsync" disabled="@_busy">Buy top card</button>
+                                            <button class="btn btn-secondary" @onclick="DeclinePeekedTopDeckCardAsync" disabled="@_busy">Skip</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         }
                     </section>
@@ -116,6 +129,72 @@
                 else
                 {
                     <div class="placeholder-box">Dice will appear here after rolling.</div>
+                }
+
+                @if (SelectedActionCard is not null || _mimicTargetSelectionActive)
+                {
+                    <section class="special-card-action-card selected-keep-action-panel">
+                        @if (SelectedActionCard is not null)
+                        {
+                            <div class="selected-keep-action-header">
+                                <strong>@SelectedActionCard.Name</strong>
+                                @if (SelectedActionCard.MimicTarget is not null)
+                                {
+                                    <small>Mimicking @SelectedActionCard.MimicTarget.CardName from @PlayerName(SelectedActionCard.MimicTarget.OwnerPlayerId)</small>
+                                }
+                                else
+                                {
+                                    <small>@SelectedActionCard.CardType • Cost @SelectedActionCard.Cost</small>
+                                }
+                            </div>
+                        }
+
+                        @if (_mimicTargetSelectionActive)
+                        {
+                            <p class="status-pill">Mimic target selection</p>
+                            <p class="muted">Click a keep card owned by another monster to imitate it.</p>
+                        }
+
+                        <div class="actions compact-actions">
+                            @if (SelectedCanUseMadeInALab)
+                            {
+                                <button class="btn btn-secondary" @onclick="PeekTopDeckCardAsync" disabled="@_busy">Use Made in a Lab</button>
+                            }
+                            @if (SelectedCanUseRapidHealing)
+                            {
+                                <button class="btn btn-secondary" @onclick="ActivateRapidHealingAsync" disabled="@_busy">Heal 1 for 2⚡</button>
+                            }
+                            @if (SelectedCanUseWings)
+                            {
+                                <button class="btn btn-secondary" @onclick="ActivateWingsAsync" disabled="@_busy">Cancel damage for 2⚡</button>
+                            }
+                            @if (SelectedCanUseMimic)
+                            {
+                                <button class="btn btn-secondary" @onclick="BeginMimicTargetSelection" disabled="@_busy">Choose imitation target</button>
+                            }
+                        </div>
+
+                        @if (SelectedCanUseHealingRay)
+                        {
+                            <div class="healing-ray-inline-controls">
+                                <small>Spend available heart dice to heal another monster.</small>
+                                <div class="actions compact-actions">
+                                    <select @bind="_healingRayTargetPlayerId" disabled="@_busy">
+                                        @foreach (var target in HealingRayTargets)
+                                        {
+                                            <option value="@target.PlayerId">@target.MonsterName (@target.Health/@target.MaxHealth HP, ⚡ @target.Energy)</option>
+                                        }
+                                    </select>
+                                    <input type="number" min="1" max="@AvailableHealingRayHearts" @bind="_healingRayAmount" disabled="@_busy" />
+                                    <button class="btn btn-secondary" @onclick="ActivateHealingRayAsync" disabled="@(_busy || _healingRayTargetPlayerId < 0 || _healingRayAmount <= 0)">Heal with ray</button>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="actions compact-actions">
+                            <button class="btn btn-secondary" @onclick="ClearSelectedKeepAction" disabled="@_busy">Close card action</button>
+                        </div>
+                    </section>
                 }
             </section>
 
@@ -150,59 +229,6 @@
         </div>
 
         <div class="grid-2 lower-game-grid">
-            @if (HasMvpCardActions)
-            {
-                <section class="panel card-actions-panel">
-                    <h2>Card actions</h2>
-                    <div class="actions compact-actions">
-                        @if (CanUseMadeInALab)
-                        {
-                            <button class="btn btn-secondary" @onclick="PeekTopDeckCardAsync" disabled="@_busy">Use Made in a Lab</button>
-                        }
-                        @if (CanUseRapidHealing)
-                        {
-                            <button class="btn btn-secondary" @onclick="ActivateRapidHealingAsync" disabled="@_busy">Rapid Healing: heal 1 for 2⚡</button>
-                        }
-                        @if (CanUseWings)
-                        {
-                            <button class="btn btn-secondary" @onclick="ActivateWingsAsync" disabled="@_busy">Wings: cancel damage for 2⚡</button>
-                        }
-                    </div>
-
-                    @if (CanUseHealingRay)
-                    {
-                        <div class="special-card-action-card">
-                            <strong>Healing Ray</strong>
-                            <small>Heal another monster. They pay you 2⚡ per HP if possible.</small>
-                            <div class="actions compact-actions">
-                                <select @bind="_healingRayTargetPlayerId" disabled="@_busy">
-                                    @foreach (var target in HealingRayTargets)
-                                    {
-                                        <option value="@target.PlayerId">@target.MonsterName (@target.Health/@target.MaxHealth HP, ⚡ @target.Energy)</option>
-                                    }
-                                </select>
-                                <input type="number" min="1" max="10" @bind="_healingRayAmount" disabled="@_busy" />
-                                <button class="btn btn-secondary" @onclick="ActivateHealingRayAsync" disabled="@(_busy || _healingRayTargetPlayerId < 0 || _healingRayAmount <= 0)">Heal with ray</button>
-                            </div>
-                        </div>
-                    }
-
-                    @if (CanUseMimic)
-                    {
-                        <div class="special-card-action-card">
-                            <strong>Mimic</strong>
-                            <small>Choose another monster's keep card to copy.</small>
-                            <div class="actions compact-actions">
-                                @foreach (var option in MimicTargetOptions)
-                                {
-                                    <button class="btn btn-secondary" @onclick="() => SetMimicTargetAsync(option.OwnerPlayerId, option.CardId)" disabled="@_busy">Copy @option.CardName from @PlayerName(option.OwnerPlayerId)</button>
-                                }
-                            </div>
-                        </div>
-                    }
-                </section>
-            }
-
             <section class="panel next-action-panel">
                 <h2>Next action</h2>
                 <p class="status-pill">@SmartActionTitle</p>
@@ -314,6 +340,9 @@
     private string? _error;
     private int _healingRayTargetPlayerId = -1;
     private int _healingRayAmount = 1;
+    private int? _selectedActionCardOwnerPlayerId;
+    private string? _selectedActionCardId;
+    private bool _mimicTargetSelectionActive;
 
     private const string MadeInALabCardId = "card-made-in-a-lab";
     private const string RapidHealingCardId = "card-rapid-healing";
@@ -341,12 +370,17 @@
     private PlayerDto? LocalPlayer => Session.PlayerId is null ? null : _game?.Players.FirstOrDefault(player => player.PlayerId == Session.PlayerId.Value);
     private bool IsPeekTopDeckCardPurchaseDecision => _game?.PendingDecision is not null && string.Equals(_game.PendingDecision.DecisionType, "PeekTopDeckCardPurchase", StringComparison.OrdinalIgnoreCase);
     private PeekedCardInfo? PeekedTopDeckCard => ReadPeekedCardInfo();
-    private bool HasMvpCardActions => CanUseMadeInALab || CanUseRapidHealing || CanUseWings || CanUseMimic || CanUseHealingRay;
-    private bool CanUseMadeInALab => CanUseMarketActions && HasLocalKeepCard(MadeInALabCardId) && _game?.Market.DrawPileCount > 0;
-    private bool CanUseRapidHealing => CanUseMarketActions && HasLocalKeepCard(RapidHealingCardId) && LocalPlayer is { Energy: >= 2 } player && player.Health < player.MaxHealth;
-    private bool CanUseWings => IsRunning && IsLocalActor && HasLocalKeepCard(WingsCardId) && LocalPlayer is { Energy: >= 2 } player && player.Health < player.MaxHealth && _game?.CurrentTurn is not null;
-    private bool CanUseMimic => CanUseMarketActions && HasLocalKeepCard(MimicCardId) && MimicTargetOptions.Any();
-    private bool CanUseHealingRay => CanUseMarketActions && HasLocalKeepCard(HealingRayCardId) && HealingRayTargets.Any();
+    private CardDto? SelectedActionCard => GetSelectedActionCard();
+    private bool SelectedCanUseMadeInALab => SelectedActionCard is not null && ActionCardProvides(SelectedActionCard, MadeInALabCardId) && CanUseMadeInALab;
+    private bool SelectedCanUseRapidHealing => SelectedActionCard is not null && ActionCardProvides(SelectedActionCard, RapidHealingCardId) && CanUseRapidHealing;
+    private bool SelectedCanUseWings => SelectedActionCard is not null && ActionCardProvides(SelectedActionCard, WingsCardId) && CanUseWings;
+    private bool SelectedCanUseHealingRay => SelectedActionCard is not null && ActionCardProvides(SelectedActionCard, HealingRayCardId) && CanUseHealingRay;
+    private bool SelectedCanUseMimic => SelectedActionCard?.CardId == MimicCardId && MimicTargetOptions.Any();
+    private bool CanUseMadeInALab => CanUseMarketActions && HasEffectiveLocalKeepCard(MadeInALabCardId) && _game?.Market.DrawPileCount > 0;
+    private bool CanUseRapidHealing => CanUseMarketActions && HasEffectiveLocalKeepCard(RapidHealingCardId) && LocalPlayer is { Energy: >= 2 } player && player.Health < player.MaxHealth;
+    private bool CanUseWings => IsRunning && IsLocalActor && HasEffectiveLocalKeepCard(WingsCardId) && LocalPlayer is { Energy: >= 2 } player && player.Health < player.MaxHealth && _game?.CurrentTurn is not null;
+    private bool CanUseHealingRay => CanUseMarketActions && HasEffectiveLocalKeepCard(HealingRayCardId) && AvailableHealingRayHearts > 0 && HealingRayTargets.Any();
+    private int AvailableHealingRayHearts => _game?.CurrentTurn?.Dice.Count(die => IsHeartFace(die.CurrentFace)) ?? 0;
     private IEnumerable<PlayerDto> HealingRayTargets => _game?.Players.Where(player =>
         player.PlayerId != Session.PlayerId &&
         player.IsAlive &&
@@ -418,7 +452,7 @@
             if (CanRerollSelected) return "Reroll the dice you selected below, or finalize if you want to keep the current result.";
             if (CanSelectDiceForReroll) return "Click dice below to select them for reroll, or finalize the current result.";
             if (CanFinalizeDice) return "Resolve the current dice result and move to the next step.";
-            if (CanUseMarketActions) return "Buy cards from the market, use keep-card actions, refresh the market, or end your turn.";
+            if (CanUseMarketActions) return "Buy cards from the market, click keep cards to use their actions, refresh the market, or end your turn.";
             if (CurrentActorId is not null && !IsLocalActor) return $"This browser controls {LocalPlayerLabel}. Waiting for {PlayerName(CurrentActorId.Value)} in their session.";
             return "Waiting for the game state to change.";
         }
@@ -474,7 +508,87 @@
 
     private bool IsPhase(string phase) => string.Equals(CurrentPhase, phase, StringComparison.OrdinalIgnoreCase);
 
-    private bool HasLocalKeepCard(string cardId) => LocalPlayer?.KeepCards.Any(card => string.Equals(card.CardId, cardId, StringComparison.OrdinalIgnoreCase)) == true;
+    private bool HasEffectiveLocalKeepCard(string cardId) => LocalPlayer?.KeepCards.Any(card => ActionCardProvides(card, cardId)) == true;
+
+    private static bool ActionCardProvides(CardDto card, string cardId)
+    {
+        return string.Equals(card.CardId, cardId, StringComparison.OrdinalIgnoreCase) ||
+               (string.Equals(card.CardId, MimicCardId, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(card.MimicTarget?.CardId, cardId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool IsKeepCardActionAvailable(int ownerPlayerId, CardDto card)
+    {
+        if (ownerPlayerId == Session.PlayerId)
+        {
+            return (ActionCardProvides(card, MadeInALabCardId) && CanUseMadeInALab) ||
+                   (ActionCardProvides(card, RapidHealingCardId) && CanUseRapidHealing) ||
+                   (ActionCardProvides(card, WingsCardId) && CanUseWings) ||
+                   (ActionCardProvides(card, HealingRayCardId) && CanUseHealingRay) ||
+                   (string.Equals(card.CardId, MimicCardId, StringComparison.OrdinalIgnoreCase) && MimicTargetOptions.Any());
+        }
+
+        return _mimicTargetSelectionActive && ownerPlayerId != Session.PlayerId && !string.Equals(card.CardId, MimicCardId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsKeepCardSelected(int ownerPlayerId, CardDto card)
+    {
+        return _selectedActionCardOwnerPlayerId == ownerPlayerId && string.Equals(_selectedActionCardId, card.CardId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private CardDto? GetSelectedActionCard()
+    {
+        if (_game is null || _selectedActionCardOwnerPlayerId is null || string.IsNullOrWhiteSpace(_selectedActionCardId))
+        {
+            return null;
+        }
+
+        return _game.Players
+            .FirstOrDefault(player => player.PlayerId == _selectedActionCardOwnerPlayerId.Value)?
+            .KeepCards
+            .FirstOrDefault(card => string.Equals(card.CardId, _selectedActionCardId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task HandleKeepCardClickedAsync(PlayerKeepCards.KeepCardClickArgs args)
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        if (_mimicTargetSelectionActive && args.OwnerPlayerId != Session.PlayerId && !string.Equals(args.Card.CardId, MimicCardId, StringComparison.OrdinalIgnoreCase))
+        {
+            await SetMimicTargetAsync(args.OwnerPlayerId, args.Card.CardId);
+            _mimicTargetSelectionActive = false;
+            return;
+        }
+
+        if (args.OwnerPlayerId == Session.PlayerId && IsKeepCardActionAvailable(args.OwnerPlayerId, args.Card))
+        {
+            _selectedActionCardOwnerPlayerId = args.OwnerPlayerId;
+            _selectedActionCardId = args.Card.CardId;
+            if (string.Equals(args.Card.CardId, MimicCardId, StringComparison.OrdinalIgnoreCase))
+            {
+                _mimicTargetSelectionActive = true;
+            }
+            else
+            {
+                _mimicTargetSelectionActive = false;
+            }
+        }
+    }
+
+    private void BeginMimicTargetSelection()
+    {
+        _mimicTargetSelectionActive = true;
+    }
+
+    private void ClearSelectedKeepAction()
+    {
+        _selectedActionCardOwnerPlayerId = null;
+        _selectedActionCardId = null;
+        _mimicTargetSelectionActive = false;
+    }
 
     private string MonsterCardClass(PlayerDto player)
     {
@@ -534,6 +648,8 @@
 
     private string PlayerName(int playerId) => _game?.Players.FirstOrDefault(player => player.PlayerId == playerId)?.MonsterName ?? $"Player {playerId}";
 
+    private static bool IsHeartFace(string face) => string.Equals(face, "Heart", StringComparison.OrdinalIgnoreCase) || string.Equals(face, "Heal", StringComparison.OrdinalIgnoreCase);
+
     private static string DieIcon(string face) => face.ToUpperInvariant() switch
     {
         "ONE" => "1",
@@ -544,6 +660,8 @@
         "ATTACK" or "CLAW" => "💥",
         _ => face
     };
+
+    private static string CardImagePath(string cardId) => $"/images/cards/{cardId}.jpg";
 
     private PeekedCardInfo? ReadPeekedCardInfo()
     {
@@ -580,6 +698,7 @@
 
         Session.PlayerId = playerId;
         _selectedDiceIndexes.Clear();
+        ClearSelectedKeepAction();
         await Session.SaveAsync();
         await RefreshAllAsync();
     }
@@ -626,6 +745,7 @@
             _game = await ApiClient.GetGameAsync(GameId);
             EnsureHealingRayDefaults();
             PruneSelectedDice();
+            PruneSelectedKeepAction();
         }
         catch (Exception ex)
         {
@@ -636,7 +756,7 @@
     private void EnsureHealingRayDefaults()
     {
         var targets = HealingRayTargets.ToArray();
-        if (targets.Length == 0)
+        if (targets.Length == 0 || AvailableHealingRayHearts <= 0)
         {
             _healingRayTargetPlayerId = -1;
             _healingRayAmount = 1;
@@ -649,7 +769,8 @@
         }
 
         var targetPlayer = targets.First(target => target.PlayerId == _healingRayTargetPlayerId);
-        _healingRayAmount = Math.Clamp(_healingRayAmount, 1, Math.Max(1, targetPlayer.MaxHealth - targetPlayer.Health));
+        var maxHeal = Math.Min(AvailableHealingRayHearts, Math.Max(1, targetPlayer.MaxHealth - targetPlayer.Health));
+        _healingRayAmount = Math.Clamp(_healingRayAmount, 1, maxHeal);
     }
 
     private void PruneSelectedDice()
@@ -662,6 +783,14 @@
 
         var validIndexes = _game.CurrentTurn.Dice.Where(die => !die.IsLocked).Select(die => die.Index).ToHashSet();
         _selectedDiceIndexes.RemoveWhere(index => !validIndexes.Contains(index));
+    }
+
+    private void PruneSelectedKeepAction()
+    {
+        if (SelectedActionCard is null)
+        {
+            ClearSelectedKeepAction();
+        }
     }
 
     private async Task RefreshEventsAsync()
@@ -708,6 +837,7 @@
             _game = result.GameState;
             EnsureHealingRayDefaults();
             _selectedDiceIndexes.Clear();
+            PruneSelectedKeepAction();
             foreach (var newEvent in result.NewEvents)
             {
                 _eventFeed.Add(EventFeedItem.From(Session.LastEventSequence + 1, newEvent, PlayerName));
