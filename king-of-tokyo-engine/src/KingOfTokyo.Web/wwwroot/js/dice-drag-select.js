@@ -6,17 +6,6 @@
     let suppressNativeClickUntil = 0;
     let clearSuppressionTimer = null;
 
-    const faceIcons = new Map([
-        ['ONE', '1'],
-        ['TWO', '2'],
-        ['THREE', '3'],
-        ['ENERGY', '⚡'],
-        ['HEAL', '❤'],
-        ['HEART', '❤'],
-        ['ATTACK', '💥'],
-        ['CLAW', '💥']
-    ]);
-
     const isSelectableDieButton = (element) =>
         element instanceof HTMLElement &&
         element.classList.contains('die-button') &&
@@ -38,16 +27,6 @@
     };
 
     const shouldSuppressNativeClick = () => suppressNativeClickUntil > performance.now();
-
-    const normalizeDiceFaces = () => {
-        for (const face of document.querySelectorAll('.die-face')) {
-            const text = (face.textContent || '').trim();
-            const icon = faceIcons.get(text.toUpperCase());
-            if (icon && text !== icon) {
-                face.textContent = icon;
-            }
-        }
-    };
 
     const clickIfNotSelected = (button) => {
         if (!isSelectableDieButton(button) || button.classList.contains('selected')) {
@@ -83,8 +62,6 @@
     }, true);
 
     document.addEventListener('pointerdown', (event) => {
-        normalizeDiceFaces();
-
         const button = findDieButton(event);
         if (!isSelectableDieButton(button)) {
             isDraggingDice = false;
@@ -129,13 +106,5 @@
         suppressNativeClickUntil = 0;
         isSyntheticDieClick = false;
         window.clearTimeout(clearSuppressionTimer);
-    });
-
-    normalizeDiceFaces();
-    const observer = new MutationObserver(() => normalizeDiceFaces());
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        characterData: true
     });
 })();
