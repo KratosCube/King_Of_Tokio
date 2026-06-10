@@ -99,6 +99,18 @@ public sealed class ApiClient
     public Task<ApiCommandResultDto> AdvancePlayerAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "advance-player", request, cancellationToken);
 
+    public Task<ApiCommandResultDto> ActivateWingsAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-wings", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateRapidHealingAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-rapid-healing", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateHealingRayAsync(Guid gameId, HealingRayRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-healing-ray", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> SetMimicTargetAsync(Guid gameId, SetMimicTargetRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "set-mimic-target", request, cancellationToken);
+
     public Task<ApiCommandResultDto> PeekTopDeckCardAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "peek-top-deck-card", request, cancellationToken);
 
