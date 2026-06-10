@@ -63,20 +63,25 @@
 
 .market-list:has(.card-art-surface) {
     align-content: start;
-    gap: clamp(0.35rem, 0.65vh, 0.6rem);
-    grid-template-rows: repeat(3, auto);
-    overflow: auto;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: clamp(0.4rem, 0.8vh, 0.75rem);
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 0.15rem;
 }
 
 .market-card.card-art-surface {
     align-content: start;
     cursor: zoom-in;
     display: grid;
+    flex: 0 0 auto;
     gap: 0.35rem;
     grid-template-rows: auto auto;
     justify-items: center;
     min-height: 0;
-    overflow: visible;
+    overflow: hidden;
     padding: clamp(0.28rem, 0.6vh, 0.45rem);
 }
 
@@ -91,7 +96,7 @@
     box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
     content: "";
     display: block;
-    width: min(94%, clamp(150px, 15.4vh, 236px));
+    width: min(96%, clamp(160px, 16vh, 230px));
 }
 
 .market-card.card-art-surface::after {
@@ -132,13 +137,13 @@
     }
 
     .market-card.card-art-surface::before {
-        width: min(94%, clamp(155px, 15.4vh, 236px));
+        width: min(96%, clamp(165px, 16vh, 230px));
     }
 }
 
 @media (min-width: 901px) and (min-height: 950px) {
     .market-card.card-art-surface::before {
-        width: min(94%, clamp(170px, 16.5vh, 250px));
+        width: min(96%, clamp(180px, 16.8vh, 248px));
     }
 }
 
