@@ -151,6 +151,84 @@
     gap: 0.18rem;
 }
 
+.market-card.card-art-surface {
+    align-items: start;
+    gap: 0.12rem 0.65rem;
+    grid-template-columns: 78px minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr auto;
+    min-height: 0;
+    padding: 0.55rem;
+}
+
+.market-card.card-art-surface::after {
+    display: none;
+}
+
+.market-card.card-art-surface .market-card-art {
+    aspect-ratio: auto;
+    border-radius: 0.55rem;
+    grid-column: 1;
+    grid-row: 1 / 5;
+    height: 109px;
+    margin: 0;
+    max-height: none;
+    width: 78px;
+}
+
+.market-card.card-art-surface .market-card-header,
+.market-card.card-art-surface .market-card-type,
+.market-card.card-art-surface p,
+.market-card.card-art-surface .btn {
+    grid-column: 2;
+    min-width: 0;
+}
+
+.market-card.card-art-surface .market-card-header {
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.market-card.card-art-surface .market-card-header h3 {
+    font-size: 0.82rem;
+    line-height: 1.05;
+    overflow: hidden;
+    padding-right: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.market-card.card-art-surface .market-cost {
+    font-size: 0.66rem;
+    padding: 0.1rem 0.36rem;
+}
+
+.market-card.card-art-surface .market-card-type {
+    font-size: 0.62rem;
+    line-height: 1;
+}
+
+.market-card.card-art-surface p {
+    display: -webkit-box;
+    font-size: 0.68rem;
+    line-height: 1.18;
+    margin: 0.02rem 0 0;
+    max-height: 2.4rem;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.market-card.card-art-surface:hover p,
+.market-card.card-art-surface:focus-within p {
+    max-height: 2.4rem;
+}
+
+.market-card.card-art-surface .btn {
+    justify-self: start;
+    margin-top: 0.22rem;
+    min-height: 1.6rem;
+    padding: 0.28rem 0.62rem;
+}
+
 @media (min-width: 901px) {
     .market-card::after,
     .owned-card-chip::after {
@@ -179,5 +257,24 @@
 
     .compact-card-art {
         max-height: 7.25rem;
+    }
+
+    .market-card.card-art-surface {
+        grid-template-columns: 70px minmax(0, 1fr);
+        padding: 0.48rem;
+    }
+
+    .market-card.card-art-surface .market-card-art {
+        height: 98px;
+        width: 70px;
+    }
+
+    .market-card.card-art-surface .market-card-header h3 {
+        font-size: 0.76rem;
+    }
+
+    .market-card.card-art-surface p {
+        font-size: 0.64rem;
+        line-height: 1.15;
     }
 }
