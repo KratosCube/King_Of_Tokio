@@ -1,42 +1,63 @@
 .dice-row {
+    align-items: center;
     background:
-        radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 42%),
+        radial-gradient(circle at 20% 12%, rgba(56, 189, 248, 0.16), transparent 38%),
+        radial-gradient(circle at 85% 85%, rgba(250, 204, 21, 0.08), transparent 42%),
         rgba(3, 7, 18, 0.34);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 1rem;
-    padding: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(0.55rem, 1.2vw, 0.9rem);
+    min-height: clamp(6.7rem, 15vh, 9rem);
+    padding: clamp(0.8rem, 1.5vw, 1.1rem);
 }
 
 .dice-row::before {
-    background: rgba(3, 7, 18, 0.58);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 0.8rem;
-    color: #dbeafe;
-    content: "Dice · click dice to select rerolls · green = selected · orange = locked";
-    display: block;
-    font-weight: 850;
-    letter-spacing: 0.02em;
-    padding: 0.45rem 0.6rem;
-    text-transform: uppercase;
+    display: none;
 }
 
 .die-button {
-    border-radius: 0.9rem;
-    min-width: 3.65rem;
-    padding: 0.25rem;
+    --die-rotation: 0deg;
+    align-items: center;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-radius: 1rem;
+    color: inherit;
+    display: grid;
+    gap: 0.35rem;
+    justify-items: center;
+    min-width: clamp(4.45rem, 5.2vw, 5.8rem);
+    padding: 0.2rem;
     position: relative;
+    transform: rotate(var(--die-rotation));
+    transition: transform 0.14s ease, filter 0.14s ease;
 }
+
+.die-button:nth-child(6n + 1) { --die-rotation: -4deg; }
+.die-button:nth-child(6n + 2) { --die-rotation: 3deg; }
+.die-button:nth-child(6n + 3) { --die-rotation: -2deg; }
+.die-button:nth-child(6n + 4) { --die-rotation: 4deg; }
+.die-button:nth-child(6n + 5) { --die-rotation: -3deg; }
+.die-button:nth-child(6n + 6) { --die-rotation: 2deg; }
 
 .die-button:not(:disabled) {
     cursor: pointer;
 }
 
 .die-button:not(:disabled):hover {
-    background: rgba(255, 255, 255, 0.08);
+    filter: brightness(1.08);
+    transform: rotate(0deg) translateY(-2px) scale(1.04);
+}
+
+.die-button:disabled {
+    opacity: 0.95;
 }
 
 .die-button.selected {
-    background: rgba(34, 197, 94, 0.13);
+    background: transparent;
+    transform: rotate(0deg) translateY(-2px) scale(1.05);
 }
 
 .die-button.selected::after {
@@ -50,12 +71,41 @@
     letter-spacing: 0.06em;
     padding: 0.08rem 0.28rem;
     position: absolute;
-    right: -0.18rem;
-    top: -0.18rem;
+    right: 0.1rem;
+    top: 0;
+    z-index: 2;
 }
 
 .die-face {
+    align-items: center;
+    aspect-ratio: 1;
+    background:
+        radial-gradient(circle at 28% 20%, rgba(255, 255, 255, 0.95), rgba(219, 234, 254, 0.96) 38%, rgba(148, 163, 184, 0.96));
+    border: 2px solid rgba(15, 23, 42, 0.72);
+    border-radius: 0.95rem;
+    box-shadow:
+        inset -6px -7px 10px rgba(15, 23, 42, 0.2),
+        inset 4px 4px 8px rgba(255, 255, 255, 0.45),
+        0 10px 18px rgba(0, 0, 0, 0.34);
+    color: #111827;
+    display: flex;
+    font-size: clamp(1.65rem, 2.3vw, 2.35rem);
+    font-weight: 950;
+    justify-content: center;
+    line-height: 1;
+    min-width: clamp(3.65rem, 4.5vw, 4.8rem);
     position: relative;
+    text-transform: uppercase;
+    width: clamp(3.65rem, 4.5vw, 4.8rem);
+}
+
+.die-button.selected .die-face {
+    border-color: rgba(34, 197, 94, 0.9);
+    box-shadow:
+        inset -6px -7px 10px rgba(15, 23, 42, 0.2),
+        inset 4px 4px 8px rgba(255, 255, 255, 0.45),
+        0 0 0 4px rgba(34, 197, 94, 0.22),
+        0 14px 22px rgba(0, 0, 0, 0.38);
 }
 
 .die-face.locked::after {
@@ -69,13 +119,17 @@
     letter-spacing: 0.06em;
     padding: 0.05rem 0.24rem;
     position: absolute;
-    right: -0.3rem;
-    top: -0.3rem;
+    right: -0.35rem;
+    top: -0.35rem;
 }
 
 .die-button small {
     color: #cbd5e1;
+    font-size: clamp(0.56rem, 0.8vw, 0.68rem);
+    font-weight: 900;
+    letter-spacing: 0.04em;
     min-height: 1rem;
+    text-transform: uppercase;
 }
 
 .die-button.selected small {
@@ -83,27 +137,37 @@
 }
 
 .die-button:disabled:not(.selected) .die-face:not(.locked) {
-    filter: grayscale(0.45) brightness(0.9);
+    filter: grayscale(0.25) brightness(0.96);
 }
 
 .compact-actions .btn {
     min-height: 2.25rem;
 }
 
+.panel > .dice-row + .actions.compact-actions {
+    margin-top: 0.55rem;
+}
+
+.panel > .dice-row + .actions.compact-actions .btn {
+    min-height: 1.95rem;
+    padding: 0.36rem 0.72rem;
+}
+
 @media (min-width: 901px) {
     .dice-row {
-        gap: 0.42rem;
-        padding: 0.58rem;
-    }
-
-    .dice-row::before {
-        font-size: 0.62rem;
-        padding: 0.35rem 0.48rem;
+        gap: clamp(0.5rem, 0.85vw, 0.8rem);
+        min-height: clamp(6.2rem, 13vh, 8.2rem);
+        padding: clamp(0.7rem, 1vw, 1rem);
     }
 
     .die-button {
-        min-width: 3.05rem;
-        padding: 0.16rem;
+        min-width: clamp(3.9rem, 4.3vw, 5.2rem);
+    }
+
+    .die-face {
+        border-radius: 0.85rem;
+        min-width: clamp(3.25rem, 3.75vw, 4.35rem);
+        width: clamp(3.25rem, 3.75vw, 4.35rem);
     }
 
     .die-button.selected::after,
