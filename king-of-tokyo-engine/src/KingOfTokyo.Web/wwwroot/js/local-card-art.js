@@ -93,13 +93,29 @@
         document.body.classList.remove("card-art-modal-open");
     }
 
+    function wireDetailButton(button) {
+        if (!button || button.dataset.cardArtDetailWired === "true") {
+            return;
+        }
+
+        const cardId = button.dataset.cardId;
+        const cardName = button.dataset.cardName || button.getAttribute("aria-label") || cardId;
+        if (!cardId) {
+            return;
+        }
+
+        button.addEventListener("click", () => openModal(cardName, cardId));
+        button.dataset.cardArtDetailWired = "true";
+    }
+
     function createArtFrame(cardName, cardType, cost, cardId) {
         const frame = document.createElement("button");
         frame.className = "card-art-frame market-card-art";
         frame.type = "button";
         frame.dataset.cardId = cardId;
+        frame.dataset.cardName = cardName;
         frame.setAttribute("aria-label", `Show ${cardName} card detail`);
-        frame.addEventListener("click", () => openModal(cardName, cardId));
+        wireDetailButton(frame);
 
         const image = document.createElement("img");
         image.src = `images/cards/${cardId}.jpg`;
@@ -153,11 +169,22 @@
         }
     }
 
+    function enhanceKeepCards() {
+        for (const button of document.querySelectorAll(".keep-card-art[data-card-id]")) {
+            wireDetailButton(button);
+        }
+    }
+
+    function enhanceAllCards() {
+        enhanceMarketCards();
+        enhanceKeepCards();
+    }
+
     function startObserver() {
         ensureModal();
-        enhanceMarketCards();
+        enhanceAllCards();
 
-        const observer = new MutationObserver(() => enhanceMarketCards());
+        const observer = new MutationObserver(() => enhanceAllCards());
         observer.observe(document.body, {
             childList: true,
             subtree: true
@@ -166,7 +193,8 @@
         window.tokyoDebug?.log?.("card-art.enhancer-loaded", {
             format: "jpg",
             pathTemplate: "images/cards/{card-id}.jpg",
-            detailModal: true
+            detailModal: true,
+            keepCards: true
         });
     }
 
