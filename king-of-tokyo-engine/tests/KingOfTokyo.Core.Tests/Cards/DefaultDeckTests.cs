@@ -59,6 +59,27 @@ public sealed class DefaultDeckTests
         Assert.Equal(0, gameState.Market.DiscardPileCount);
     }
 
+    [Fact]
+    public void DefaultDeck_Should_ShuffleMarketOrder_WhenInitializedWithSeededRandom()
+    {
+        var gameState = CreateGameState();
+        var marketSetupService = new MarketSetupService(random: new Random(42));
+        var unshuffledCardIds = MarketSetupService.BuildDefaultDeck()
+            .Select(card => card.CardId)
+            .ToArray();
+
+        marketSetupService.InitializeMarket(gameState);
+
+        var initializedCardIds = gameState.Market.FaceUpCards
+            .Where(card => card is not null)
+            .Select(card => card!.CardId)
+            .Concat(gameState.Market.DrawPile.Select(card => card.CardId))
+            .ToArray();
+
+        Assert.Equal(unshuffledCardIds.OrderBy(id => id, StringComparer.Ordinal).ToArray(), initializedCardIds.OrderBy(id => id, StringComparer.Ordinal).ToArray());
+        Assert.NotEqual(unshuffledCardIds.Take(10), initializedCardIds.Take(10));
+    }
+
     private static IReadOnlySet<string> GetKnownCardIds()
     {
         return typeof(KnownCardIds)
@@ -78,7 +99,7 @@ public sealed class DefaultDeckTests
     private static IReadOnlyList<MarketCardState> GetDefaultDeckCards()
     {
         var gameState = CreateGameState();
-        var marketSetupService = new MarketSetupService();
+        var marketSetupService = new MarketSetupService(shuffleDeck: false);
 
         marketSetupService.InitializeMarket(gameState);
 
