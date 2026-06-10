@@ -10,6 +10,12 @@ public sealed class InMemoryLobbyStore : ILobbyStore
     private const string DefaultAvatarId = "avatar-roar";
 
     private readonly ConcurrentDictionary<Guid, LobbyState> _lobbies = new();
+    private readonly Random _random;
+
+    public InMemoryLobbyStore(Random? random = null)
+    {
+        _random = random ?? Random.Shared;
+    }
 
     public LobbyJoinResultDto CreateLobby(CreateLobbyRequest request)
     {
@@ -238,8 +244,9 @@ public sealed class InMemoryLobbyStore : ILobbyStore
                 return true;
             }
 
+            var gameSeats = state.AssignRandomGamePlayerOrder(_random);
             var gameRequest = new CreateGameRequest(
-                state.Seats.Select(seat => seat.MonsterName).ToArray(),
+                gameSeats.Select(seat => seat.MonsterName).ToArray(),
                 InitialHealth: state.InitialHealth,
                 TargetVictoryPoints: state.TargetVictoryPoints);
             result = new LobbyStartPreparationDto(ToDto(state), gameRequest);
@@ -337,6 +344,7 @@ public sealed class InMemoryLobbyStore : ILobbyStore
             state.Status,
             state.GameId,
             state.Seats
+                .OrderBy(seat => seat.PlayerId)
                 .Select(seat => new LobbySeatDto(
                     seat.PlayerId,
                     seat.DisplayName,
@@ -408,6 +416,31 @@ public sealed class InMemoryLobbyStore : ILobbyStore
             Seats[0].IsHost = true;
         }
 
+        public IReadOnlyList<LobbySeatState> AssignRandomGamePlayerOrder(Random random)
+        {
+            ArgumentNullException.ThrowIfNull(random);
+
+            var shuffled = Seats.ToArray();
+            lock (random)
+            {
+                for (var i = shuffled.Length - 1; i > 0; i--)
+                {
+                    var swapIndex = random.Next(i + 1);
+                    (shuffled[i], shuffled[swapIndex]) = (shuffled[swapIndex], shuffled[i]);
+                }
+            }
+
+            Seats.Clear();
+            Seats.AddRange(shuffled);
+
+            for (var playerId = 0; playerId < Seats.Count; playerId++)
+            {
+                Seats[playerId].SetPlayerId(playerId);
+            }
+
+            return Seats.ToArray();
+        }
+
         public void AttachGame(Guid gameId)
         {
             GameId = gameId;
@@ -447,7 +480,7 @@ public sealed class InMemoryLobbyStore : ILobbyStore
             AvatarId = avatarId;
         }
 
-        public int PlayerId { get; }
+        public int PlayerId { get; private set; }
         public string DisplayName { get; }
         public bool IsHost { get; set; }
         public Guid PlayerToken { get; }
@@ -455,5 +488,15 @@ public sealed class InMemoryLobbyStore : ILobbyStore
         public string MonsterName { get; }
         public string AvatarId { get; }
         public bool IsReady { get; set; }
+
+        public void SetPlayerId(int playerId)
+        {
+            if (playerId < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(playerId));
+            }
+
+            PlayerId = playerId;
+        }
     }
 }
