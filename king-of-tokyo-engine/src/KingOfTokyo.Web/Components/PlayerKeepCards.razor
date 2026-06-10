@@ -49,8 +49,9 @@
 </div>
 
 @code {
+    [Parameter] public int OwnerPlayerId { get; set; }
     [Parameter] public IReadOnlyList<WebCardDto> Cards { get; set; } = Array.Empty<WebCardDto>();
-    [Parameter] public EventCallback<WebCardDto> OnCardClicked { get; set; }
+    [Parameter] public EventCallback<KeepCardClickArgs> OnCardClicked { get; set; }
     [Parameter] public Func<WebCardDto, bool>? IsActionAvailable { get; set; }
     [Parameter] public Func<WebCardDto, bool>? IsSelected { get; set; }
 
@@ -58,9 +59,11 @@
     {
         if (OnCardClicked.HasDelegate)
         {
-            await OnCardClicked.InvokeAsync(card);
+            await OnCardClicked.InvokeAsync(new KeepCardClickArgs(OwnerPlayerId, card));
         }
     }
 
     private static string CardImagePath(WebCardDto card) => $"/images/cards/{card.CardId}.jpg";
+
+    public sealed record KeepCardClickArgs(int OwnerPlayerId, WebCardDto Card);
 }
