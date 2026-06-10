@@ -26,6 +26,10 @@
         return slug ? `card-${slug}` : "";
     }
 
+    function cardImageUrl(cardId) {
+        return `/images/cards/${cardId}.jpg`;
+    }
+
     function ensureModal() {
         if (modal) {
             return modal;
@@ -76,7 +80,7 @@
     function openModal(cardName, cardId) {
         ensureModal();
         modalTitle.textContent = cardName;
-        modalImage.src = `images/cards/${cardId}.jpg`;
+        modalImage.src = cardImageUrl(cardId);
         modalImage.alt = `${cardName} card detail`;
         modal.classList.add("open");
         modal.setAttribute("aria-hidden", "false");
@@ -146,7 +150,7 @@
             }
 
             card.classList.add("card-art-surface");
-            card.style.setProperty("--card-art-url", `url("../images/cards/${cardId}.jpg")`);
+            card.style.setProperty("--card-art-url", `url("${cardImageUrl(cardId)}")`);
             card.dataset.cardId = cardId;
             card.dataset.cardName = cardName;
             wireMarketCard(card);
@@ -177,7 +181,7 @@
 
         window.tokyoDebug?.log?.("card-art.enhancer-loaded", {
             format: "jpg",
-            pathTemplate: "images/cards/{card-id}.jpg",
+            pathTemplate: "/images/cards/{card-id}.jpg",
             detailModal: true,
             keepCards: true,
             mutatesBlazorMarketDom: false
