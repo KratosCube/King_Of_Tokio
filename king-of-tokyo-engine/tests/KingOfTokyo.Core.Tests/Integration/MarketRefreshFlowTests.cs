@@ -3,10 +3,10 @@ using KingOfTokyo.Core.Commands;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
-using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Engine;
 using KingOfTokyo.Core.Events;
 using KingOfTokyo.Core.Rules.Dice;
+using KingOfTokyo.Core.Services;
 using Xunit;
 
 namespace KingOfTokyo.Core.Tests.Integration;
@@ -99,7 +99,8 @@ public sealed class MarketRefreshFlowTests
     private static GameEngine CreateEngine(params DieFace[] sequence)
     {
         return new GameEngine(
-            diceRollService: new DiceRollService(new SequenceRandomSource(sequence)));
+            diceRollService: new DiceRollService(new SequenceRandomSource(sequence)),
+            marketSetupService: new MarketSetupService(shuffleDeck: false));
     }
 
     private sealed class SequenceRandomSource : IRandomSource
