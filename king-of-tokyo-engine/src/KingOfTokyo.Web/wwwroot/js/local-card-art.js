@@ -108,64 +108,48 @@
         button.dataset.cardArtDetailWired = "true";
     }
 
-    function createArtFrame(cardName, cardType, cost, cardId) {
-        const frame = document.createElement("button");
-        frame.className = "card-art-frame market-card-art";
-        frame.type = "button";
-        frame.dataset.cardId = cardId;
-        frame.dataset.cardName = cardName;
-        frame.setAttribute("aria-label", `Show ${cardName} card detail`);
-        wireDetailButton(frame);
+    function wireMarketCard(card) {
+        if (card.dataset.cardArtDetailWired === "true") {
+            return;
+        }
 
-        const image = document.createElement("img");
-        image.src = `images/cards/${cardId}.jpg`;
-        image.alt = `${cardName} card art`;
-        image.loading = "lazy";
-        image.addEventListener("error", () => {
-            frame.closest(".card-art-surface")?.classList.add("missing-card-art");
-            image.remove();
-        }, { once: true });
+        card.addEventListener("click", event => {
+            if (event.target?.closest?.("button, a, input, select, textarea")) {
+                return;
+            }
 
-        const fallback = document.createElement("div");
-        fallback.className = "card-art-fallback";
+            const cardId = card.dataset.cardId;
+            const cardName = card.dataset.cardName;
+            if (cardId && cardName) {
+                openModal(cardName, cardId);
+            }
+        });
 
-        const title = document.createElement("strong");
-        title.textContent = cardName;
-
-        const meta = document.createElement("small");
-        meta.textContent = `${cardType || "Card"}${cost ? ` • Cost ${cost}` : ""}`;
-
-        fallback.append(title, meta);
-        frame.append(image, fallback);
-        return frame;
+        card.dataset.cardArtDetailWired = "true";
     }
 
     function enhanceMarketCards() {
         for (const card of document.querySelectorAll(".market-card")) {
-            if (card.dataset.localCardArtEnhanced === "true") {
-                continue;
-            }
-
             const title = card.querySelector(".market-card-header h3");
             if (!title) {
-                card.dataset.localCardArtEnhanced = "true";
+                card.classList.remove("card-art-surface");
+                card.style.removeProperty("--card-art-url");
+                delete card.dataset.cardId;
+                delete card.dataset.cardName;
                 continue;
             }
 
             const cardName = normalize(title.textContent);
             const cardId = slugifyCardName(cardName);
             if (!cardId) {
-                card.dataset.localCardArtEnhanced = "true";
                 continue;
             }
 
-            const cardType = normalize(card.querySelector(".market-card-type")?.textContent);
-            const costText = normalize(card.querySelector(".market-cost")?.textContent).replace(/^⚡\s*/, "");
-            const frame = createArtFrame(cardName, cardType, costText, cardId);
-
             card.classList.add("card-art-surface");
-            card.prepend(frame);
-            card.dataset.localCardArtEnhanced = "true";
+            card.style.setProperty("--card-art-url", `url("../images/cards/${cardId}.jpg")`);
+            card.dataset.cardId = cardId;
+            card.dataset.cardName = cardName;
+            wireMarketCard(card);
         }
     }
 
@@ -187,14 +171,16 @@
         const observer = new MutationObserver(() => enhanceAllCards());
         observer.observe(document.body, {
             childList: true,
-            subtree: true
+            subtree: true,
+            characterData: true
         });
 
         window.tokyoDebug?.log?.("card-art.enhancer-loaded", {
             format: "jpg",
             pathTemplate: "images/cards/{card-id}.jpg",
             detailModal: true,
-            keepCards: true
+            keepCards: true,
+            mutatesBlazorMarketDom: false
         });
     }
 
