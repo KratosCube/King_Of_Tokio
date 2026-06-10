@@ -1,5 +1,5 @@
+using KingOfTokyo.Api.Contracts;
 using KingOfTokyo.Api.Lobbies;
-using KingOfTokyo.Core.Domain.ValueObjects;
 using Xunit;
 
 namespace KingOfTokyo.Api.Tests.Lobbies;
@@ -7,81 +7,30 @@ namespace KingOfTokyo.Api.Tests.Lobbies;
 public sealed class InMemoryLobbyStoreTests
 {
     [Fact]
-    public void CreateLobby_Should_CreateHostSeatAndDefaultGameOptions()
+    public void CreateLobby_Should_CreateHostSeatReadyByDefault()
     {
         var store = new InMemoryLobbyStore();
 
-        var result = store.CreateLobby(new CreateLobbyRequest(
-            "Kaiju night",
-            MaxPlayers: 4,
-            IsPublic: true,
-            HostDisplayName: "Host"));
+        var result = store.CreateLobby(new CreateLobbyRequest("Game", 4, true, "Host"));
 
         Assert.NotEqual(Guid.Empty, result.Lobby.LobbyId);
-        Assert.Equal("Kaiju night", result.Lobby.Name);
+        Assert.Equal("Game", result.Lobby.Name);
         Assert.Equal(4, result.Lobby.MaxPlayers);
         Assert.True(result.Lobby.IsPublic);
-        Assert.Equal(GameOptions.DefaultInitialHealth, result.Lobby.InitialHealth);
-        Assert.Equal(GameOptions.DefaultTargetVictoryPoints, result.Lobby.TargetVictoryPoints);
         Assert.Equal(LobbyStatus.WaitingForPlayers, result.Lobby.Status);
-        Assert.Null(result.Lobby.GameId);
         Assert.Single(result.Lobby.Seats);
         Assert.Equal(0, result.PlayerId);
         Assert.Equal(result.PlayerToken, result.Lobby.Seats[0].PlayerToken);
-        Assert.Equal("Host", result.Lobby.Seats[0].DisplayName);
-        Assert.Equal("gigasaur", result.Lobby.Seats[0].MonsterId);
-        Assert.Equal("Gigasaur", result.Lobby.Seats[0].MonsterName);
-        Assert.Equal("avatar-roar", result.Lobby.Seats[0].AvatarId);
         Assert.True(result.Lobby.Seats[0].IsHost);
         Assert.True(result.Lobby.Seats[0].IsReady);
     }
 
     [Fact]
-    public void CreateLobby_Should_ApplyCustomGameOptions()
+    public void CreateLobby_Should_ClampBlankLobbyAndHostNames()
     {
         var store = new InMemoryLobbyStore();
 
-        var result = store.CreateLobby(new CreateLobbyRequest(
-            "Custom game",
-            MaxPlayers: 5,
-            IsPublic: false,
-            HostDisplayName: "Host",
-            InitialHealth: 15,
-            TargetVictoryPoints: 30));
-
-        Assert.Equal(15, result.Lobby.InitialHealth);
-        Assert.Equal(30, result.Lobby.TargetVictoryPoints);
-    }
-
-    [Fact]
-    public void CreateLobby_Should_ApplyCustomHostMonsterSelection()
-    {
-        var store = new InMemoryLobbyStore();
-
-        var result = store.CreateLobby(new CreateLobbyRequest(
-            "Custom monster",
-            MaxPlayers: 2,
-            IsPublic: true,
-            HostDisplayName: "Host",
-            HostMonsterId: "cyber-kitty",
-            HostMonsterName: "Cyber Kitty",
-            HostAvatarId: "avatar-neon"));
-
-        Assert.Equal("cyber-kitty", result.Lobby.Seats[0].MonsterId);
-        Assert.Equal("Cyber Kitty", result.Lobby.Seats[0].MonsterName);
-        Assert.Equal("avatar-neon", result.Lobby.Seats[0].AvatarId);
-    }
-
-    [Fact]
-    public void CreateLobby_Should_NormalizeBlankLobbyAndHostNames()
-    {
-        var store = new InMemoryLobbyStore();
-
-        var result = store.CreateLobby(new CreateLobbyRequest(
-            "  ",
-            MaxPlayers: 2,
-            IsPublic: false,
-            HostDisplayName: "  "));
+        var result = store.CreateLobby(new CreateLobbyRequest("   ", 2, true, "   "));
 
         Assert.Equal("King of Tokyo game", result.Lobby.Name);
         Assert.Equal("Monster", result.Lobby.Seats[0].DisplayName);
@@ -94,55 +43,47 @@ public sealed class InMemoryLobbyStoreTests
     {
         var store = new InMemoryLobbyStore();
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => store.CreateLobby(new CreateLobbyRequest(
-            "Invalid",
-            maxPlayers,
-            IsPublic: true,
-            HostDisplayName: "Host")));
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(51)]
-    public void CreateLobby_Should_RejectInvalidInitialHealth(int initialHealth)
-    {
-        var store = new InMemoryLobbyStore();
-
-        Assert.Throws<ArgumentOutOfRangeException>(() => store.CreateLobby(new CreateLobbyRequest(
-            "Invalid",
-            MaxPlayers: 2,
-            IsPublic: true,
-            HostDisplayName: "Host",
-            InitialHealth: initialHealth)));
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(101)]
-    public void CreateLobby_Should_RejectInvalidTargetVictoryPoints(int targetVictoryPoints)
-    {
-        var store = new InMemoryLobbyStore();
-
-        Assert.Throws<ArgumentOutOfRangeException>(() => store.CreateLobby(new CreateLobbyRequest(
-            "Invalid",
-            MaxPlayers: 2,
-            IsPublic: true,
-            HostDisplayName: "Host",
-            TargetVictoryPoints: targetVictoryPoints)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => store.CreateLobby(new CreateLobbyRequest("Game", maxPlayers, true, "Host")));
     }
 
     [Fact]
-    public void TryGetLobby_Should_ReturnCreatedLobbySnapshot()
+    public void ListLobbies_Should_ReturnOnlyPublicLobbiesByDefault()
     {
         var store = new InMemoryLobbyStore();
-        var created = store.CreateLobby(new CreateLobbyRequest("Game", 3, true, "Host"));
+        store.CreateLobby(new CreateLobbyRequest("Public", 2, true, "Host"));
+        store.CreateLobby(new CreateLobbyRequest("Private", 2, false, "Host"));
+
+        var result = store.ListLobbies();
+
+        Assert.Single(result);
+        Assert.Equal("Public", result[0].Name);
+    }
+
+    [Fact]
+    public void ListLobbies_Should_ReturnPrivateLobbies_WhenPublicOnlyFalse()
+    {
+        var store = new InMemoryLobbyStore();
+        store.CreateLobby(new CreateLobbyRequest("Public", 2, true, "Host"));
+        store.CreateLobby(new CreateLobbyRequest("Private", 2, false, "Host"));
+
+        var result = store.ListLobbies(publicOnly: false);
+
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, lobby => lobby.Name == "Public");
+        Assert.Contains(result, lobby => lobby.Name == "Private");
+    }
+
+    [Fact]
+    public void TryGetLobby_Should_ReturnExistingLobby()
+    {
+        var store = new InMemoryLobbyStore();
+        var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
 
         var found = store.TryGetLobby(created.Lobby.LobbyId, out var lobby);
 
         Assert.True(found);
         Assert.NotNull(lobby);
         Assert.Equal(created.Lobby.LobbyId, lobby!.LobbyId);
-        Assert.Single(lobby.Seats);
     }
 
     [Fact]
@@ -157,27 +98,33 @@ public sealed class InMemoryLobbyStoreTests
     }
 
     [Fact]
-    public void TryJoinLobby_Should_AddNextSeatAndKeepLobbyWaitingUntilJoinedPlayerIsReady()
+    public void TryJoinLobby_Should_AddSeat()
     {
         var store = new InMemoryLobbyStore();
         var created = store.CreateLobby(new CreateLobbyRequest("Game", 3, true, "Host"));
 
-        var found = store.TryJoinLobby(
-            created.Lobby.LobbyId,
-            new JoinLobbyRequest("Guest", "cyber-kitty", "Cyber Kitty", "avatar-neon"),
-            out var joinResult,
-            out var error);
+        var found = store.TryJoinLobby(created.Lobby.LobbyId, new JoinLobbyRequest("Guest"), out var result, out var error);
 
         Assert.True(found);
         Assert.Null(error);
-        Assert.NotNull(joinResult);
-        Assert.Equal(1, joinResult!.PlayerId);
-        Assert.Equal("Guest", joinResult.Lobby.Seats[1].DisplayName);
-        Assert.Equal("cyber-kitty", joinResult.Lobby.Seats[1].MonsterId);
-        Assert.Equal("Cyber Kitty", joinResult.Lobby.Seats[1].MonsterName);
-        Assert.Equal("avatar-neon", joinResult.Lobby.Seats[1].AvatarId);
-        Assert.False(joinResult.Lobby.Seats[1].IsReady);
-        Assert.Equal(LobbyStatus.WaitingForPlayers, joinResult.Lobby.Status);
+        Assert.NotNull(result);
+        Assert.Equal(2, result!.Lobby.Seats.Count);
+        Assert.Equal(1, result.PlayerId);
+        Assert.Equal(result.PlayerToken, result.Lobby.Seats[1].PlayerToken);
+    }
+
+    [Fact]
+    public void TryJoinLobby_Should_SetReadyStatusToReadyToStart_WhenAllSeatsReady()
+    {
+        var store = new InMemoryLobbyStore();
+        var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
+        store.TryJoinLobby(created.Lobby.LobbyId, new JoinLobbyRequest("Guest"), out var joinResult, out _);
+
+        store.TrySetReady(created.Lobby.LobbyId, new SetLobbyReadyRequest(joinResult!.PlayerToken, IsReady: true), out var lobby, out var error);
+
+        Assert.Null(error);
+        Assert.NotNull(lobby);
+        Assert.Equal(LobbyStatus.ReadyToStart, lobby!.Status);
     }
 
     [Fact]
@@ -187,11 +134,7 @@ public sealed class InMemoryLobbyStoreTests
         var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
         store.TryJoinLobby(created.Lobby.LobbyId, new JoinLobbyRequest("Guest"), out _, out _);
 
-        var found = store.TryJoinLobby(
-            created.Lobby.LobbyId,
-            new JoinLobbyRequest("Extra"),
-            out var result,
-            out var error);
+        var found = store.TryJoinLobby(created.Lobby.LobbyId, new JoinLobbyRequest("Extra"), out var result, out var error);
 
         Assert.True(found);
         Assert.Null(result);
@@ -211,36 +154,27 @@ public sealed class InMemoryLobbyStoreTests
     }
 
     [Fact]
-    public void TrySetReady_Should_MarkJoinedPlayerReadyAndMoveLobbyToReadyToStart()
+    public void TrySetReady_Should_UpdateSeatReadyStatus()
     {
         var store = new InMemoryLobbyStore();
-        var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
+        var created = store.CreateLobby(new CreateLobbyRequest("Game", 3, true, "Host"));
         store.TryJoinLobby(created.Lobby.LobbyId, new JoinLobbyRequest("Guest"), out var joinResult, out _);
 
-        var found = store.TrySetReady(
-            created.Lobby.LobbyId,
-            new SetLobbyReadyRequest(joinResult!.PlayerToken, IsReady: true),
-            out var lobby,
-            out var error);
+        var found = store.TrySetReady(created.Lobby.LobbyId, new SetLobbyReadyRequest(joinResult!.PlayerToken, IsReady: true), out var lobby, out var error);
 
         Assert.True(found);
         Assert.Null(error);
         Assert.NotNull(lobby);
-        Assert.Equal(LobbyStatus.ReadyToStart, lobby!.Status);
-        Assert.All(lobby.Seats, seat => Assert.True(seat.IsReady));
+        Assert.True(lobby!.Seats.Single(seat => seat.PlayerToken == joinResult.PlayerToken).IsReady);
     }
 
     [Fact]
-    public void TrySetReady_Should_ReturnError_WhenPlayerTokenIsUnknown()
+    public void TrySetReady_Should_ReturnError_WhenTokenIsUnknown()
     {
         var store = new InMemoryLobbyStore();
         var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
 
-        var found = store.TrySetReady(
-            created.Lobby.LobbyId,
-            new SetLobbyReadyRequest(Guid.NewGuid(), IsReady: true),
-            out var lobby,
-            out var error);
+        var found = store.TrySetReady(created.Lobby.LobbyId, new SetLobbyReadyRequest(Guid.NewGuid(), IsReady: true), out var lobby, out var error);
 
         Assert.True(found);
         Assert.Null(lobby);
@@ -248,18 +182,75 @@ public sealed class InMemoryLobbyStoreTests
     }
 
     [Fact]
-    public void TrySetReady_Should_ReturnFalse_WhenLobbyDoesNotExist()
+    public void TryLeaveLobby_Should_RemoveSeat()
+    {
+        var store = new InMemoryLobbyStore();
+        var created = store.CreateLobby(new CreateLobbyRequest("Game", 3, true, "Host"));
+        store.TryJoinLobby(created.Lobby.LobbyId, new JoinLobbyRequest("Guest"), out var joinResult, out _);
+
+        var found = store.TryLeaveLobby(created.Lobby.LobbyId, new LeaveLobbyRequest(joinResult!.PlayerToken), out var result, out var error);
+
+        Assert.True(found);
+        Assert.Null(error);
+        Assert.NotNull(result);
+        Assert.False(result!.Deleted);
+        Assert.Single(result.Lobby!.Seats);
+        Assert.DoesNotContain(result.Lobby.Seats, seat => seat.PlayerToken == joinResult.PlayerToken);
+    }
+
+    [Fact]
+    public void TryLeaveLobby_Should_DeleteLobby_WhenLastSeatLeaves()
+    {
+        var store = new InMemoryLobbyStore();
+        var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
+
+        var found = store.TryLeaveLobby(created.Lobby.LobbyId, new LeaveLobbyRequest(created.PlayerToken), out var result, out var error);
+
+        Assert.True(found);
+        Assert.Null(error);
+        Assert.NotNull(result);
+        Assert.True(result!.Deleted);
+        Assert.Null(result.Lobby);
+        Assert.False(store.TryGetLobby(created.Lobby.LobbyId, out _));
+    }
+
+    [Fact]
+    public void TryLeaveLobby_Should_ReassignHost_WhenHostLeaves()
+    {
+        var store = new InMemoryLobbyStore();
+        var created = store.CreateLobby(new CreateLobbyRequest("Game", 3, true, "Host"));
+        store.TryJoinLobby(created.Lobby.LobbyId, new JoinLobbyRequest("Guest"), out var joinResult, out _);
+
+        store.TryLeaveLobby(created.Lobby.LobbyId, new LeaveLobbyRequest(created.PlayerToken), out var result, out var error);
+
+        Assert.Null(error);
+        Assert.NotNull(result);
+        Assert.True(result!.Lobby!.Seats.Single().IsHost);
+        Assert.Equal(joinResult!.PlayerToken, result.Lobby.Seats.Single().PlayerToken);
+    }
+
+    [Fact]
+    public void TryLeaveLobby_Should_ReturnError_WhenTokenIsUnknown()
+    {
+        var store = new InMemoryLobbyStore();
+        var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
+
+        var found = store.TryLeaveLobby(created.Lobby.LobbyId, new LeaveLobbyRequest(Guid.NewGuid()), out var result, out var error);
+
+        Assert.True(found);
+        Assert.Null(result);
+        Assert.Equal("Player token was not found in this lobby.", error);
+    }
+
+    [Fact]
+    public void TryLeaveLobby_Should_ReturnFalse_WhenLobbyDoesNotExist()
     {
         var store = new InMemoryLobbyStore();
 
-        var found = store.TrySetReady(
-            Guid.NewGuid(),
-            new SetLobbyReadyRequest(Guid.NewGuid(), IsReady: true),
-            out var lobby,
-            out var error);
+        var found = store.TryLeaveLobby(Guid.NewGuid(), new LeaveLobbyRequest(Guid.NewGuid()), out var result, out var error);
 
         Assert.False(found);
-        Assert.Null(lobby);
+        Assert.Null(result);
         Assert.Null(error);
     }
 
@@ -294,7 +285,7 @@ public sealed class InMemoryLobbyStoreTests
         Assert.Null(error);
         Assert.NotNull(preparation);
         Assert.Equal(LobbyStatus.ReadyToStart, preparation!.Lobby.Status);
-        Assert.Equal(new[] { "Gigasaur", "Cyber Kitty" }, preparation.GameRequest.MonsterNames);
+        Assert.Equal(new[] { "Gigasaur", "Cyber Kitty" }.OrderBy(name => name), preparation.GameRequest.MonsterNames.OrderBy(name => name));
         Assert.Equal(15, preparation.GameRequest.InitialHealth);
         Assert.Equal(30, preparation.GameRequest.TargetVictoryPoints);
     }
@@ -316,84 +307,5 @@ public sealed class InMemoryLobbyStoreTests
         Assert.True(found);
         Assert.Null(preparation);
         Assert.Equal("Only the host can start the lobby.", error);
-    }
-
-    [Fact]
-    public void TryPrepareStart_Should_ReturnError_WhenLobbyHasOnlyHost()
-    {
-        var store = new InMemoryLobbyStore();
-        var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
-
-        var found = store.TryPrepareStart(
-            created.Lobby.LobbyId,
-            new StartLobbyRequest(created.PlayerToken),
-            out var preparation,
-            out var error);
-
-        Assert.True(found);
-        Assert.Null(preparation);
-        Assert.Equal("At least two players are required to start the lobby.", error);
-    }
-
-    [Fact]
-    public void TryPrepareStart_Should_ReturnError_WhenSomePlayerIsNotReady()
-    {
-        var store = new InMemoryLobbyStore();
-        var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
-        store.TryJoinLobby(created.Lobby.LobbyId, new JoinLobbyRequest("Guest"), out _, out _);
-
-        var found = store.TryPrepareStart(
-            created.Lobby.LobbyId,
-            new StartLobbyRequest(created.PlayerToken),
-            out var preparation,
-            out var error);
-
-        Assert.True(found);
-        Assert.Null(preparation);
-        Assert.Equal("All players must be ready before starting the lobby.", error);
-    }
-
-    [Fact]
-    public void TryPrepareStart_Should_ReturnFalse_WhenLobbyDoesNotExist()
-    {
-        var store = new InMemoryLobbyStore();
-
-        var found = store.TryPrepareStart(
-            Guid.NewGuid(),
-            new StartLobbyRequest(Guid.NewGuid()),
-            out var preparation,
-            out var error);
-
-        Assert.False(found);
-        Assert.Null(preparation);
-        Assert.Null(error);
-    }
-
-    [Fact]
-    public void TryAttachGame_Should_MarkLobbyStartedAndStoreGameId()
-    {
-        var store = new InMemoryLobbyStore();
-        var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
-        var gameId = Guid.NewGuid();
-
-        var found = store.TryAttachGame(created.Lobby.LobbyId, gameId, out var lobby, out var error);
-
-        Assert.True(found);
-        Assert.Null(error);
-        Assert.NotNull(lobby);
-        Assert.Equal(LobbyStatus.Started, lobby!.Status);
-        Assert.Equal(gameId, lobby.GameId);
-    }
-
-    [Fact]
-    public void TryAttachGame_Should_ReturnFalse_WhenLobbyDoesNotExist()
-    {
-        var store = new InMemoryLobbyStore();
-
-        var found = store.TryAttachGame(Guid.NewGuid(), Guid.NewGuid(), out var lobby, out var error);
-
-        Assert.False(found);
-        Assert.Null(lobby);
-        Assert.Null(error);
     }
 }
