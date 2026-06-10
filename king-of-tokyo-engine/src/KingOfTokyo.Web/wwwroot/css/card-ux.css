@@ -105,7 +105,7 @@ button.card-art-frame {
 .card-art-frame img {
     display: block;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     width: 100%;
 }
 
@@ -168,7 +168,9 @@ button.card-art-frame {
     display: grid;
     gap: 0.45rem;
     grid-template-rows: minmax(0, 1fr) auto;
+    justify-items: center;
     min-height: 0;
+    overflow: hidden;
     padding: 0.5rem;
 }
 
@@ -182,12 +184,15 @@ button.card-art-frame {
 
 .market-card.card-art-surface .market-card-art {
     align-self: stretch;
+    aspect-ratio: 5 / 7;
     border-radius: 0.7rem;
     height: 100%;
+    justify-self: center;
     margin: 0;
     max-height: none;
+    max-width: 100%;
     min-height: 0;
-    width: 100%;
+    width: auto;
 }
 
 .market-card.card-art-surface .market-card-header,
