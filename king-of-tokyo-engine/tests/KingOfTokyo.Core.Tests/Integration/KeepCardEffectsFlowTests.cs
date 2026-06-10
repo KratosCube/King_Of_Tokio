@@ -6,6 +6,7 @@ using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Engine;
 using KingOfTokyo.Core.Rules.Dice;
+using KingOfTokyo.Core.Services;
 using Xunit;
 
 namespace KingOfTokyo.Core.Tests.Integration;
@@ -25,7 +26,7 @@ public sealed class KeepCardEffectsFlowTests
             5,
             MarketCardType.Keep));
 
-        var engine = new GameEngine();
+        var engine = new GameEngine(marketSetupService: new MarketSetupService(shuffleDeck: false));
 
         engine.Execute(gameState, new InitializeGameCommand());
         var result = engine.Execute(gameState, new BeginTurnCommand(currentPlayer.PlayerId));
@@ -220,7 +221,8 @@ public sealed class KeepCardEffectsFlowTests
     private static GameEngine CreateEngine(params DieFace[] sequence)
     {
         return new GameEngine(
-            diceRollService: new DiceRollService(new SequenceRandomSource(sequence)));
+            diceRollService: new DiceRollService(new SequenceRandomSource(sequence)),
+            marketSetupService: new MarketSetupService(shuffleDeck: false));
     }
 
     private sealed class SequenceRandomSource : IRandomSource
