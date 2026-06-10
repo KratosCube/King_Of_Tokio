@@ -3,6 +3,10 @@
         ["we're only making it stronger", "card-were-only-making-it-stronger"]
     ]);
 
+    let modal;
+    let modalImage;
+    let modalTitle;
+
     function normalize(text) {
         return (text || "").replace(/\s+/g, " ").trim();
     }
@@ -22,10 +26,80 @@
         return slug ? `card-${slug}` : "";
     }
 
+    function ensureModal() {
+        if (modal) {
+            return modal;
+        }
+
+        modal = document.createElement("div");
+        modal.className = "card-art-modal";
+        modal.setAttribute("aria-hidden", "true");
+
+        const backdrop = document.createElement("button");
+        backdrop.className = "card-art-modal-backdrop";
+        backdrop.type = "button";
+        backdrop.setAttribute("aria-label", "Close card detail");
+        backdrop.addEventListener("click", closeModal);
+
+        const dialog = document.createElement("section");
+        dialog.className = "card-art-modal-dialog";
+        dialog.setAttribute("role", "dialog");
+        dialog.setAttribute("aria-modal", "true");
+        dialog.setAttribute("aria-labelledby", "card-art-modal-title");
+
+        const closeButton = document.createElement("button");
+        closeButton.className = "card-art-modal-close";
+        closeButton.type = "button";
+        closeButton.textContent = "×";
+        closeButton.setAttribute("aria-label", "Close card detail");
+        closeButton.addEventListener("click", closeModal);
+
+        modalTitle = document.createElement("h2");
+        modalTitle.id = "card-art-modal-title";
+
+        modalImage = document.createElement("img");
+        modalImage.alt = "Card detail";
+
+        dialog.append(closeButton, modalTitle, modalImage);
+        modal.append(backdrop, dialog);
+        document.body.append(modal);
+
+        document.addEventListener("keydown", event => {
+            if (event.key === "Escape" && modal?.classList.contains("open")) {
+                closeModal();
+            }
+        });
+
+        return modal;
+    }
+
+    function openModal(cardName, cardId) {
+        ensureModal();
+        modalTitle.textContent = cardName;
+        modalImage.src = `images/cards/${cardId}.jpg`;
+        modalImage.alt = `${cardName} card detail`;
+        modal.classList.add("open");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("card-art-modal-open");
+    }
+
+    function closeModal() {
+        if (!modal) {
+            return;
+        }
+
+        modal.classList.remove("open");
+        modal.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("card-art-modal-open");
+    }
+
     function createArtFrame(cardName, cardType, cost, cardId) {
-        const frame = document.createElement("div");
+        const frame = document.createElement("button");
         frame.className = "card-art-frame market-card-art";
+        frame.type = "button";
         frame.dataset.cardId = cardId;
+        frame.setAttribute("aria-label", `Show ${cardName} card detail`);
+        frame.addEventListener("click", () => openModal(cardName, cardId));
 
         const image = document.createElement("img");
         image.src = `images/cards/${cardId}.jpg`;
@@ -80,6 +154,7 @@
     }
 
     function startObserver() {
+        ensureModal();
         enhanceMarketCards();
 
         const observer = new MutationObserver(() => enhanceMarketCards());
@@ -90,7 +165,8 @@
 
         window.tokyoDebug?.log?.("card-art.enhancer-loaded", {
             format: "jpg",
-            pathTemplate: "images/cards/{card-id}.jpg"
+            pathTemplate: "images/cards/{card-id}.jpg",
+            detailModal: true
         });
     }
 
