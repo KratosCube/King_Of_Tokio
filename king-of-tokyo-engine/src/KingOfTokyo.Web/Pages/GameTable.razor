@@ -78,6 +78,21 @@
                         <h2>Pending decision</h2>
                         <p><strong>@_game.PendingDecision!.DecisionType</strong> <span class="muted">for @PlayerName(_game.PendingDecision.PlayerId)</span></p>
                         <p class="muted">@PendingDecisionDescription</p>
+                        @if (IsPeekTopDeckCardPurchaseDecision && PeekedTopDeckCard is not null)
+                        {
+                            <div class="special-card-action-card">
+                                <strong>@PeekedTopDeckCard.CardName</strong>
+                                <small>@PeekedTopDeckCard.CardType • Cost @PeekedTopDeckCard.EffectiveCost</small>
+                                <p>@PeekedTopDeckCard.Description</p>
+                                @if (IsLocalDecisionActor)
+                                {
+                                    <div class="actions compact-actions">
+                                        <button class="btn btn-primary" @onclick="BuyPeekedTopDeckCardAsync" disabled="@_busy">Buy top card</button>
+                                        <button class="btn btn-secondary" @onclick="DeclinePeekedTopDeckCardAsync" disabled="@_busy">Skip</button>
+                                    </div>
+                                }
+                            </div>
+                        }
                     </section>
                 }
 
@@ -90,7 +105,7 @@
                             var isSelected = _selectedDiceIndexes.Contains(die.Index);
                             <button type="button" class="die-button @(isSelected ? "selected" : null)" disabled="@(_busy || die.IsLocked || !CanSelectDiceForReroll)" @onclick="() => ToggleDieSelection(die.Index)">
                                 <span class="die-face @(die.IsLocked ? "locked" : null)">@DieIcon(die.CurrentFace)</span>
-                                <small>@(die.IsLocked ? "locked" : isSelected ? "reroll" : $"die {die.Index}")</small>
+                                <small>@(die.IsLocked ? "locked" : isSelected ? "reroll" : string.Empty)</small>
                             </button>
                         }
                     </div>
@@ -135,6 +150,59 @@
         </div>
 
         <div class="grid-2 lower-game-grid">
+            @if (HasMvpCardActions)
+            {
+                <section class="panel card-actions-panel">
+                    <h2>Card actions</h2>
+                    <div class="actions compact-actions">
+                        @if (CanUseMadeInALab)
+                        {
+                            <button class="btn btn-secondary" @onclick="PeekTopDeckCardAsync" disabled="@_busy">Use Made in a Lab</button>
+                        }
+                        @if (CanUseRapidHealing)
+                        {
+                            <button class="btn btn-secondary" @onclick="ActivateRapidHealingAsync" disabled="@_busy">Rapid Healing: heal 1 for 2⚡</button>
+                        }
+                        @if (CanUseWings)
+                        {
+                            <button class="btn btn-secondary" @onclick="ActivateWingsAsync" disabled="@_busy">Wings: cancel damage for 2⚡</button>
+                        }
+                    </div>
+
+                    @if (CanUseHealingRay)
+                    {
+                        <div class="special-card-action-card">
+                            <strong>Healing Ray</strong>
+                            <small>Heal another monster. They pay you 2⚡ per HP if possible.</small>
+                            <div class="actions compact-actions">
+                                <select @bind="_healingRayTargetPlayerId" disabled="@_busy">
+                                    @foreach (var target in HealingRayTargets)
+                                    {
+                                        <option value="@target.PlayerId">@target.MonsterName (@target.Health/@target.MaxHealth HP, ⚡ @target.Energy)</option>
+                                    }
+                                </select>
+                                <input type="number" min="1" max="10" @bind="_healingRayAmount" disabled="@_busy" />
+                                <button class="btn btn-secondary" @onclick="ActivateHealingRayAsync" disabled="@(_busy || _healingRayTargetPlayerId < 0 || _healingRayAmount <= 0)">Heal with ray</button>
+                            </div>
+                        </div>
+                    }
+
+                    @if (CanUseMimic)
+                    {
+                        <div class="special-card-action-card">
+                            <strong>Mimic</strong>
+                            <small>Choose another monster's keep card to copy.</small>
+                            <div class="actions compact-actions">
+                                @foreach (var option in MimicTargetOptions)
+                                {
+                                    <button class="btn btn-secondary" @onclick="() => SetMimicTargetAsync(option.OwnerPlayerId, option.CardId)" disabled="@_busy">Copy @option.CardName from @PlayerName(option.OwnerPlayerId)</button>
+                                }
+                            </div>
+                        </div>
+                    }
+                </section>
+            }
+
             <section class="panel next-action-panel">
                 <h2>Next action</h2>
                 <p class="status-pill">@SmartActionTitle</p>
@@ -244,6 +312,14 @@
     private CancellationTokenSource? _cts;
     private bool _busy;
     private string? _error;
+    private int _healingRayTargetPlayerId = -1;
+    private int _healingRayAmount = 1;
+
+    private const string MadeInALabCardId = "card-made-in-a-lab";
+    private const string RapidHealingCardId = "card-rapid-healing";
+    private const string WingsCardId = "card-wings";
+    private const string MimicCardId = "card-mimic";
+    private const string HealingRayCardId = "card-healing-ray";
 
     private bool IsRunning => string.Equals(_game?.Status, "Running", StringComparison.OrdinalIgnoreCase);
     private bool IsSetup => string.Equals(_game?.Status, "Setup", StringComparison.OrdinalIgnoreCase);
@@ -262,7 +338,25 @@
     private bool CanControlDecisionActor => AllowDevPlayerControl && PendingDecisionPlayerId is not null && !IsLocalDecisionActor;
 
     private string LocalPlayerLabel => Session.PlayerId is null ? "Unknown player" : PlayerName(Session.PlayerId.Value);
-    private string PendingDecisionLabel => _game?.PendingDecision is null ? "No decision" : $"{_game.PendingDecision.DecisionType} for {PlayerName(_game.PendingDecision.PlayerId)}";
+    private PlayerDto? LocalPlayer => Session.PlayerId is null ? null : _game?.Players.FirstOrDefault(player => player.PlayerId == Session.PlayerId.Value);
+    private bool IsPeekTopDeckCardPurchaseDecision => _game?.PendingDecision is not null && string.Equals(_game.PendingDecision.DecisionType, "PeekTopDeckCardPurchase", StringComparison.OrdinalIgnoreCase);
+    private PeekedCardInfo? PeekedTopDeckCard => ReadPeekedCardInfo();
+    private bool HasMvpCardActions => CanUseMadeInALab || CanUseRapidHealing || CanUseWings || CanUseMimic || CanUseHealingRay;
+    private bool CanUseMadeInALab => CanUseMarketActions && HasLocalKeepCard(MadeInALabCardId) && _game?.Market.DrawPileCount > 0;
+    private bool CanUseRapidHealing => CanUseMarketActions && HasLocalKeepCard(RapidHealingCardId) && LocalPlayer is { Energy: >= 2 } player && player.Health < player.MaxHealth;
+    private bool CanUseWings => IsRunning && IsLocalActor && HasLocalKeepCard(WingsCardId) && LocalPlayer is { Energy: >= 2 } player && player.Health < player.MaxHealth && _game?.CurrentTurn is not null;
+    private bool CanUseMimic => CanUseMarketActions && HasLocalKeepCard(MimicCardId) && MimicTargetOptions.Any();
+    private bool CanUseHealingRay => CanUseMarketActions && HasLocalKeepCard(HealingRayCardId) && HealingRayTargets.Any();
+    private IEnumerable<PlayerDto> HealingRayTargets => _game?.Players.Where(player =>
+        player.PlayerId != Session.PlayerId &&
+        player.IsAlive &&
+        player.Health < player.MaxHealth) ?? Enumerable.Empty<PlayerDto>();
+    private IEnumerable<MimicTargetOption> MimicTargetOptions => _game?.Players
+        .Where(player => player.PlayerId != Session.PlayerId && player.IsAlive)
+        .SelectMany(player => player.KeepCards
+            .Where(card => card.CardId != MimicCardId)
+            .Select(card => new MimicTargetOption(player.PlayerId, card.CardId, card.Name)))
+        ?? Enumerable.Empty<MimicTargetOption>();
 
     private string PendingDecisionDescription
     {
@@ -270,6 +364,7 @@
         {
             if (_game?.PendingDecision is null) return "No pending decision.";
             if (CanAnswerLeaveTokyoDecision) return "Tokyo is under attack. Choose whether your monster retreats after taking damage.";
+            if (IsPeekTopDeckCardPurchaseDecision) return IsLocalDecisionActor ? "Made in a Lab revealed the top deck card. Buy it or skip it." : "Waiting for the Made in a Lab decision.";
             if (IsSelectDiceToRerollDecision && IsLocalDecisionActor) return "Select dice below and reroll them, or finalize the current dice result.";
             if (AllowDevPlayerControl) return $"{PlayerName(_game.PendingDecision.PlayerId)} must answer this decision. You can switch control in local debug mode.";
             return $"Waiting for {PlayerName(_game.PendingDecision.PlayerId)} in their browser session.";
@@ -323,7 +418,7 @@
             if (CanRerollSelected) return "Reroll the dice you selected below, or finalize if you want to keep the current result.";
             if (CanSelectDiceForReroll) return "Click dice below to select them for reroll, or finalize the current result.";
             if (CanFinalizeDice) return "Resolve the current dice result and move to the next step.";
-            if (CanUseMarketActions) return "Buy cards from the market, refresh the market, or end your turn.";
+            if (CanUseMarketActions) return "Buy cards from the market, use keep-card actions, refresh the market, or end your turn.";
             if (CurrentActorId is not null && !IsLocalActor) return $"This browser controls {LocalPlayerLabel}. Waiting for {PlayerName(CurrentActorId.Value)} in their session.";
             return "Waiting for the game state to change.";
         }
@@ -378,6 +473,8 @@
     }
 
     private bool IsPhase(string phase) => string.Equals(CurrentPhase, phase, StringComparison.OrdinalIgnoreCase);
+
+    private bool HasLocalKeepCard(string cardId) => LocalPlayer?.KeepCards.Any(card => string.Equals(card.CardId, cardId, StringComparison.OrdinalIgnoreCase)) == true;
 
     private string MonsterCardClass(PlayerDto player)
     {
@@ -437,16 +534,40 @@
 
     private string PlayerName(int playerId) => _game?.Players.FirstOrDefault(player => player.PlayerId == playerId)?.MonsterName ?? $"Player {playerId}";
 
-    private static string DieIcon(string face) => face switch
+    private static string DieIcon(string face) => face.ToUpperInvariant() switch
     {
-        "One" => "1",
-        "Two" => "2",
-        "Three" => "3",
-        "Energy" => "⚡",
-        "Heal" => "❤",
-        "Attack" => "🗯",
+        "ONE" => "1",
+        "TWO" => "2",
+        "THREE" => "3",
+        "ENERGY" => "⚡",
+        "HEAL" or "HEART" => "❤",
+        "ATTACK" or "CLAW" => "💥",
         _ => face
     };
+
+    private PeekedCardInfo? ReadPeekedCardInfo()
+    {
+        var payload = _game?.PendingDecision?.Payload;
+        if (payload is null || payload.Value.ValueKind != System.Text.Json.JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var json = payload.Value;
+        return new PeekedCardInfo(
+            ReadString(json, "cardId") ?? string.Empty,
+            ReadString(json, "cardName") ?? "Top deck card",
+            ReadString(json, "description") ?? string.Empty,
+            ReadInt(json, "baseCost") ?? 0,
+            ReadInt(json, "effectiveCost") ?? 0,
+            ReadString(json, "cardType") ?? "Card");
+    }
+
+    private static string? ReadString(System.Text.Json.JsonElement json, string propertyName) =>
+        json.TryGetProperty(propertyName, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.String ? value.GetString() : null;
+
+    private static int? ReadInt(System.Text.Json.JsonElement json, string propertyName) =>
+        json.TryGetProperty(propertyName, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.Number && value.TryGetInt32(out var number) ? number : null;
 
     private Task ControlDecisionPlayerAsync() => PendingDecisionPlayerId is null ? Task.CompletedTask : ControlPlayerAsync(PendingDecisionPlayerId.Value);
 
@@ -503,12 +624,32 @@
         try
         {
             _game = await ApiClient.GetGameAsync(GameId);
+            EnsureHealingRayDefaults();
             PruneSelectedDice();
         }
         catch (Exception ex)
         {
             _error = ex.Message;
         }
+    }
+
+    private void EnsureHealingRayDefaults()
+    {
+        var targets = HealingRayTargets.ToArray();
+        if (targets.Length == 0)
+        {
+            _healingRayTargetPlayerId = -1;
+            _healingRayAmount = 1;
+            return;
+        }
+
+        if (!targets.Any(target => target.PlayerId == _healingRayTargetPlayerId))
+        {
+            _healingRayTargetPlayerId = targets[0].PlayerId;
+        }
+
+        var targetPlayer = targets.First(target => target.PlayerId == _healingRayTargetPlayerId);
+        _healingRayAmount = Math.Clamp(_healingRayAmount, 1, Math.Max(1, targetPlayer.MaxHealth - targetPlayer.Health));
     }
 
     private void PruneSelectedDice()
@@ -565,6 +706,7 @@
             }
 
             _game = result.GameState;
+            EnsureHealingRayDefaults();
             _selectedDiceIndexes.Clear();
             foreach (var newEvent in result.NewEvents)
             {
@@ -599,6 +741,13 @@
     private Task RefreshMarketAsync() => ExecuteAsync(() => ApiClient.RefreshMarketAsync(GameId, new ActorRequest(Session.PlayerId)));
     private Task EndTurnAsync() => ExecuteAsync(() => ApiClient.EndTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
     private Task AdvancePlayerAsync() => ExecuteAsync(() => ApiClient.AdvancePlayerAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task PeekTopDeckCardAsync() => ExecuteAsync(() => ApiClient.PeekTopDeckCardAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task BuyPeekedTopDeckCardAsync() => ExecuteAsync(() => ApiClient.BuyPeekedTopDeckCardAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task DeclinePeekedTopDeckCardAsync() => ExecuteAsync(() => ApiClient.DeclinePeekedTopDeckCardAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task ActivateRapidHealingAsync() => ExecuteAsync(() => ApiClient.ActivateRapidHealingAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task ActivateWingsAsync() => ExecuteAsync(() => ApiClient.ActivateWingsAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task ActivateHealingRayAsync() => ExecuteAsync(() => ApiClient.ActivateHealingRayAsync(GameId, new HealingRayRequest(Session.PlayerId, _healingRayTargetPlayerId, _healingRayAmount)));
+    private Task SetMimicTargetAsync(int targetOwnerPlayerId, string targetCardId) => ExecuteAsync(() => ApiClient.SetMimicTargetAsync(GameId, new SetMimicTargetRequest(Session.PlayerId, targetOwnerPlayerId, targetCardId)));
 
     private Task ChooseLeaveTokyoAsync(bool leaveTokyo)
     {
@@ -625,6 +774,9 @@
         _cts?.Dispose();
         _timer?.Dispose();
     }
+
+    private sealed record PeekedCardInfo(string CardId, string CardName, string Description, int BaseCost, int EffectiveCost, string CardType);
+    private sealed record MimicTargetOption(int OwnerPlayerId, string CardId, string CardName);
 
     private sealed record EventFeedItem(long Sequence, string Title, string Description)
     {
@@ -678,21 +830,10 @@
             }
 
             var formatted = faces.EnumerateArray()
-                .Select(face => face.ValueKind == System.Text.Json.JsonValueKind.String ? FaceIcon(face.GetString()) : "?")
+                .Select(face => face.ValueKind == System.Text.Json.JsonValueKind.String ? DieIcon(face.GetString() ?? string.Empty) : "?")
                 .ToArray();
             return formatted.Length == 0 ? "dice" : string.Join(" ", formatted);
         }
-
-        private static string FaceIcon(string? face) => face switch
-        {
-            "One" => "1",
-            "Two" => "2",
-            "Three" => "3",
-            "Energy" => "⚡",
-            "Heal" => "❤",
-            "Attack" => "💥",
-            _ => face ?? "?"
-        };
 
         private static string FormatTokyoSlot(string? slot) => slot switch
         {
@@ -719,11 +860,5 @@
         {
             if (!string.IsNullOrWhiteSpace(value)) parts.Add(value);
         }
-
-        private static string? ReadString(System.Text.Json.JsonElement json, string propertyName) =>
-            json.TryGetProperty(propertyName, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.String ? value.GetString() : null;
-
-        private static int? ReadInt(System.Text.Json.JsonElement json, string propertyName) =>
-            json.TryGetProperty(propertyName, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.Number && value.TryGetInt32(out var number) ? number : null;
     }
 }
