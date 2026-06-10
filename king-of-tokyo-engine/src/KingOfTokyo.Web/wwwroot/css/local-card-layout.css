@@ -57,28 +57,30 @@
 
 .market-panel {
     justify-self: end;
-    max-width: clamp(260px, 24vw, 340px);
+    max-width: clamp(260px, 22vw, 330px);
     width: 100%;
 }
 
 .market-list:has(.card-art-surface) {
-    gap: clamp(0.35rem, 0.7vh, 0.65rem);
+    align-content: start;
+    gap: clamp(0.35rem, 0.65vh, 0.6rem);
+    grid-template-rows: repeat(3, auto);
+    overflow: auto;
 }
 
 .market-card.card-art-surface {
-    align-content: stretch;
+    align-content: start;
     cursor: zoom-in;
     display: grid;
     gap: 0.35rem;
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
     justify-items: center;
     min-height: 0;
-    overflow: hidden;
-    padding: clamp(0.3rem, 0.7vh, 0.5rem);
+    overflow: visible;
+    padding: clamp(0.28rem, 0.6vh, 0.45rem);
 }
 
 .market-card.card-art-surface::before {
-    align-self: center;
     aspect-ratio: 5 / 7;
     background-image: var(--card-art-url);
     background-position: center;
@@ -89,9 +91,7 @@
     box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
     content: "";
     display: block;
-    justify-self: center;
-    max-height: 100%;
-    width: min(100%, clamp(170px, 82%, 250px));
+    width: min(94%, clamp(150px, 15.4vh, 236px));
 }
 
 .market-card.card-art-surface::after {
@@ -118,21 +118,27 @@
     cursor: pointer;
     justify-self: stretch;
     margin: 0;
-    min-height: clamp(1.45rem, 2.2vh, 1.8rem);
+    min-height: clamp(1.35rem, 2vh, 1.75rem);
     padding: 0.22rem 0.55rem;
 }
 
 @media (min-width: 901px) {
     .game-grid {
-        grid-template-columns: minmax(220px, 0.82fr) minmax(0, 1.9fr) minmax(260px, clamp(280px, 24vw, 340px));
+        grid-template-columns: minmax(220px, 0.84fr) minmax(0, 1.95fr) minmax(250px, clamp(270px, 22vw, 330px));
     }
 
     .market-panel {
-        max-width: clamp(280px, 24vw, 340px);
+        max-width: clamp(270px, 22vw, 330px);
     }
 
     .market-card.card-art-surface::before {
-        width: min(100%, clamp(178px, 82%, 250px));
+        width: min(94%, clamp(155px, 15.4vh, 236px));
+    }
+}
+
+@media (min-width: 901px) and (min-height: 950px) {
+    .market-card.card-art-surface::before {
+        width: min(94%, clamp(170px, 16.5vh, 250px));
     }
 }
 
@@ -143,6 +149,6 @@
     }
 
     .market-card.card-art-surface::before {
-        width: min(100%, clamp(190px, 58vw, 260px));
+        width: min(100%, clamp(180px, 52vw, 260px));
     }
 }
