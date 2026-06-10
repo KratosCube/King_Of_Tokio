@@ -99,6 +99,15 @@ public sealed class ApiClient
     public Task<ApiCommandResultDto> AdvancePlayerAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "advance-player", request, cancellationToken);
 
+    public Task<ApiCommandResultDto> PeekTopDeckCardAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "peek-top-deck-card", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> BuyPeekedTopDeckCardAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "buy-peeked-top-deck-card", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> DeclinePeekedTopDeckCardAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "decline-peeked-top-deck-card", request, cancellationToken);
+
     public async Task<ApiCommandResultDto> DebugGrantKeepCardAsync(Guid gameId, DebugGrantKeepCardRequest request, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync($"api/games/{gameId}/debug/grant-keep-card", request, cancellationToken);
