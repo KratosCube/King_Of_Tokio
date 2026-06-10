@@ -135,6 +135,10 @@ public sealed record BuyFaceUpCardRequest(int? ActorPlayerId, int SlotIndex);
 
 public sealed record ChooseLeaveTokyoRequest(int ActorPlayerId, bool LeaveTokyo);
 
+public sealed record HealingRayRequest(int? ActorPlayerId, int TargetPlayerId, int HealingAmount);
+
+public sealed record SetMimicTargetRequest(int? ActorPlayerId, int TargetOwnerPlayerId, string TargetCardId);
+
 public sealed record DebugGrantKeepCardRequest(int TargetPlayerId, string CardId);
 
 public sealed record DebugCardOptionDto(
