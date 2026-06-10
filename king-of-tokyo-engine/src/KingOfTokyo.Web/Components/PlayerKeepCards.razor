@@ -8,33 +8,27 @@
     }
     else
     {
-        @foreach (var card in Cards)
-        {
-            <div class="owned-card-chip card-art-surface" tabindex="0" aria-label="@($"Keep card {card.Name}. {card.Description}")">
-                <div class="card-art-frame compact-card-art">
-                    <img src="@CardImagePath(card)" alt="@card.Name card art" loading="lazy" onerror="this.closest('.card-art-surface')?.classList.add('missing-card-art'); this.remove();" />
-                    <div class="card-art-fallback">
-                        <strong>@card.Name</strong>
-                        <small>@card.CardType • Cost @card.Cost</small>
-                    </div>
-                </div>
-                <div class="owned-card-body">
-                    <strong>@card.Name</strong>
-                    <small>@card.CardType • Cost @card.Cost</small>
-                    @if (!string.IsNullOrWhiteSpace(card.Description))
-                    {
-                        <p>@card.Description</p>
-                    }
+        <div class="owned-card-row">
+            @foreach (var card in Cards)
+            {
+                <div class="owned-card-chip card-art-surface" aria-label="@($"Keep card {card.Name}. {card.Description}")">
+                    <button class="card-art-frame compact-card-art keep-card-art" type="button" data-card-id="@card.CardId" data-card-name="@card.Name" aria-label="@($"Show {card.Name} card detail")">
+                        <img src="@CardImagePath(card)" alt="@card.Name card art" loading="lazy" onerror="this.closest('.card-art-surface')?.classList.add('missing-card-art'); this.remove();" />
+                        <div class="card-art-fallback">
+                            <strong>@card.Name</strong>
+                            <small>@card.CardType • Cost @card.Cost</small>
+                        </div>
+                    </button>
                     @if (card.Counters > 0 || card.StoredEnergy > 0 || card.MimicTarget is not null)
                     {
-                        <div class="owned-card-meta">
+                        <div class="owned-card-meta compact-owned-card-meta">
                             @if (card.Counters > 0)
                             {
-                                <span>Counters @card.Counters</span>
+                                <span>@card.Counters counters</span>
                             }
                             @if (card.StoredEnergy > 0)
                             {
-                                <span>Stored energy @card.StoredEnergy</span>
+                                <span>@card.StoredEnergy energy</span>
                             }
                             @if (card.MimicTarget is not null)
                             {
@@ -43,8 +37,8 @@
                         </div>
                     }
                 </div>
-            </div>
-        }
+            }
+        </div>
     }
 </div>
 
