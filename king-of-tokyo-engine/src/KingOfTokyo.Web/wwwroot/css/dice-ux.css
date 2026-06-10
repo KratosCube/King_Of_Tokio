@@ -141,28 +141,12 @@
 }
 
 .panel > .dice-row + .actions.compact-actions {
-    display: none;
-}
-
-body.dice-actions-mirrored .next-action-panel .actions button:is(:not(.dice-action-strip button)) {
-    visibility: visible;
-}
-
-body.dice-actions-mirrored .next-action-panel .actions button {
-    display: none;
-}
-
-.dice-action-strip {
-    align-items: center;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
     margin-top: 0.55rem;
 }
 
-.dice-action-strip .btn {
-    min-height: 2rem;
-    padding: 0.38rem 0.82rem;
+.panel > .dice-row + .actions.compact-actions .btn {
+    min-height: 1.95rem;
+    padding: 0.36rem 0.72rem;
 }
 
 @media (min-width: 901px) {
