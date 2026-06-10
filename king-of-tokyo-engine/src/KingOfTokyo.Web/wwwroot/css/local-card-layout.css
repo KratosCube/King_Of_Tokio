@@ -1,0 +1,105 @@
+.owned-card-list {
+    gap: 0.35rem;
+}
+
+.owned-card-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.owned-card-chip.card-art-surface {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    cursor: default;
+    display: block;
+    padding: 0;
+    width: 54px;
+}
+
+.owned-card-chip.card-art-surface:hover,
+.owned-card-chip.card-art-surface:focus-within {
+    box-shadow: none;
+    transform: translateY(-1px);
+}
+
+.owned-card-chip.card-art-surface::after {
+    display: none;
+}
+
+.keep-card-art {
+    border-radius: 0.45rem;
+    height: 76px;
+    margin: 0;
+    max-height: none;
+    width: 54px;
+}
+
+.keep-card-art img {
+    object-fit: contain;
+}
+
+.compact-owned-card-meta {
+    display: grid;
+    gap: 0.18rem;
+    margin-top: 0.25rem;
+}
+
+.compact-owned-card-meta span {
+    border-radius: 0.35rem;
+    font-size: 0.55rem;
+    line-height: 1.05;
+    padding: 0.12rem 0.2rem;
+    text-align: center;
+}
+
+.market-panel {
+    max-width: 330px;
+    justify-self: end;
+    width: 100%;
+}
+
+.market-list:has(.card-art-surface) {
+    gap: 0.5rem;
+}
+
+.market-card.card-art-surface {
+    padding: 0.42rem;
+}
+
+.market-card.card-art-surface .market-card-art {
+    height: 100%;
+    max-width: min(100%, 168px);
+}
+
+.market-card.card-art-surface .btn {
+    border-radius: 0.55rem;
+    min-height: 1.55rem;
+    padding: 0.22rem 0.55rem;
+}
+
+@media (min-width: 901px) {
+    .game-grid {
+        grid-template-columns: minmax(220px, 0.82fr) minmax(0, 1.75fr) minmax(270px, 330px);
+    }
+
+    .market-panel {
+        max-width: 330px;
+    }
+
+    .market-card.card-art-surface .market-card-art {
+        max-width: min(100%, 158px);
+    }
+}
+
+@media (max-width: 900px) {
+    .market-panel {
+        justify-self: stretch;
+        max-width: none;
+    }
+
+    .market-card.card-art-surface .market-card-art {
+        max-width: min(100%, 190px);
+    }
+}
