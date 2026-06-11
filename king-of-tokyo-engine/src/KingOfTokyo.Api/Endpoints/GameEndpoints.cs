@@ -230,6 +230,11 @@ public static class GameEndpoints
             return Execute(gameId, store, (engine, state) => engine.Execute(state, new BuyOpportunistRevealedCardCommand(request.ActorPlayerId)));
         });
 
+        games.MapPost("/{gameId:guid}/commands/decline-opportunist-revealed-card", (Guid gameId, ActorRequest request, [FromServices] IGameSessionStore store) =>
+        {
+            return Execute(gameId, store, (engine, state) => engine.Execute(state, new DeclineOpportunistRevealedCardCommand(request.ActorPlayerId)));
+        });
+
         return endpoints;
     }
 
