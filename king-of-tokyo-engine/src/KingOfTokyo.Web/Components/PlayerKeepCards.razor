@@ -14,7 +14,7 @@
                 var isActionable = IsActionAvailable?.Invoke(card) == true;
                 var isSelected = IsSelected?.Invoke(card) == true;
                 <div class="owned-card-chip card-art-surface @(isActionable ? "actionable-keep-card" : null) @(isSelected ? "selected-keep-card" : null)" aria-label="@($"Keep card {card.Name}. {card.Description}")">
-                    <button class="card-art-frame compact-card-art keep-card-art" type="button" data-card-id="@card.CardId" data-card-name="@card.Name" aria-label="@($"Show {card.Name} card detail")" @onclick="() => HandleCardClickedAsync(card)">
+                    <button class="card-art-frame compact-card-art keep-card-art" type="button" data-card-id="@card.CardId" data-card-name="@card.Name" aria-label="@($"Show {card.Name} card detail")">
                         <img src="@CardImagePath(card)" alt="@card.Name card art" loading="lazy" onerror="this.closest('.card-art-surface')?.classList.add('missing-card-art'); this.remove();" />
                         <div class="card-art-fallback">
                             <strong>@card.Name</strong>
@@ -38,7 +38,9 @@
                             }
                             @if (isActionable)
                             {
-                                <span>@(isSelected ? "Selected" : "Action")</span>
+                                <button class="owned-card-action-button @(isSelected ? "selected" : null)" type="button" @onclick="() => HandleCardClickedAsync(card)">
+                                    @(isSelected ? "Selected" : "Action")
+                                </button>
                             }
                         </div>
                     }
