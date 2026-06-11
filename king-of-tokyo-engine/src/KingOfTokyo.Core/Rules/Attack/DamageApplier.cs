@@ -38,10 +38,10 @@ public sealed class DamageApplier
             currentTurn?.RecordDamageTaken(target.PlayerId, actualDamage);
         }
 
-        var victoryPoints = _keepCardRulesService.GetVictoryPointsWhenTakingDamage(target, actualDamage);
-        if (victoryPoints > 0)
+        var bonusEnergy = _keepCardRulesService.GetVictoryPointsWhenTakingDamage(target, actualDamage);
+        if (bonusEnergy > 0)
         {
-            target.GainVictoryPoints(victoryPoints);
+            target.GainEnergy(bonusEnergy);
         }
 
         return actualDamage;
