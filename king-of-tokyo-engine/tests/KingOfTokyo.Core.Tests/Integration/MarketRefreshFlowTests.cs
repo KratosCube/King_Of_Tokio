@@ -3,6 +3,7 @@ using KingOfTokyo.Core.Commands;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
+using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Engine;
 using KingOfTokyo.Core.Events;
 using KingOfTokyo.Core.Rules.Dice;
