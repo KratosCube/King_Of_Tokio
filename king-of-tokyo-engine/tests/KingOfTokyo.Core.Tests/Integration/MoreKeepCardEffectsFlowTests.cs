@@ -130,7 +130,8 @@ public sealed class MoreKeepCardEffectsFlowTests
     private static GameEngine CreateEngine(params DieFace[] sequence)
     {
         return new GameEngine(
-            diceRollService: new DiceRollService(new SequenceRandomSource(sequence)));
+            diceRollService: new DiceRollService(new SequenceRandomSource(sequence)),
+            marketSetupService: new MarketSetupService(shuffleDeck: false));
     }
 
     private sealed class SequenceRandomSource : IRandomSource
