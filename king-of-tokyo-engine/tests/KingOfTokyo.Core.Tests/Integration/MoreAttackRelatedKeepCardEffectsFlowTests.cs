@@ -226,7 +226,7 @@ public sealed class MoreAttackRelatedKeepCardEffectsFlowTests
     }
 
     [Fact]
-    public void FinalizeDice_Should_GiveVictoryPointToDamagedDefender_WhenDefenderHasStronger()
+    public void FinalizeDice_Should_GainEnergyToDamagedDefender_WhenDefenderHasStronger()
     {
         var gameState = CreateGameState(3);
         var attacker = gameState.GetPlayerById(0);
@@ -235,7 +235,7 @@ public sealed class MoreAttackRelatedKeepCardEffectsFlowTests
         defender.AddKeepCard(new MarketCardState(
             KnownCardIds.WereOnlyMakingItStronger,
             "We're Only Making It Stronger",
-            "When you lose 2 or more health, gain 1 victory point.",
+            "When damaged enough, gain 1 energy.",
             3,
             MarketCardType.Keep));
 
@@ -254,7 +254,8 @@ public sealed class MoreAttackRelatedKeepCardEffectsFlowTests
 
         Assert.True(result.Success);
         Assert.Equal(8, defender.Health);
-        Assert.Equal(1, defender.VictoryPoints);
+        Assert.Equal(1, defender.Energy);
+        Assert.Equal(0, defender.VictoryPoints);
     }
 
     [Fact]
