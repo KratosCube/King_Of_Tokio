@@ -45,6 +45,45 @@ src/KingOfTokyo.Api/Endpoints/GameEndpoints.cs
 src/KingOfTokyo.Api/Contracts/ApiDtos.cs
 ```
 
+## Local card art / card image workflow
+
+The Web UI expects card images to be available in the Blazor app under:
+
+```text
+king-of-tokyo-engine/src/KingOfTokyo.Web/wwwroot/images/cards/{cardId}.jpg
+```
+
+Examples:
+
+```text
+king-of-tokyo-engine/src/KingOfTokyo.Web/wwwroot/images/cards/card-made-in-a-lab.jpg
+king-of-tokyo-engine/src/KingOfTokyo.Web/wwwroot/images/cards/card-mimic.jpg
+king-of-tokyo-engine/src/KingOfTokyo.Web/wwwroot/images/cards/card-opportunist.jpg
+```
+
+The `{cardId}` must match the engine card id from:
+
+```text
+src/KingOfTokyo.Core/Domain/ValueObjects/KnownCardIds.cs
+```
+
+The current components build image URLs like this:
+
+```text
+/images/cards/{cardId}.jpg
+```
+
+Relevant UI code:
+
+```text
+src/KingOfTokyo.Web/Components/PlayerKeepCards.razor
+src/KingOfTokyo.Web/Pages/GameTable.razor
+```
+
+If an image is missing, the UI should fall back to a text card fallback instead of breaking the page. When adding or debugging card art locally, verify that the filename is exactly the card id plus `.jpg` and that the file is under `wwwroot/images/cards`, not in a temporary extraction folder.
+
+There is also a separate card-scan/art workflow that has been used during development. If the next AI needs to regenerate or copy local art, first inspect local assets and any helper scripts, then copy final images into the Web app path above. Do not assume a temporary extraction folder is served by Blazor.
+
 ## Recently changed UI foundation
 
 Recent UI changes:
