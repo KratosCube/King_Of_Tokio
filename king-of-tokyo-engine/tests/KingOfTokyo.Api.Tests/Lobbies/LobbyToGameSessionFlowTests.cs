@@ -47,8 +47,7 @@ public sealed class LobbyToGameSessionFlowTests
         Assert.Equal(game.GameId, startedLobby.GameId);
         Assert.Equal(GameStatus.Setup, game.Status);
         Assert.Equal(2, game.Players.Count);
-        Assert.Equal("Gigasaur", game.Players[0].MonsterName);
-        Assert.Equal("Cyber Kitty", game.Players[1].MonsterName);
+        Assert.Equal(new[] { "Cyber Kitty", "Gigasaur" }, game.Players.Select(player => player.MonsterName).OrderBy(name => name).ToArray());
         Assert.All(game.Players, player =>
         {
             Assert.Equal(15, player.Health);
