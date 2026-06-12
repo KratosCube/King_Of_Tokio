@@ -74,6 +74,7 @@ public sealed class GameEndpointsTests
         Assert.Contains("/api/games/{gameId:guid}/commands/buy-peeked-top-deck-card", routePatterns);
         Assert.Contains("/api/games/{gameId:guid}/commands/decline-peeked-top-deck-card", routePatterns);
         Assert.Contains("/api/games/{gameId:guid}/commands/buy-opportunist-revealed-card", routePatterns);
+        Assert.Contains("/api/games/{gameId:guid}/commands/decline-opportunist-revealed-card", routePatterns);
     }
 
     [Fact]
@@ -83,7 +84,7 @@ public sealed class GameEndpointsTests
 
         var routePatterns = GetRoutePatterns(app);
 
-        Assert.Equal(31, routePatterns.Count);
+        Assert.Equal(32, routePatterns.Count);
     }
 
     private static WebApplication CreateAppWithGameEndpoints()
