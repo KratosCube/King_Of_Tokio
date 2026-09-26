@@ -124,7 +124,6 @@ public sealed class TurnLifecycleService
                     "Keep card: Herbivore."));
             }
 
-            DrainMonsterBatteries(gameState, newEvents);
         }
 
         currentTurn.MarkPurchasePhaseFinished();
@@ -157,33 +156,36 @@ public sealed class TurnLifecycleService
         gameState.AdvanceToNextAlivePlayer();
     }
 
-    private void DrainMonsterBatteries(GameState gameState, List<GameEventBase> newEvents)
+    public IReadOnlyList<GameEventBase> TransferMonsterBatteriesAtTurnStart(GameState gameState)
     {
-        foreach (var player in gameState.GetAlivePlayers().ToArray())
+        var newEvents = new List<GameEventBase>();
+        var player = gameState.GetCurrentPlayer();
+        foreach (var battery in player.KeepCards
+                     .Where(card => card.CardId == KnownCardIds.MonsterBatteries && card.StoredEnergy > 0)
+                     .ToArray())
         {
-            foreach (var battery in player.KeepCards
-                         .Where(card => card.CardId == KnownCardIds.MonsterBatteries && card.StoredEnergy > 0)
-                         .ToArray())
+            var transferred = Math.Min(2, battery.StoredEnergy);
+            battery.SpendStoredEnergy(transferred);
+            player.GainEnergy(transferred);
+            newEvents.Add(new EnergyGainedEvent(player.PlayerId, transferred, "Keep card: Monster Batteries."));
+
+            if (battery.StoredEnergy > 0)
             {
-                battery.SpendStoredEnergy(Math.Min(2, battery.StoredEnergy));
-
-                if (battery.StoredEnergy > 0)
-                {
-                    continue;
-                }
-
-                var discardedCard = player.RemoveKeepCard(KnownCardIds.MonsterBatteries);
-                new MimicTargetCleanupService().ClearTargetsForLostCard(gameState, player.PlayerId, discardedCard.CardId);
-                _keepCardLifecycleService.ApplyLostEffect(player, discardedCard);
-                gameState.Market.Discard(discardedCard);
-
-                newEvents.Add(new KeepCardDiscardedEvent(
-                    player.PlayerId,
-                    discardedCard.CardId,
-                    discardedCard.Name,
-                    "Keep card: Monster Batteries."));
+                continue;
             }
+
+            var discardedCard = player.RemoveKeepCard(KnownCardIds.MonsterBatteries);
+            new MimicTargetCleanupService().ClearTargetsForLostCard(gameState, player.PlayerId, discardedCard.CardId);
+            _keepCardLifecycleService.ApplyLostEffect(player, discardedCard);
+            gameState.Market.Discard(discardedCard);
+
+            newEvents.Add(new KeepCardDiscardedEvent(
+                player.PlayerId,
+                discardedCard.CardId,
+                discardedCard.Name,
+                "Keep card: Monster Batteries."));
         }
+        return newEvents;
     }
 
     private void AwardEaterOfTheDeadPoints(GameState gameState, List<GameEventBase> newEvents)

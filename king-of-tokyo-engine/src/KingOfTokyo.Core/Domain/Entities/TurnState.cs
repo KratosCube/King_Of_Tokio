@@ -20,6 +20,7 @@ public sealed class TurnState
     public bool DiceResolved { get; private set; }
     public bool PurchasePhaseFinished { get; private set; }
     public int HealingRayHeartsSpent { get; private set; }
+    public int HeartsUsedElsewhere { get; private set; }
     public TurnFlags Flags { get; }
 
     public bool HasPendingTokyoLeaveDecisions => _pendingTokyoLeaveDecisions.Count > 0;
@@ -59,6 +60,7 @@ public sealed class TurnState
         DiceResolved = false;
         PurchasePhaseFinished = false;
         HealingRayHeartsSpent = 0;
+        HeartsUsedElsewhere = 0;
     }
 
     public void SetPhase(TurnPhase phase)
@@ -95,6 +97,16 @@ public sealed class TurnState
         }
 
         HealingRayHeartsSpent += amount;
+    }
+
+    public void ReserveHeartsUsedElsewhere(int amount)
+    {
+        if (amount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(amount));
+        }
+
+        HeartsUsedElsewhere += amount;
     }
 
     public void RecordDamageTaken(int playerId, int amount)

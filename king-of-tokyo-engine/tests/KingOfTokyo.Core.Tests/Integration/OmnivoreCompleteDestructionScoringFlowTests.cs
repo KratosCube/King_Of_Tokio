@@ -14,7 +14,7 @@ namespace KingOfTokyo.Core.Tests.Integration;
 public sealed class OmnivoreCompleteDestructionScoringFlowTests
 {
     [Fact]
-    public void FinalizeDice_Should_GainBothCompleteDestructionAndOmnivoreBonuses()
+    public void FinalizeDice_Should_RequireAllSixFacesForCompleteDestruction()
     {
         var gameState = CreateGameState(4);
         var player = gameState.GetCurrentPlayer();
@@ -26,25 +26,25 @@ public sealed class OmnivoreCompleteDestructionScoringFlowTests
             DieFace.Two,
             DieFace.Three,
             DieFace.Heart,
-            DieFace.Heart,
+            DieFace.Attack,
             DieFace.Energy);
 
         engine.Execute(gameState, new InitializeGameCommand());
         engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
+        player.SetTokyoSlot(TokyoSlot.City);
+        gameState.Tokyo.SetCityOccupant(player.PlayerId);
         engine.Execute(gameState, new RollDiceCommand(player.PlayerId));
 
         var result = engine.Execute(gameState, new FinalizeDiceCommand(player.PlayerId));
 
         Assert.True(result.Success, result.Error);
-        Assert.Equal(11, player.VictoryPoints);
+        Assert.Equal(9, player.VictoryPoints);
         Assert.Contains(result.NewEvents, e => e is VictoryPointsGainedEvent gained &&
                                              gained.PlayerId == player.PlayerId &&
                                              gained.Amount == 9 &&
                                              gained.Reason == "Keep card: Complete Destruction.");
-        Assert.Contains(result.NewEvents, e => e is VictoryPointsGainedEvent gained &&
-                                             gained.PlayerId == player.PlayerId &&
-                                             gained.Amount == 2 &&
-                                             gained.Reason == "Keep card: Omnivore.");
+        Assert.DoesNotContain(result.NewEvents, e => e is VictoryPointsGainedEvent gained &&
+                                                gained.Reason == "Keep card: Omnivore.");
     }
 
     private static GameState CreateGameState(int playerCount)

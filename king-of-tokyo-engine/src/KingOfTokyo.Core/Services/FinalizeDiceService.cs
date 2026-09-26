@@ -98,7 +98,10 @@ public sealed class FinalizeDiceService
             currentPlayer,
             summary.OneCount,
             summary.TwoCount,
-            summary.ThreeCount);
+            summary.ThreeCount,
+            summary.HeartCount,
+            summary.AttackCount,
+            summary.EnergyCount);
 
         if (completeDestructionBonus > 0)
         {
@@ -146,6 +149,7 @@ public sealed class FinalizeDiceService
         }
 
         var heartsRemainingForHealing = RemoveStatusTokensWithHearts(currentPlayer, summary.HeartCount, newEvents);
+        currentTurn.ReserveHeartsUsedElsewhere(summary.HeartCount - heartsRemainingForHealing);
         var healingSummary = summary with { HeartCount = heartsRemainingForHealing };
         var healedAmount = _healingResolver.ResolveHealing(currentPlayer, healingSummary);
         var regenerationBonus = _keepCardRulesService.GetBonusHealing(currentPlayer, healedAmount);
@@ -156,6 +160,8 @@ public sealed class FinalizeDiceService
             var healthBefore = currentPlayer.Health;
             currentPlayer.Heal(totalHealing);
             var actualHealing = currentPlayer.Health - healthBefore;
+
+            currentTurn.ReserveHeartsUsedElsewhere(Math.Min(heartsRemainingForHealing, actualHealing));
 
             if (actualHealing > 0)
             {
@@ -212,14 +218,14 @@ public sealed class FinalizeDiceService
             var target = gameState.GetPlayerById(packet.TargetPlayerId);
             var wasInTokyoBeforeDamage = target.TokyoSlot != TokyoSlot.None;
 
-            ApplyAttackStatusTokens(currentPlayer, target, summary.AttackCount, newEvents);
-
             var actualDamage = _damageApplier.ApplyDamage(target, packet);
 
             if (actualDamage <= 0)
             {
                 continue;
             }
+
+            ApplyAttackStatusTokens(currentPlayer, target, summary.AttackCount, newEvents);
 
             currentTurn.Flags.DealtDamage = true;
 

@@ -205,7 +205,7 @@ public sealed class KeepCardRulesService
         return bonusVictoryPoints;
     }
 
-    public int GetCompleteDestructionVictoryPoints(PlayerState player, int oneCount, int twoCount, int threeCount)
+    public int GetCompleteDestructionVictoryPoints(PlayerState player, int oneCount, int twoCount, int threeCount, int heartCount, int attackCount, int energyCount)
     {
         ArgumentNullException.ThrowIfNull(player);
 
@@ -214,7 +214,8 @@ public sealed class KeepCardRulesService
             return 0;
         }
 
-        if (oneCount > 0 && twoCount > 0 && threeCount > 0)
+        if (oneCount > 0 && twoCount > 0 && threeCount > 0 &&
+            heartCount > 0 && attackCount > 0 && energyCount > 0)
         {
             return 9;
         }

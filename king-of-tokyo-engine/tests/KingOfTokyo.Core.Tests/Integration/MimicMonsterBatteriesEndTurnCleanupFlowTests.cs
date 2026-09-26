@@ -12,7 +12,7 @@ namespace KingOfTokyo.Core.Tests.Integration;
 public sealed class MimicMonsterBatteriesEndTurnCleanupFlowTests
 {
     [Fact]
-    public void EndTurn_Should_ClearMimicTarget_WhenMonsterBatteriesAreDiscardedByDrain()
+    public void BeginTurn_Should_ClearMimicTarget_WhenBatteriesBecomeEmpty()
     {
         var gameState = CreateGameState(3);
         var batteryOwner = gameState.GetCurrentPlayer();
@@ -24,11 +24,7 @@ public sealed class MimicMonsterBatteriesEndTurnCleanupFlowTests
         var engine = new GameEngine();
 
         engine.Execute(gameState, new InitializeGameCommand());
-        engine.Execute(gameState, new BeginTurnCommand(batteryOwner.PlayerId));
-        gameState.CurrentTurn!.MarkDiceResolved();
-        gameState.CurrentTurn.SetPhase(TurnPhase.Purchase);
-
-        var result = engine.Execute(gameState, new EndTurnCommand(batteryOwner.PlayerId));
+        var result = engine.Execute(gameState, new BeginTurnCommand(batteryOwner.PlayerId));
 
         Assert.True(result.Success, result.Error);
         Assert.Null(mimic.MimicTarget);
@@ -41,7 +37,7 @@ public sealed class MimicMonsterBatteriesEndTurnCleanupFlowTests
     }
 
     [Fact]
-    public void EndTurn_Should_NotClearMimicTarget_WhenMonsterBatteriesKeepStoredEnergyAfterDrain()
+    public void BeginTurn_Should_NotClearMimicTarget_WhenBatteriesStillHaveEnergy()
     {
         var gameState = CreateGameState(3);
         var batteryOwner = gameState.GetCurrentPlayer();
@@ -53,16 +49,13 @@ public sealed class MimicMonsterBatteriesEndTurnCleanupFlowTests
         var engine = new GameEngine();
 
         engine.Execute(gameState, new InitializeGameCommand());
-        engine.Execute(gameState, new BeginTurnCommand(batteryOwner.PlayerId));
-        gameState.CurrentTurn!.MarkDiceResolved();
-        gameState.CurrentTurn.SetPhase(TurnPhase.Purchase);
-
-        var result = engine.Execute(gameState, new EndTurnCommand(batteryOwner.PlayerId));
+        var result = engine.Execute(gameState, new BeginTurnCommand(batteryOwner.PlayerId));
 
         Assert.True(result.Success, result.Error);
         Assert.NotNull(mimic.MimicTarget);
         Assert.True(batteryOwner.HasKeepCard(KnownCardIds.MonsterBatteries));
         Assert.Equal(1, battery.StoredEnergy);
+        Assert.Equal(2, batteryOwner.Energy);
         Assert.Empty(gameState.Market.DiscardPile);
     }
 

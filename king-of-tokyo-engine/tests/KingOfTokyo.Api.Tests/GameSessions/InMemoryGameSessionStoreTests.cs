@@ -11,6 +11,26 @@ namespace KingOfTokyo.Api.Tests.GameSessions;
 public sealed class InMemoryGameSessionStoreTests
 {
     [Fact]
+    public void TryAuthorize_Should_BindOnlyTheTokenAssignedToThatGameAndSeat()
+    {
+        var store = new InMemoryGameSessionStore();
+        var hostToken = Guid.NewGuid();
+        var guestToken = Guid.NewGuid();
+        var first = store.CreateGame(new CreateGameRequest(new[] { "Alpha", "Beta" }),
+            new Dictionary<int, Guid> { [0] = hostToken, [1] = guestToken });
+        var second = store.CreateGame(new CreateGameRequest(new[] { "Gamma", "Delta" }),
+            new Dictionary<int, Guid> { [0] = Guid.NewGuid(), [1] = Guid.NewGuid() });
+
+        Assert.True(store.TryAuthorize(first.GameId, hostToken, out var hostId));
+        Assert.Equal(0, hostId);
+        Assert.True(store.TryAuthorize(first.GameId, guestToken, out var guestId));
+        Assert.Equal(1, guestId);
+        Assert.False(store.TryAuthorize(second.GameId, hostToken, out _));
+        Assert.False(store.TryAuthorize(first.GameId, Guid.NewGuid(), out _));
+        Assert.False(store.TryAuthorize(first.GameId, Guid.Empty, out _));
+    }
+
+    [Fact]
     public void CreateGame_Should_CreateSnapshotWithRequestedMonsterNames()
     {
         var store = new InMemoryGameSessionStore();

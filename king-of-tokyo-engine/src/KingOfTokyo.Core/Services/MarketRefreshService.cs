@@ -33,14 +33,15 @@ public sealed class MarketRefreshService
                 refreshedCards.Select(card => card.CardId).ToArray())
         };
 
-        var pendingDecision = CreateOpportunistDecisionForFirstRevealedCard(gameState);
-        gameState.SetPendingDecision(pendingDecision);
+        var pendingDecision = gameState.QueueOpportunistDecisions(CreateOpportunistDecisionsForRevealedCards(gameState));
 
         return new EngineStepResult(events, pendingDecision);
     }
 
-    private static PendingDecision? CreateOpportunistDecisionForFirstRevealedCard(GameState gameState)
+    private static IReadOnlyList<PendingDecision> CreateOpportunistDecisionsForRevealedCards(GameState gameState)
     {
+        var decisions = new List<PendingDecision>();
+        var rules = new KeepCardRulesService();
         for (var slotIndex = 0; slotIndex < gameState.Market.FaceUpCards.Count; slotIndex++)
         {
             var revealedCard = gameState.Market.FaceUpCards[slotIndex];
@@ -52,7 +53,7 @@ public sealed class MarketRefreshService
             var eligiblePlayerIds = gameState.Players
                 .Where(player => player.IsAlive &&
                                  player.HasKeepCard(KnownCardIds.Opportunist) &&
-                                 player.Energy >= revealedCard.Cost)
+                                 player.Energy >= rules.GetEffectivePurchaseCost(player, revealedCard))
                 .Select(player => player.PlayerId)
                 .ToArray();
 
@@ -61,21 +62,24 @@ public sealed class MarketRefreshService
                 continue;
             }
 
-            return new PendingDecision
+            foreach (var playerId in eligiblePlayerIds)
             {
-                DecisionType = DecisionType.OpportunistPurchase,
-                PlayerId = eligiblePlayerIds[0],
-                Payload = new MarketCardRevealDecisionData
+                decisions.Add(new PendingDecision
                 {
-                    SlotIndex = slotIndex,
-                    CardId = revealedCard.CardId,
-                    CardName = revealedCard.Name,
-                    Cost = revealedCard.Cost,
-                    EligiblePlayerIds = eligiblePlayerIds
-                }
-            };
+                    DecisionType = DecisionType.OpportunistPurchase,
+                    PlayerId = playerId,
+                    Payload = new MarketCardRevealDecisionData
+                    {
+                        SlotIndex = slotIndex,
+                        CardId = revealedCard.CardId,
+                        CardName = revealedCard.Name,
+                        Cost = rules.GetEffectivePurchaseCost(gameState.GetPlayerById(playerId), revealedCard),
+                        EligiblePlayerIds = eligiblePlayerIds
+                    }
+                });
+            }
         }
 
-        return null;
+        return decisions;
     }
 }

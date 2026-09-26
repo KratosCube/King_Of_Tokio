@@ -34,7 +34,7 @@ public sealed class LobbyToGameSessionFlowTests
             new StartLobbyRequest(createdLobby.PlayerToken),
             out var preparation,
             out var prepareError);
-        var game = gameSessionStore.CreateGame(preparation!.GameRequest);
+        var game = gameSessionStore.CreateGame(preparation!.GameRequest, preparation.PlayerTokens);
         var attached = lobbyStore.TryAttachGame(createdLobby.Lobby.LobbyId, game.GameId, out var startedLobby, out var attachError);
 
         Assert.True(prepared);

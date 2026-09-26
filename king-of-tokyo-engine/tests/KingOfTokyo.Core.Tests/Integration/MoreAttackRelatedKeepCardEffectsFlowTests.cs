@@ -14,7 +14,32 @@ namespace KingOfTokyo.Core.Tests.Integration;
 public sealed class MoreAttackRelatedKeepCardEffectsFlowTests
 {
     [Fact]
-    public void FinalizeDice_Should_GainNineVictoryPoints_WhenPlayerHasCompleteDestruction_AndRollsOneTwoThree()
+    public void PreventedAttack_Should_NotApplyPoisonOrShrinkTokens()
+    {
+        var game = CreateGameState(3);
+        var attacker = game.GetPlayerById(0);
+        var target = game.GetPlayerById(1);
+        attacker.AddKeepCard(new MarketCardState(KnownCardIds.PoisonSpit, "Poison Spit", "Poison.", 4, MarketCardType.Keep));
+        attacker.AddKeepCard(new MarketCardState(KnownCardIds.ShrinkRay, "Shrink Ray", "Shrink.", 6, MarketCardType.Keep));
+        target.AddKeepCard(new MarketCardState(KnownCardIds.ArmorPlating, "Armor Plating", "Prevent one.", 4, MarketCardType.Keep));
+        target.SetTokyoSlot(TokyoSlot.City);
+        game.Tokyo.SetCityOccupant(target.PlayerId);
+        var engine = CreateEngine(DieFace.Attack, DieFace.One, DieFace.Two, DieFace.Three, DieFace.Heart, DieFace.Energy);
+        engine.Execute(game, new InitializeGameCommand());
+        engine.Execute(game, new BeginTurnCommand(0));
+        engine.Execute(game, new RollDiceCommand(0));
+
+        var result = engine.Execute(game, new FinalizeDiceCommand(0));
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(10, target.Health);
+        Assert.Equal(0, target.Status.PoisonTokens);
+        Assert.Equal(0, target.Status.ShrinkTokens);
+        Assert.DoesNotContain(result.NewEvents, e => e is StatusTokensAddedEvent);
+    }
+
+    [Fact]
+    public void FinalizeDice_Should_GainNineBonusPoints_WhenAllSixFacesAreRolled()
     {
         var gameState = CreateGameState(4);
         var player = gameState.GetCurrentPlayer();
@@ -28,7 +53,7 @@ public sealed class MoreAttackRelatedKeepCardEffectsFlowTests
 
         var engine = CreateEngine(
             DieFace.One, DieFace.Two, DieFace.Three,
-            DieFace.Heart, DieFace.Heart, DieFace.Energy);
+            DieFace.Heart, DieFace.Attack, DieFace.Energy);
 
         engine.Execute(gameState, new InitializeGameCommand());
         engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
@@ -37,10 +62,27 @@ public sealed class MoreAttackRelatedKeepCardEffectsFlowTests
         var result = engine.Execute(gameState, new FinalizeDiceCommand(player.PlayerId));
 
         Assert.True(result.Success);
-        Assert.Equal(9, player.VictoryPoints);
+        Assert.Equal(10, player.VictoryPoints); // Nine from the card and one for entering empty Tokyo.
         Assert.Contains(result.NewEvents, e => e is VictoryPointsGainedEvent gained &&
                                                gained.PlayerId == player.PlayerId &&
                                                gained.Amount == 9);
+    }
+
+    [Fact]
+    public void CompleteDestruction_Should_NotScore_WhenAttackFaceIsMissing()
+    {
+        var game = CreateGameState(3);
+        var player = game.GetCurrentPlayer();
+        player.AddKeepCard(new MarketCardState(KnownCardIds.CompleteDestruction, "Complete Destruction", "All faces.", 3, MarketCardType.Keep));
+        var engine = CreateEngine(DieFace.One, DieFace.Two, DieFace.Three, DieFace.Heart, DieFace.Heart, DieFace.Energy);
+        engine.Execute(game, new InitializeGameCommand());
+        engine.Execute(game, new BeginTurnCommand(0));
+        engine.Execute(game, new RollDiceCommand(0));
+
+        var result = engine.Execute(game, new FinalizeDiceCommand(0));
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(0, player.VictoryPoints);
     }
 
     [Fact]

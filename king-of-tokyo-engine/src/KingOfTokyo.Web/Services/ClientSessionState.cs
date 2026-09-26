@@ -85,6 +85,11 @@ public sealed class ClientSessionState
 
     public void RememberLobby(Guid lobbyId, int playerId, Guid playerToken)
     {
+        if (LobbyId != lobbyId)
+        {
+            GameId = null;
+            LastEventSequence = 0;
+        }
         LobbyId = lobbyId;
         PlayerId = playerId;
         PlayerToken = playerToken;

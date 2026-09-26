@@ -28,7 +28,6 @@ public sealed class DiceRollService
             die.SetFace(_randomSource.RollDieFace());
         }
 
-        RerollBackgroundDwellerThreesIfNeeded(dicePool, player);
     }
 
     public void RerollSelected(DicePoolState dicePool, IReadOnlyCollection<int> diceIndexesToReroll)
@@ -59,32 +58,21 @@ public sealed class DiceRollService
             dicePool.SetFace(index, _randomSource.RollDieFace());
         }
 
-        RerollBackgroundDwellerThreesIfNeeded(dicePool, player);
     }
 
-    private void RerollBackgroundDwellerThreesIfNeeded(DicePoolState dicePool, PlayerState? player)
+    public void RerollBackgroundDwellerThrees(DicePoolState dicePool, IReadOnlyCollection<int> indexes)
     {
-        if (player is null || !player.HasKeepCard(KnownCardIds.BackgroundDweller))
+        ArgumentNullException.ThrowIfNull(dicePool);
+        ArgumentNullException.ThrowIfNull(indexes);
+        if (indexes.Count == 0 || indexes.Any(index => index < 0 || index >= dicePool.Dice.Count ||
+            dicePool.Dice[index].CurrentFace != DieFace.Three))
         {
-            return;
+            throw new InvalidOperationException("Select at least one die showing 3.");
         }
 
-        while (true)
+        foreach (var index in indexes)
         {
-            var threeIndexes = dicePool.Dice
-                .Where(die => die.CurrentFace == DieFace.Three)
-                .Select(die => die.Index)
-                .ToArray();
-
-            if (threeIndexes.Length == 0)
-            {
-                return;
-            }
-
-            foreach (var index in threeIndexes)
-            {
-                dicePool.SetFace(index, _randomSource.RollDieFace());
-            }
+            dicePool.SetFace(index, _randomSource.RollDieFace());
         }
     }
 }

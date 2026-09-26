@@ -1,5 +1,6 @@
 using KingOfTokyo.Core.Decisions;
 using KingOfTokyo.Core.Domain.Entities;
+using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
 
 namespace KingOfTokyo.Core.Dto;
@@ -90,7 +91,8 @@ public static class GameStateDtoMapper
             turn.DiceResolved,
             turn.PurchasePhaseFinished,
             turn.DicePool.Dice.Select(ToDto).ToArray(),
-            ToDto(turn.Flags));
+            ToDto(turn.Flags),
+            Math.Max(0, turn.DicePool.Dice.Count(die => die.CurrentFace == DieFace.Heart) - turn.HealingRayHeartsSpent - turn.HeartsUsedElsewhere));
     }
 
     private static DieDto ToDto(DieState die)

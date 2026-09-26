@@ -10,7 +10,7 @@ namespace KingOfTokyo.Core.Tests.Rules;
 public sealed class DiceRollServiceBackgroundDwellerTests
 {
     [Fact]
-    public void RollAll_Should_RerollThreesUntilNoneRemain_WhenPlayerHasBackgroundDweller()
+    public void RollAll_Should_LeaveThreesForPlayerToChoose_WhenPlayerHasBackgroundDweller()
     {
         var player = new PlayerState(0, "Monster");
         player.AddKeepCard(CreateBackgroundDweller());
@@ -22,14 +22,14 @@ public sealed class DiceRollServiceBackgroundDwellerTests
 
         service.RollAll(dicePool, player);
 
-        Assert.DoesNotContain(dicePool.Dice, die => die.CurrentFace == DieFace.Three);
+        Assert.Contains(dicePool.Dice, die => die.CurrentFace == DieFace.Three);
         Assert.Equal(new[]
         {
+            DieFace.Three,
             DieFace.Attack,
-            DieFace.Attack,
-            DieFace.One,
+            DieFace.Three,
             DieFace.Heart,
-            DieFace.Two,
+            DieFace.Three,
             DieFace.Energy
         }, dicePool.Dice.Select(die => die.CurrentFace));
     }
@@ -49,7 +49,7 @@ public sealed class DiceRollServiceBackgroundDwellerTests
     }
 
     [Fact]
-    public void RerollSelected_Should_RerollThreesUntilNoneRemain_WhenPlayerHasBackgroundDweller()
+    public void RerollBackgroundDwellerThrees_Should_RerollOnlySelectedThrees()
     {
         var player = new PlayerState(0, "Monster");
         player.AddKeepCard(CreateBackgroundDweller());
@@ -62,10 +62,11 @@ public sealed class DiceRollServiceBackgroundDwellerTests
         service.RollAll(dicePool, player: null);
 
         service.RerollSelected(dicePool, new[] { 0, 1 }, player);
+        service.RerollBackgroundDwellerThrees(dicePool, new[] { 0 });
 
-        Assert.DoesNotContain(dicePool.Dice, die => die.CurrentFace == DieFace.Three);
-        Assert.Equal(DieFace.Attack, dicePool.Dice[0].CurrentFace);
-        Assert.Equal(DieFace.Heart, dicePool.Dice[1].CurrentFace);
+        Assert.Equal(DieFace.Three, dicePool.Dice[0].CurrentFace);
+        Assert.Equal(DieFace.Three, dicePool.Dice[1].CurrentFace);
+        Assert.Throws<InvalidOperationException>(() => service.RerollBackgroundDwellerThrees(dicePool, new[] { 2 }));
     }
 
     private static MarketCardState CreateBackgroundDweller()

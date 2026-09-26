@@ -41,7 +41,6 @@ public sealed record LobbySeatDto(
     string DisplayName,
     bool IsHost,
     bool IsReady,
-    Guid PlayerToken,
     string MonsterId,
     string MonsterName,
     string AvatarId);
@@ -53,7 +52,8 @@ public sealed record LobbyJoinResultDto(
 
 public sealed record LobbyStartPreparationDto(
     LobbyDto Lobby,
-    CreateGameRequest GameRequest);
+    CreateGameRequest GameRequest,
+    IReadOnlyDictionary<int, Guid> PlayerTokens);
 
 public sealed record LobbyStartResultDto(
     LobbyDto Lobby,
@@ -64,5 +64,6 @@ public enum LobbyStatus
     WaitingForPlayers = 0,
     ReadyToStart = 1,
     Started = 2,
-    Closed = 3
+    Closed = 3,
+    Starting = 4
 }

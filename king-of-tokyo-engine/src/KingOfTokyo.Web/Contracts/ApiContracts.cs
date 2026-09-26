@@ -48,7 +48,6 @@ public sealed record LobbySeatDto(
     string DisplayName,
     bool IsHost,
     bool IsReady,
-    Guid PlayerToken,
     string MonsterId,
     string MonsterName,
     string AvatarId);
@@ -105,7 +104,8 @@ public sealed record TurnDto(
     bool DiceResolved,
     bool PurchasePhaseFinished,
     IReadOnlyList<DieDto> Dice,
-    TurnFlagsDto Flags);
+    TurnFlagsDto Flags,
+    int UnusedHealingRayHearts = 0);
 
 public sealed record DieDto(int Index, string CurrentFace, bool IsLocked);
 
@@ -125,9 +125,13 @@ public sealed record ActorRequest(int? ActorPlayerId);
 
 public sealed record RerollDiceRequest(int? ActorPlayerId, IReadOnlyList<int> DiceIndexesToReroll);
 
-public sealed record BuyFaceUpCardRequest(int? ActorPlayerId, int SlotIndex);
+public sealed record BuyFaceUpCardRequest(int? ActorPlayerId, int SlotIndex, int StoredEnergyToDeposit = 0);
+
+public sealed record BatteryPurchaseRequest(int? ActorPlayerId, int StoredEnergyToDeposit = 0);
 
 public sealed record ChooseLeaveTokyoRequest(int ActorPlayerId, bool LeaveTokyo);
+
+public sealed record HealingRayRequest(int? ActorPlayerId, int TargetPlayerId, int HealingAmount);
 
 public sealed record ApiCommandResultDto(
     bool Success,

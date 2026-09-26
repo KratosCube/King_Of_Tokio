@@ -68,7 +68,8 @@ public sealed record TurnDto(
     bool DiceResolved,
     bool PurchasePhaseFinished,
     IReadOnlyList<DieDto> Dice,
-    TurnFlagsDto Flags);
+    TurnFlagsDto Flags,
+    int UnusedHealingRayHearts = 0);
 
 public sealed record DieDto(
     int Index,

@@ -70,6 +70,7 @@ public sealed class GameEngine : IGameEngine
                 BeginTurnCommand beginTurnCommand => ExecuteBeginTurn(gameState, beginTurnCommand),
                 RollDiceCommand rollDiceCommand => ExecuteRollDice(gameState, rollDiceCommand),
                 RerollDiceCommand rerollDiceCommand => ExecuteRerollDice(gameState, rerollDiceCommand),
+                RerollBackgroundDwellerThreesCommand backgroundDwellerCommand => ExecuteRerollBackgroundDwellerThrees(gameState, backgroundDwellerCommand),
                 FinalizeDiceCommand finalizeDiceCommand => ExecuteFinalizeDice(gameState, finalizeDiceCommand),
                 ChooseLeaveTokyoCommand chooseLeaveTokyoCommand => ExecuteChooseLeaveTokyo(gameState, chooseLeaveTokyoCommand),
                 BuyFaceUpCardCommand buyFaceUpCardCommand => ExecuteBuyFaceUpCard(gameState, buyFaceUpCardCommand),
@@ -126,6 +127,7 @@ public sealed class GameEngine : IGameEngine
             diceCountModifier: diceCountModifier);
         currentPlayer = gameState.GetCurrentPlayer();
         var newEvents = new List<GameEventBase> { new TurnStartedEvent(currentPlayer.PlayerId) };
+        newEvents.AddRange(_turnLifecycleService.TransferMonsterBatteriesAtTurnStart(gameState));
 
         if (gameState.CurrentTurn!.Flags.StartedTurnInTokyo)
         {
@@ -183,6 +185,26 @@ public sealed class GameEngine : IGameEngine
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
 
+    private CommandResult ExecuteRerollBackgroundDwellerThrees(GameState gameState, RerollBackgroundDwellerThreesCommand command)
+    {
+        var turn = gameState.CurrentTurn;
+        if (gameState.Status != GameStatus.Running || turn is null || turn.Phase != TurnPhase.Rolling ||
+            turn.RollCountUsed == 0 || turn.DiceResolved || command.ActorPlayerId != turn.CurrentPlayerId ||
+            !gameState.GetCurrentPlayer().HasKeepCard(KnownCardIds.BackgroundDweller) ||
+            (gameState.PendingDecision is not null && gameState.PendingDecision.DecisionType != DecisionType.SelectDiceToReroll))
+        {
+            throw new InvalidOperationException("Background Dweller cannot be used now.");
+        }
+
+        _diceRollService.RerollBackgroundDwellerThrees(turn.DicePool, command.DiceIndexes);
+        var events = new GameEventBase[]
+        {
+            new DiceRolledEvent(turn.CurrentPlayerId, turn.RollCountUsed, turn.DicePool.Dice.Select(die => die.CurrentFace).ToArray())
+        };
+        PublishEvents(events);
+        return CommandResult.Successful(gameState, events, gameState.PendingDecision);
+    }
+
     private CommandResult ExecuteChooseLeaveTokyo(GameState gameState, ChooseLeaveTokyoCommand command)
     {
         _validator.EnsureCanChooseLeaveTokyo(gameState, command);
@@ -197,7 +219,7 @@ public sealed class GameEngine : IGameEngine
         var currentPlayer = gameState.GetCurrentPlayer();
         var effectiveCost = _keepCardRulesService.GetEffectivePurchaseCost(currentPlayer, card);
         _validator.EnsureCanBuyFaceUpCard(gameState, command, effectiveCost);
-        var stepResult = _marketPurchaseService.BuyFaceUpCard(gameState, command.SlotIndex, effectiveCost);
+        var stepResult = _marketPurchaseService.BuyFaceUpCard(gameState, command.SlotIndex, effectiveCost, command.StoredEnergyToDeposit);
         PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
@@ -221,9 +243,9 @@ public sealed class GameEngine : IGameEngine
     private CommandResult ExecuteActivateRapidHealing(GameState gameState, ActivateRapidHealingCommand command)
     {
         _validator.EnsureCanActivateRapidHealing(gameState, command);
-        var stepResult = _rapidHealingService.Activate(gameState);
+        var stepResult = _rapidHealingService.Activate(gameState, command.ActorPlayerId!.Value);
         PublishEvents(stepResult.Events);
-        return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
+        return CommandResult.Successful(gameState, stepResult.Events, gameState.PendingDecision);
     }
 
     private CommandResult ExecuteActivateHealingRay(GameState gameState, ActivateHealingRayCommand command)
@@ -347,7 +369,7 @@ public sealed class GameEngine : IGameEngine
         var currentPlayer = gameState.GetCurrentPlayer();
         var effectiveCost = _keepCardRulesService.GetEffectivePurchaseCost(currentPlayer, topCard);
         _validator.EnsureCanBuyPeekedTopDeckCard(gameState, command, effectiveCost);
-        var stepResult = _marketPurchaseService.BuyTopDeckCard(gameState, effectiveCost);
+        var stepResult = _marketPurchaseService.BuyTopDeckCard(gameState, effectiveCost, command.StoredEnergyToDeposit);
         gameState.ClearPendingDecision();
         PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, null);
@@ -371,16 +393,18 @@ public sealed class GameEngine : IGameEngine
             gameState,
             actor.PlayerId,
             payload.SlotIndex,
-            effectiveCost);
+            effectiveCost,
+            command.StoredEnergyToDeposit);
+        var nextDecision = gameState.ResolveOpportunistDecision();
         PublishEvents(stepResult.Events);
-        return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
+        return CommandResult.Successful(gameState, stepResult.Events, nextDecision);
     }
 
     private CommandResult ExecuteDeclineOpportunistRevealedCard(GameState gameState, DeclineOpportunistRevealedCardCommand command)
     {
         EnsureCanDeclineOpportunistRevealedCard(gameState, command);
-        gameState.ClearPendingDecision();
-        return CommandResult.Successful(gameState);
+        var nextDecision = gameState.ResolveOpportunistDecision();
+        return CommandResult.Successful(gameState, pendingDecision: nextDecision);
     }
 
     private CommandResult ExecuteEndTurn(GameState gameState, EndTurnCommand command)
@@ -445,7 +469,8 @@ public sealed class GameEngine : IGameEngine
         }
 
         var unusedHeartCount = gameState.CurrentTurn.DicePool.Dice.Count(die => die.CurrentFace == DieFace.Heart) -
-                               gameState.CurrentTurn.HealingRayHeartsSpent;
+                               gameState.CurrentTurn.HealingRayHeartsSpent -
+                               gameState.CurrentTurn.HeartsUsedElsewhere;
         if (command.HealingAmount > unusedHeartCount)
         {
             throw new InvalidOperationException("Not enough unused heart dice for Healing Ray.");

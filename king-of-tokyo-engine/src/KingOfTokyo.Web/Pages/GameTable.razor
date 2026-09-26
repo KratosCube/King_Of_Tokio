@@ -53,6 +53,10 @@
                                 <span>⚡ @player.Energy</span>
                             </div>
                             <PlayerStatusTokens Status="player.Status" />
+                            @if (CanUseRapidHealing && player.PlayerId == Session.PlayerId)
+                            {
+                                <button class="btn btn-secondary" @onclick="ActivateRapidHealingAsync" disabled="@_busy">Rapid Healing (2 energy)</button>
+                            }
                             @if (!player.IsAlive)
                             {
                                 <span class="status-pill danger-pill">Eliminated</span>
@@ -82,6 +86,31 @@
                                 <button class="btn btn-secondary" @onclick="() => ChooseLeaveTokyoAsync(false)" disabled="@_busy">Stay in Tokyo</button>
                             </div>
                         }
+                        else if (CanAnswerOpportunistDecision)
+                        {
+                            @if (IsOpportunistBattery)
+                            {
+                                <label>Energy to deposit (matched by bank)</label>
+                                <InputNumber @bind-Value="_batteryDeposit" min="0" />
+                            }
+                            <div class="actions">
+                                <button class="btn btn-primary" @onclick="() => AnswerOpportunistAsync(true)" disabled="@_busy">Buy revealed card</button>
+                                <button class="btn btn-secondary" @onclick="() => AnswerOpportunistAsync(false)" disabled="@_busy">Decline</button>
+                            </div>
+                        }
+                        else if (CanAnswerPeekDecision)
+                        {
+                            <p>@PeekedCardName</p>
+                            @if (IsPeekedBattery)
+                            {
+                                <label>Energy to deposit (matched by bank)</label>
+                                <InputNumber @bind-Value="_batteryDeposit" min="0" />
+                            }
+                            <div class="actions">
+                                <button class="btn btn-primary" @onclick="() => AnswerPeekAsync(true)" disabled="@_busy">Buy top card</button>
+                                <button class="btn btn-secondary" @onclick="() => AnswerPeekAsync(false)" disabled="@_busy">Decline</button>
+                            </div>
+                        }
                         else if (IsSelectDiceToRerollDecision)
                         {
                             <p class="muted">Select dice below and press Reroll selected dice, or finalize dice to keep the current result.</p>
@@ -108,6 +137,10 @@
                     </div>
                     <div class="actions compact-actions">
                         <button class="btn btn-primary" @onclick="RerollSelectedDiceAsync" disabled="@(!CanRerollSelected || _busy)">Reroll selected dice</button>
+                        @if (CanUseBackgroundDweller)
+                        {
+                            <button class="btn btn-secondary" @onclick="RerollBackgroundDwellerAsync" disabled="@(!CanRerollBackgroundDweller || _busy)">Reroll selected 3s (Background Dweller)</button>
+                        }
                         <button class="btn btn-secondary" @onclick="ClearSelectedDice" disabled="@(_busy || _selectedDiceIndexes.Count == 0)">Clear dice selection</button>
                     </div>
                     @if (_selectedDiceIndexes.Count > 0 && !CanRerollSelected)
@@ -139,6 +172,11 @@
                                 </div>
                                 <small class="market-card-type">@card.value.CardType</small>
                                 <p>@card.value.Description</p>
+                                @if (card.value.CardId == "card-monster-batteries" && CanUseMarketActions)
+                                {
+                                    <label>Energy to deposit (matched by bank)</label>
+                                    <InputNumber @bind-Value="_batteryDeposit" min="0" />
+                                }
                                 <button class="btn btn-primary" @onclick="() => BuyFaceUpCardAsync(card.index)" disabled="@(_busy || !CanUseMarketActions)">Buy</button>
                             }
                         </article>
@@ -147,8 +185,29 @@
                 <div class="market-footer">
                     <p class="muted">Deck: @_game.Market.DrawPileCount • Discard: @_game.Market.DiscardPileCount</p>
                     <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@(_busy || !CanUseMarketActions)">Refresh market</button>
+                    @if (CanPeekTopDeck)
+                    {
+                        <button class="btn btn-secondary" @onclick="PeekTopDeckAsync" disabled="@_busy">Peek top card (Made in a Lab)</button>
+                    }
                 </div>
             </section>
+            @if (CanUseHealingRay)
+            {
+                <section class="panel">
+                    <h2>Healing Ray</h2>
+                    <p class="muted">Available hearts: @(_game.CurrentTurn?.UnusedHealingRayHearts ?? 0)</p>
+                    <label>Heal another monster</label>
+                    <select @bind="_healingRayTargetId">
+                        @foreach (var target in _game.Players.Where(player => player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth))
+                        {
+                            <option value="@target.PlayerId">@target.MonsterName</option>
+                        }
+                    </select>
+                    <label>Hearts to use</label>
+                    <InputNumber @bind-Value="_healingRayAmount" min="1" max="@_game.CurrentTurn.UnusedHealingRayHearts" />
+                    <button class="btn btn-primary" @onclick="ActivateHealingRayAsync" disabled="@(_busy || _healingRayAmount < 1 || _healingRayAmount > _game.CurrentTurn.UnusedHealingRayHearts)">Heal</button>
+                </section>
+            }
         </div>
 
         <div class="grid-2 lower-game-grid">
@@ -187,6 +246,10 @@
                     {
                         <button class="btn btn-primary" @onclick="EndTurnAsync" disabled="@_busy">End turn</button>
                         <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@_busy">Refresh market</button>
+                    }
+                    else if (CanEndTurn)
+                    {
+                        <button class="btn btn-primary" @onclick="EndTurnAsync" disabled="@_busy">End turn</button>
                     }
                     else if (CanAdvancePlayer)
                     {
@@ -246,6 +309,9 @@
     private PeriodicTimer? _timer;
     private CancellationTokenSource? _cts;
     private bool _busy;
+    private int _batteryDeposit;
+    private int _healingRayTargetId = -1;
+    private int _healingRayAmount = 1;
     private string? _error;
 
     private bool IsRunning => string.Equals(_game?.Status, "Running", StringComparison.OrdinalIgnoreCase);
@@ -261,17 +327,36 @@
         _game.CurrentTurn is not null &&
         _game.PendingDecision.PlayerId == _game.CurrentTurn.CurrentPlayerId;
 
-    private bool CanInitialize => IsSetup;
+    private bool CanInitialize => IsSetup && Session.PlayerId == 0;
     private bool CanBeginTurn => IsRunning && !HasPendingDecision && IsLocalActor && (_game?.CurrentTurn is null || IsPhase("Finished"));
     private bool CanRollDice => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed == 0;
     private bool CanRerollStep => IsRunning && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed > 0 && _game.CurrentTurn.RollCountUsed < _game.CurrentTurn.MaxRolls && (!HasPendingDecision || IsSelectDiceToRerollDecision);
-    private bool CanSelectDiceForReroll => CanRerollStep && _game?.CurrentTurn?.DiceResolved == false;
-    private bool CanRerollSelected => CanSelectDiceForReroll && _selectedDiceIndexes.Count > 0 && _selectedDiceIndexes.All(index => _game!.CurrentTurn!.Dice.Any(die => die.Index == index && !die.IsLocked));
+    private bool CanUseBackgroundDweller => IsRunning && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed > 0 &&
+        _game.CurrentTurn.DiceResolved == false && (!HasPendingDecision || IsSelectDiceToRerollDecision) &&
+        _game.Players.FirstOrDefault(player => player.PlayerId == Session.PlayerId)?.KeepCards.Any(card => card.CardId == "card-background-dweller") == true;
+    private bool CanSelectDiceForReroll => (CanRerollStep || CanUseBackgroundDweller) && _game?.CurrentTurn?.DiceResolved == false;
+    private bool CanRerollSelected => CanRerollStep && _selectedDiceIndexes.Count > 0 && _selectedDiceIndexes.All(index => _game!.CurrentTurn!.Dice.Any(die => die.Index == index && !die.IsLocked));
+    private bool CanRerollBackgroundDweller => CanUseBackgroundDweller && _selectedDiceIndexes.Count > 0 &&
+        _selectedDiceIndexes.All(index => _game!.CurrentTurn!.Dice.Any(die => die.Index == index && die.CurrentFace == "Three"));
     private bool CanFinalizeDice => IsRunning && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed > 0 && _game.CurrentTurn.DiceResolved == false && (!HasPendingDecision || IsSelectDiceToRerollDecision);
-    private bool CanUseMarketActions => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Purchase");
-    private bool CanEndTurn => CanUseMarketActions;
-    private bool CanAdvancePlayer => IsRunning && !HasPendingDecision && IsPhase("Finished");
+    private bool CanUseMarketActions => CanEndTurn && LocalPlayer?.IsAlive == true;
+    private bool CanEndTurn => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Purchase");
+    private bool CanAdvancePlayer => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Finished");
     private bool CanAnswerLeaveTokyoDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "LeaveTokyo", StringComparison.OrdinalIgnoreCase);
+    private bool CanAnswerOpportunistDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "OpportunistPurchase", StringComparison.OrdinalIgnoreCase);
+    private bool CanAnswerPeekDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "PeekTopDeckCardPurchase", StringComparison.OrdinalIgnoreCase);
+    private string PeekedCardName => _game?.PendingDecision?.Payload is System.Text.Json.JsonElement payload && payload.TryGetProperty("cardName", out var name) ? name.GetString() ?? "Top card" : "Top card";
+    private bool IsPeekedBattery => IsOpportunistBattery;
+    private PlayerDto? LocalPlayer => _game?.Players.FirstOrDefault(player => player.PlayerId == Session.PlayerId);
+    private bool CanUseRapidHealing => IsRunning && LocalPlayer is { IsAlive: true } player &&
+        player.Health < player.MaxHealth && player.Energy >= 2 && player.KeepCards.Any(card => card.CardId == "card-rapid-healing" || card.MimicTarget?.CardId == "card-rapid-healing");
+    private bool CanUseHealingRay => CanUseMarketActions && _game?.CurrentTurn?.UnusedHealingRayHearts > 0 &&
+        LocalPlayer?.KeepCards.Any(card => card.CardId == "card-healing-ray" || card.MimicTarget?.CardId == "card-healing-ray") == true &&
+        _game.Players.Any(player => player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth);
+    private bool CanPeekTopDeck => CanUseMarketActions && _game?.Market.DrawPileCount > 0 &&
+        LocalPlayer?.KeepCards.Any(card => card.CardId == "card-made-in-a-lab" || card.MimicTarget?.CardId == "card-made-in-a-lab") == true;
+    private bool IsOpportunistBattery => _game?.PendingDecision?.Payload is System.Text.Json.JsonElement payload &&
+        payload.TryGetProperty("cardId", out var cardId) && cardId.GetString() == "card-monster-batteries";
 
     private string SmartActionTitle
     {
@@ -285,6 +370,7 @@
             if (CanSelectDiceForReroll) return "Choose dice or finalize";
             if (CanFinalizeDice) return "Finalize dice";
             if (CanUseMarketActions) return "Buy cards or end turn";
+            if (CanEndTurn) return "End your turn";
             if (CanAdvancePlayer) return "Advance to next player";
             if (_game?.PendingDecision is not null) return $"Waiting for {PlayerName(_game.PendingDecision.PlayerId)}";
             if (_game?.CurrentTurn is not null && !IsLocalActor) return $"Waiting for {PlayerName(_game.CurrentTurn.CurrentPlayerId)}";
@@ -304,6 +390,7 @@
             if (CanSelectDiceForReroll) return "Click dice below to select them for reroll, or finalize the current result.";
             if (CanFinalizeDice) return "Resolve the current dice result and move to the next step.";
             if (CanUseMarketActions) return "Buy cards from the market, refresh the market, or end your turn.";
+            if (CanEndTurn) return "Your monster was eliminated; finish this turn.";
             if (CanAdvancePlayer) return "The current turn is finished. Move to the next monster.";
             if (_game?.PendingDecision is not null) return "Another decision must be answered before the game can continue.";
             if (_game?.CurrentTurn is not null && !IsLocalActor) return "This browser is not controlling the active monster.";
@@ -418,6 +505,10 @@
         try
         {
             _game = await ApiClient.GetGameAsync(GameId);
+            if (_game is not null && !_game.Players.Any(player => player.PlayerId == _healingRayTargetId && player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth))
+            {
+                _healingRayTargetId = _game.Players.FirstOrDefault(player => player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth)?.PlayerId ?? -1;
+            }
             PruneSelectedDice();
         }
         catch (Exception ex)
@@ -479,6 +570,10 @@
             }
 
             _game = result.GameState;
+            if (result.Success)
+            {
+                _batteryDeposit = 0;
+            }
             _selectedDiceIndexes.Clear();
             foreach (var newEvent in result.NewEvents)
             {
@@ -508,8 +603,11 @@
     private Task BeginTurnAsync() => ExecuteAsync(() => ApiClient.BeginTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
     private Task RollDiceAsync() => ExecuteAsync(() => ApiClient.RollDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
     private Task RerollSelectedDiceAsync() => ExecuteAsync(() => ApiClient.RerollDiceAsync(GameId, new RerollDiceRequest(Session.PlayerId, _selectedDiceIndexes.OrderBy(index => index).ToArray())));
+    private Task RerollBackgroundDwellerAsync() => ExecuteAsync(() => ApiClient.RerollBackgroundDwellerAsync(GameId, new RerollDiceRequest(Session.PlayerId, _selectedDiceIndexes.OrderBy(index => index).ToArray())));
     private Task FinalizeDiceAsync() => ExecuteAsync(() => ApiClient.FinalizeDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
-    private Task BuyFaceUpCardAsync(int slotIndex) => ExecuteAsync(() => ApiClient.BuyFaceUpCardAsync(GameId, new BuyFaceUpCardRequest(Session.PlayerId, slotIndex)));
+    private Task BuyFaceUpCardAsync(int slotIndex) => ExecuteAsync(() => ApiClient.BuyFaceUpCardAsync(GameId,
+        new BuyFaceUpCardRequest(Session.PlayerId, slotIndex,
+            _game?.Market.FaceUpCards[slotIndex]?.CardId == "card-monster-batteries" ? _batteryDeposit : 0)));
     private Task RefreshMarketAsync() => ExecuteAsync(() => ApiClient.RefreshMarketAsync(GameId, new ActorRequest(Session.PlayerId)));
 
     private Task ChooseLeaveTokyoAsync(bool leaveTokyo)
@@ -523,6 +621,15 @@
     }
 
     private Task EndTurnAsync() => ExecuteAsync(() => ApiClient.EndTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task ActivateRapidHealingAsync() => ExecuteAsync(() => ApiClient.ActivateRapidHealingAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task ActivateHealingRayAsync() => ExecuteAsync(() => ApiClient.ActivateHealingRayAsync(GameId, new HealingRayRequest(Session.PlayerId, _healingRayTargetId, _healingRayAmount)));
+    private Task PeekTopDeckAsync() => ExecuteAsync(() => ApiClient.PeekTopDeckCardAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task AnswerPeekAsync(bool buy) => ExecuteAsync(() => buy
+        ? ApiClient.BuyPeekedTopDeckCardAsync(GameId, new BatteryPurchaseRequest(Session.PlayerId, IsPeekedBattery ? _batteryDeposit : 0))
+        : ApiClient.DeclinePeekedTopDeckCardAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task AnswerOpportunistAsync(bool buy) => ExecuteAsync(() => buy
+        ? ApiClient.BuyOpportunistAsync(GameId, new BatteryPurchaseRequest(Session.PlayerId, IsOpportunistBattery ? _batteryDeposit : 0))
+        : ApiClient.DeclineOpportunistAsync(GameId, new ActorRequest(Session.PlayerId)));
     private Task AdvancePlayerAsync() => ExecuteAsync(() => ApiClient.AdvancePlayerAsync(GameId, new ActorRequest(Session.PlayerId)));
 
     public void Dispose()

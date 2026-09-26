@@ -17,11 +17,11 @@ public sealed class RapidHealingService
         _keepCardRulesService = keepCardRulesService ?? new KeepCardRulesService();
     }
 
-    public EngineStepResult Activate(GameState gameState)
+    public EngineStepResult Activate(GameState gameState, int actorPlayerId)
     {
         ArgumentNullException.ThrowIfNull(gameState);
 
-        var player = gameState.GetCurrentPlayer();
+        var player = gameState.GetPlayerById(actorPlayerId);
 
         player.SpendEnergy(ActivationCost);
 

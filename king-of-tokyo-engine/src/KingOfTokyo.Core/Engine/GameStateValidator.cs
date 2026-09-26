@@ -317,6 +317,11 @@ public sealed class GameStateValidator
 
         var currentPlayer = gameState.GetCurrentPlayer();
 
+        if (!currentPlayer.IsAlive)
+        {
+            throw new InvalidOperationException("Dead players cannot buy cards.");
+        }
+
         if (command.ActorPlayerId.HasValue && command.ActorPlayerId.Value != currentPlayer.PlayerId)
         {
             throw new InvalidOperationException("Actor does not match the current player.");
@@ -367,6 +372,11 @@ public sealed class GameStateValidator
 
         var currentPlayer = gameState.GetCurrentPlayer();
 
+        if (!currentPlayer.IsAlive)
+        {
+            throw new InvalidOperationException("Dead players cannot refresh the market.");
+        }
+
         if (command.ActorPlayerId.HasValue && command.ActorPlayerId.Value != currentPlayer.PlayerId)
         {
             throw new InvalidOperationException("Actor does not match the current player.");
@@ -394,26 +404,16 @@ public sealed class GameStateValidator
             throw new InvalidOperationException("Cannot activate Rapid Healing when game is not running.");
         }
 
-        if (gameState.CurrentTurn is null)
+        if (command.ActorPlayerId is null)
         {
-            throw new InvalidOperationException("Cannot activate Rapid Healing without an active turn.");
+            throw new InvalidOperationException("Rapid Healing requires an actor player id.");
         }
 
-        if (gameState.PendingDecision is not null)
-        {
-            throw new InvalidOperationException("Cannot activate Rapid Healing while another decision is pending.");
-        }
+        var currentPlayer = gameState.GetPlayerById(command.ActorPlayerId.Value);
 
-        if (gameState.CurrentTurn.Phase is TurnPhase.Finished or TurnPhase.TurnEnd or TurnPhase.NotStarted)
+        if (!currentPlayer.IsAlive)
         {
-            throw new InvalidOperationException("Rapid Healing cannot be used in the current phase.");
-        }
-
-        var currentPlayer = gameState.GetCurrentPlayer();
-
-        if (command.ActorPlayerId.HasValue && command.ActorPlayerId.Value != currentPlayer.PlayerId)
-        {
-            throw new InvalidOperationException("Actor does not match the current player.");
+            throw new InvalidOperationException("Dead players cannot activate Rapid Healing.");
         }
 
         var keepCardRulesService = new Services.KeepCardRulesService();
@@ -576,6 +576,11 @@ public sealed class GameStateValidator
 
         var currentPlayer = gameState.GetCurrentPlayer();
 
+        if (!currentPlayer.IsAlive)
+        {
+            throw new InvalidOperationException("Dead players cannot peek market cards.");
+        }
+
         if (command.ActorPlayerId.HasValue && command.ActorPlayerId.Value != currentPlayer.PlayerId)
         {
             throw new InvalidOperationException("Actor does not match the current player.");
@@ -615,6 +620,11 @@ public sealed class GameStateValidator
         }
 
         var currentPlayer = gameState.GetCurrentPlayer();
+
+        if (!currentPlayer.IsAlive)
+        {
+            throw new InvalidOperationException("Dead players cannot buy cards.");
+        }
 
         if (command.ActorPlayerId.HasValue && command.ActorPlayerId.Value != currentPlayer.PlayerId)
         {
