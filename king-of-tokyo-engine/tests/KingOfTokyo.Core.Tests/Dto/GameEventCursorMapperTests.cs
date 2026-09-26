@@ -28,7 +28,8 @@ public sealed class GameEventCursorMapperTests
         Assert.Equal(gameState.Version, cursor.CurrentGameVersion);
         Assert.Single(cursor.Events);
         Assert.Equal(1, cursor.Events[0].EventSequence);
-        Assert.IsType<TurnStartedEvent>(cursor.Events[0].Event);
+        Assert.Equal(nameof(TurnStartedEvent), cursor.Events[0].Event.GetProperty("eventName").GetString());
+        Assert.Equal(0, cursor.Events[0].Event.GetProperty("playerId").GetInt32());
     }
 
     [Fact]
@@ -49,7 +50,9 @@ public sealed class GameEventCursorMapperTests
         Assert.Equal(gameState.Version, cursor.CurrentGameVersion);
         Assert.Single(cursor.Events);
         Assert.Equal(afterBeginTurnEventSequence + 1, cursor.Events[0].EventSequence);
-        Assert.IsType<DiceRolledEvent>(cursor.Events[0].Event);
+        Assert.Equal(nameof(DiceRolledEvent), cursor.Events[0].Event.GetProperty("eventName").GetString());
+        Assert.Equal(0, cursor.Events[0].Event.GetProperty("playerId").GetInt32());
+        Assert.Equal(6, cursor.Events[0].Event.GetProperty("faces").GetArrayLength());
     }
 
     [Fact]

@@ -27,7 +27,8 @@ public sealed class ApiCommandResultDtoTests
         Assert.Equal(gameState.Version, dto.GameState.Version);
         Assert.Equal(gameState.EventLog.Count, dto.CurrentEventSequence);
         Assert.Single(dto.NewEvents);
-        Assert.IsType<TurnStartedEvent>(dto.NewEvents[0]);
+        Assert.Equal(nameof(TurnStartedEvent), dto.NewEvents[0].GetProperty("eventName").GetString());
+        Assert.Equal(0, dto.NewEvents[0].GetProperty("playerId").GetInt32());
     }
 
     [Fact]

@@ -74,7 +74,7 @@ public sealed class GameEndpointsTests
 
         var routePatterns = GetRoutePatterns(app);
 
-        Assert.Equal(29, routePatterns.Count);
+        Assert.Equal(30, routePatterns.Count);
     }
 
     private static WebApplication CreateAppWithGameEndpoints()

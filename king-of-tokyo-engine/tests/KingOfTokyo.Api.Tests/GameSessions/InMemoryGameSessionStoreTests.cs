@@ -168,7 +168,8 @@ public sealed class InMemoryGameSessionStoreTests
         Assert.Equal(2, cursor.CurrentGameVersion);
         Assert.Single(cursor.Events);
         Assert.Equal(1, cursor.Events[0].EventSequence);
-        Assert.IsType<TurnStartedEvent>(cursor.Events[0].Event);
+        Assert.Equal(nameof(TurnStartedEvent), cursor.Events[0].Event.GetProperty("eventName").GetString());
+        Assert.Equal(0, cursor.Events[0].Event.GetProperty("playerId").GetInt32());
     }
 
     [Fact]
