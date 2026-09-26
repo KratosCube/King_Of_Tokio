@@ -143,6 +143,12 @@
                         }
                         <button class="btn btn-secondary" @onclick="ClearSelectedDice" disabled="@(_busy || _selectedDiceIndexes.Count == 0)">Clear dice selection</button>
                     </div>
+                    @if (CanFinalizeDice && HasHealingRay)
+                    {
+                        <label>Hearts to reserve for Healing Ray</label>
+                        <InputNumber @bind-Value="_rayHeartsReserved" min="0" max="@AvailableRayHeartsBeforeFinalizing" />
+                        <p class="muted">Other hearts heal you after poison and shrink tokens are removed.</p>
+                    }
                     @if (_selectedDiceIndexes.Count > 0 && !CanRerollSelected)
                     {
                         <p class="muted">Dice are selected. Reroll becomes available only during your reroll decision.</p>
@@ -312,6 +318,7 @@
     private int _batteryDeposit;
     private int _healingRayTargetId = -1;
     private int _healingRayAmount = 1;
+    private int _rayHeartsReserved;
     private string? _error;
 
     private bool IsRunning => string.Equals(_game?.Status, "Running", StringComparison.OrdinalIgnoreCase);
@@ -348,10 +355,14 @@
     private string PeekedCardName => _game?.PendingDecision?.Payload is System.Text.Json.JsonElement payload && payload.TryGetProperty("cardName", out var name) ? name.GetString() ?? "Top card" : "Top card";
     private bool IsPeekedBattery => IsOpportunistBattery;
     private PlayerDto? LocalPlayer => _game?.Players.FirstOrDefault(player => player.PlayerId == Session.PlayerId);
+    private bool HasHealingRay => LocalPlayer?.KeepCards.Any(card => card.CardId == "card-healing-ray" || card.MimicTarget?.CardId == "card-healing-ray") == true;
+    private int AvailableRayHeartsBeforeFinalizing => Math.Max(0,
+        (_game?.CurrentTurn?.Dice.Count(die => die.CurrentFace == "Heart") ?? 0) -
+        (LocalPlayer?.Status.PoisonTokens ?? 0) - (LocalPlayer?.Status.ShrinkTokens ?? 0));
     private bool CanUseRapidHealing => IsRunning && LocalPlayer is { IsAlive: true } player &&
         player.Health < player.MaxHealth && player.Energy >= 2 && player.KeepCards.Any(card => card.CardId == "card-rapid-healing" || card.MimicTarget?.CardId == "card-rapid-healing");
     private bool CanUseHealingRay => CanUseMarketActions && _game?.CurrentTurn?.UnusedHealingRayHearts > 0 &&
-        LocalPlayer?.KeepCards.Any(card => card.CardId == "card-healing-ray" || card.MimicTarget?.CardId == "card-healing-ray") == true &&
+        HasHealingRay &&
         _game.Players.Any(player => player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth);
     private bool CanPeekTopDeck => CanUseMarketActions && _game?.Market.DrawPileCount > 0 &&
         LocalPlayer?.KeepCards.Any(card => card.CardId == "card-made-in-a-lab" || card.MimicTarget?.CardId == "card-made-in-a-lab") == true;
@@ -467,7 +478,7 @@
         "Two" => "2",
         "Three" => "3",
         "Energy" => "⚡",
-        "Heal" => "❤",
+        "Heart" => "❤",
         "Attack" => "🗯",
         _ => face
     };
@@ -573,6 +584,7 @@
             if (result.Success)
             {
                 _batteryDeposit = 0;
+                _rayHeartsReserved = 0;
             }
             _selectedDiceIndexes.Clear();
             foreach (var newEvent in result.NewEvents)
@@ -604,7 +616,7 @@
     private Task RollDiceAsync() => ExecuteAsync(() => ApiClient.RollDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
     private Task RerollSelectedDiceAsync() => ExecuteAsync(() => ApiClient.RerollDiceAsync(GameId, new RerollDiceRequest(Session.PlayerId, _selectedDiceIndexes.OrderBy(index => index).ToArray())));
     private Task RerollBackgroundDwellerAsync() => ExecuteAsync(() => ApiClient.RerollBackgroundDwellerAsync(GameId, new RerollDiceRequest(Session.PlayerId, _selectedDiceIndexes.OrderBy(index => index).ToArray())));
-    private Task FinalizeDiceAsync() => ExecuteAsync(() => ApiClient.FinalizeDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task FinalizeDiceAsync() => ExecuteAsync(() => ApiClient.FinalizeDiceAsync(GameId, new FinalizeDiceRequest(Session.PlayerId, _rayHeartsReserved)));
     private Task BuyFaceUpCardAsync(int slotIndex) => ExecuteAsync(() => ApiClient.BuyFaceUpCardAsync(GameId,
         new BuyFaceUpCardRequest(Session.PlayerId, slotIndex,
             _game?.Market.FaceUpCards[slotIndex]?.CardId == "card-monster-batteries" ? _batteryDeposit : 0)));
@@ -737,7 +749,7 @@
             "Two" => "2",
             "Three" => "3",
             "Energy" => "⚡",
-            "Heal" => "❤",
+            "Heart" => "❤",
             "Attack" => "💥",
             _ => face ?? "?"
         };

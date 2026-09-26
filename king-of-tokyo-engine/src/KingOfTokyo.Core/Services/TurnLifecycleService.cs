@@ -166,8 +166,10 @@ public sealed class TurnLifecycleService
         {
             var transferred = Math.Min(2, battery.StoredEnergy);
             battery.SpendStoredEnergy(transferred);
-            player.GainEnergy(transferred);
-            newEvents.Add(new EnergyGainedEvent(player.PlayerId, transferred, "Keep card: Monster Batteries."));
+            var bonus = _keepCardRulesService.GetBonusEnergyGain(player, transferred);
+            player.GainEnergy(transferred + bonus);
+            newEvents.Add(new EnergyGainedEvent(player.PlayerId, transferred + bonus,
+                bonus > 0 ? "Monster Batteries + Friend of Children." : "Keep card: Monster Batteries."));
 
             if (battery.StoredEnergy > 0)
             {

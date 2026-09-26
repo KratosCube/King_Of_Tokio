@@ -180,7 +180,7 @@ public sealed class GameEngine : IGameEngine
     private CommandResult ExecuteFinalizeDice(GameState gameState, FinalizeDiceCommand command)
     {
         _validator.EnsureCanFinalizeDice(gameState, command);
-        var stepResult = _finalizeDiceService.Execute(gameState);
+        var stepResult = _finalizeDiceService.Execute(gameState, command.HeartsReservedForHealingRay);
         PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }

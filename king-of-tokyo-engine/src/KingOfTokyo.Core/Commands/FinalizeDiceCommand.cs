@@ -4,7 +4,10 @@ namespace KingOfTokyo.Core.Commands;
 
 public sealed class FinalizeDiceCommand : CommandBase
 {
-    public FinalizeDiceCommand(int? actorPlayerId = null) : base(actorPlayerId)
+    public int HeartsReservedForHealingRay { get; }
+
+    public FinalizeDiceCommand(int? actorPlayerId = null, int heartsReservedForHealingRay = 0) : base(actorPlayerId)
     {
+        HeartsReservedForHealingRay = heartsReservedForHealingRay;
     }
 }

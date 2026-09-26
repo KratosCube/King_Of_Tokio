@@ -87,9 +87,9 @@ public static class GameEndpoints
             return Execute(gameId, store, (engine, state) => engine.Execute(state, new RerollBackgroundDwellerThreesCommand(request.DiceIndexesToReroll, request.ActorPlayerId)));
         });
 
-        games.MapPost("/{gameId:guid}/commands/finalize-dice", (Guid gameId, ActorRequest request, [FromServices] IGameSessionStore store) =>
+        games.MapPost("/{gameId:guid}/commands/finalize-dice", (Guid gameId, FinalizeDiceRequest request, [FromServices] IGameSessionStore store) =>
         {
-            return Execute(gameId, store, (engine, state) => engine.Execute(state, new FinalizeDiceCommand(request.ActorPlayerId)));
+            return Execute(gameId, store, (engine, state) => engine.Execute(state, new FinalizeDiceCommand(request.ActorPlayerId, request.HeartsReservedForHealingRay)));
         });
 
         games.MapPost("/{gameId:guid}/commands/buy-face-up-card", (Guid gameId, BuyFaceUpCardRequest request, [FromServices] IGameSessionStore store) =>

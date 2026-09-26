@@ -49,7 +49,7 @@ public sealed class FinalizeDiceService
         _keepCardRulesService = keepCardRulesService ?? new KeepCardRulesService();
     }
 
-    public EngineStepResult Execute(GameState gameState)
+    public EngineStepResult Execute(GameState gameState, int heartsReservedForHealingRay = 0)
     {
         ArgumentNullException.ThrowIfNull(gameState);
 
@@ -57,6 +57,16 @@ public sealed class FinalizeDiceService
             ?? throw new InvalidOperationException("Cannot finalize dice without an active turn.");
 
         var currentPlayer = gameState.GetCurrentPlayer();
+
+        var heartsRolled = currentTurn.DicePool.Dice.Count(die => die.CurrentFace == DieFace.Heart);
+        var heartsAfterStatus = Math.Max(0, heartsRolled - currentPlayer.Status.PoisonTokens - currentPlayer.Status.ShrinkTokens);
+        if (heartsReservedForHealingRay < 0 || heartsReservedForHealingRay > heartsAfterStatus ||
+            (heartsReservedForHealingRay > 0 && !currentPlayer.KeepCards.Any(card =>
+                card.CardId == KnownCardIds.HealingRay ||
+                (card.CardId == KnownCardIds.Mimic && card.MimicTarget?.CardId == KnownCardIds.HealingRay))))
+        {
+            throw new InvalidOperationException("Invalid hearts reserved for Healing Ray.");
+        }
 
         gameState.ClearPendingDecision();
 
@@ -150,7 +160,8 @@ public sealed class FinalizeDiceService
 
         var heartsRemainingForHealing = RemoveStatusTokensWithHearts(currentPlayer, summary.HeartCount, newEvents);
         currentTurn.ReserveHeartsUsedElsewhere(summary.HeartCount - heartsRemainingForHealing);
-        var healingSummary = summary with { HeartCount = heartsRemainingForHealing };
+        var heartsForOwnHealing = heartsRemainingForHealing - heartsReservedForHealingRay;
+        var healingSummary = summary with { HeartCount = heartsForOwnHealing };
         var healedAmount = _healingResolver.ResolveHealing(currentPlayer, healingSummary);
         var regenerationBonus = _keepCardRulesService.GetBonusHealing(currentPlayer, healedAmount);
         var totalHealing = healedAmount + regenerationBonus;
@@ -161,7 +172,7 @@ public sealed class FinalizeDiceService
             currentPlayer.Heal(totalHealing);
             var actualHealing = currentPlayer.Health - healthBefore;
 
-            currentTurn.ReserveHeartsUsedElsewhere(Math.Min(heartsRemainingForHealing, actualHealing));
+            currentTurn.ReserveHeartsUsedElsewhere(Math.Min(heartsForOwnHealing, actualHealing));
 
             if (actualHealing > 0)
             {

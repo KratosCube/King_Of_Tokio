@@ -73,7 +73,7 @@ public sealed class ApiClient
     public Task<ApiCommandResultDto> RerollBackgroundDwellerAsync(Guid gameId, RerollDiceRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "reroll-background-dweller-threes", request, cancellationToken);
 
-    public Task<ApiCommandResultDto> FinalizeDiceAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+    public Task<ApiCommandResultDto> FinalizeDiceAsync(Guid gameId, FinalizeDiceRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "finalize-dice", request, cancellationToken);
 
     public Task<ApiCommandResultDto> BuyFaceUpCardAsync(Guid gameId, BuyFaceUpCardRequest request, CancellationToken cancellationToken = default)
