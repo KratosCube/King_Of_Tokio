@@ -204,6 +204,7 @@
                     <p class="muted">Available hearts: @(_game.CurrentTurn?.UnusedHealingRayHearts ?? 0)</p>
                     <label>Heal another monster</label>
                     <select @bind="_healingRayTargetId">
+                        <option value="-1">Select a monster</option>
                         @foreach (var target in _game.Players.Where(player => player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth))
                         {
                             <option value="@target.PlayerId">@target.MonsterName</option>
@@ -211,7 +212,7 @@
                     </select>
                     <label>Hearts to use</label>
                     <InputNumber @bind-Value="_healingRayAmount" min="1" max="@_game.CurrentTurn.UnusedHealingRayHearts" />
-                    <button class="btn btn-primary" @onclick="ActivateHealingRayAsync" disabled="@(_busy || _healingRayAmount < 1 || _healingRayAmount > _game.CurrentTurn.UnusedHealingRayHearts)">Heal</button>
+                    <button class="btn btn-primary" @onclick="ActivateHealingRayAsync" disabled="@(_busy || !HasSelectedHealingRayTarget || _healingRayAmount < 1 || _healingRayAmount > _game.CurrentTurn.UnusedHealingRayHearts)">Heal</button>
                 </section>
             }
         </div>
@@ -364,6 +365,8 @@
     private bool CanUseHealingRay => CanUseMarketActions && _game?.CurrentTurn?.UnusedHealingRayHearts > 0 &&
         HasHealingRay &&
         _game.Players.Any(player => player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth);
+    private bool HasSelectedHealingRayTarget => _game?.Players.Any(player => player.PlayerId == _healingRayTargetId &&
+        player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth) == true;
     private bool CanPeekTopDeck => CanUseMarketActions && _game?.Market.DrawPileCount > 0 &&
         LocalPlayer?.KeepCards.Any(card => card.CardId == "card-made-in-a-lab" || card.MimicTarget?.CardId == "card-made-in-a-lab") == true;
     private bool IsOpportunistBattery => _game?.PendingDecision?.Payload is System.Text.Json.JsonElement payload &&
