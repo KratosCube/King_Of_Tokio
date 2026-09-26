@@ -114,7 +114,7 @@ public static class GameEndpoints
 
         games.MapPost("/{gameId:guid}/commands/advance-player", (Guid gameId, ActorRequest request, [FromServices] IGameSessionStore store) =>
         {
-            return Execute(gameId, store, (engine, state) => engine.Execute(state, new AdvanceToNextPlayerCommand()));
+            return Execute(gameId, store, (engine, state) => engine.Execute(state, new AdvanceToNextPlayerCommand(request.ActorPlayerId)));
         });
 
         games.MapPost("/{gameId:guid}/commands/activate-wings", (Guid gameId, ActorRequest request, [FromServices] IGameSessionStore store) =>

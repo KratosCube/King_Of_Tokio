@@ -288,6 +288,11 @@ public sealed class GameStateValidator
         {
             throw new InvalidOperationException("Can only advance after the current turn is finished.");
         }
+
+        if (command.ActorPlayerId.HasValue && command.ActorPlayerId.Value != gameState.CurrentTurn.CurrentPlayerId)
+        {
+            throw new InvalidOperationException("Only the player who finished this turn can advance to the next player.");
+        }
     }
 
     public void EnsureCanBuyFaceUpCard(GameState gameState, BuyFaceUpCardCommand command, int effectiveCost)
