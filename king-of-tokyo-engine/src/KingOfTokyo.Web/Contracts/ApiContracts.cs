@@ -135,6 +135,18 @@ public sealed record ChooseLeaveTokyoRequest(int ActorPlayerId, bool LeaveTokyo)
 
 public sealed record HealingRayRequest(int? ActorPlayerId, int TargetPlayerId, int HealingAmount);
 
+public sealed record ChangeDieFaceRequest(int? ActorPlayerId, int DieIndex, string TargetFace);
+
+public sealed record DieIndexRequest(int? ActorPlayerId, int DieIndex);
+
+public sealed record PsychicProbeRequest(int ActorPlayerId, int TargetDieIndex);
+
+public sealed record SetMimicTargetRequest(int? ActorPlayerId, int TargetOwnerPlayerId, string TargetCardId);
+
+public sealed record MetamorphRequest(int? ActorPlayerId, string CardIdToDiscard);
+
+public sealed record BuyOwnedKeepCardRequest(int? ActorPlayerId, int SellerPlayerId, string CardId);
+
 public sealed record ApiCommandResultDto(
     bool Success,
     string? Error,

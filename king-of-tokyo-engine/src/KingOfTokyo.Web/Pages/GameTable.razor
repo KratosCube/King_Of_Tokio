@@ -215,6 +215,94 @@
                     <button class="btn btn-primary" @onclick="ActivateHealingRayAsync" disabled="@(_busy || !HasSelectedHealingRayTarget || _healingRayAmount < 1 || _healingRayAmount > _game.CurrentTurn.UnusedHealingRayHearts)">Heal</button>
                 </section>
             }
+            @if (HasAvailableCardActions)
+            {
+                <section class="panel">
+                    <h2>Keep card actions</h2>
+                    @if (CanUseRollingCards && (HasCardEffect("card-stretchy") || HasCardEffect("card-herd-culler") || HasOwnedCard("card-plot-twist")) || CanUsePsychicProbe)
+                    {
+                        <label>Die index</label>
+                        <InputNumber @bind-Value="_abilityDieIndex" min="0" max="@(_game.CurrentTurn!.Dice.Count - 1)" />
+                    }
+                    @if (CanUseRollingCards && (HasCardEffect("card-stretchy") || HasOwnedCard("card-plot-twist")))
+                    {
+                        <label>New die face</label>
+                        <select @bind="_abilityTargetFace">
+                            <option value="One">1</option><option value="Two">2</option><option value="Three">3</option>
+                            <option value="Energy">Energy</option><option value="Heart">Heart</option><option value="Attack">Attack</option>
+                        </select>
+                    }
+                    @if (CanUseRollingCards)
+                    {
+                        <div class="actions">
+                            @if (HasCardEffect("card-telepath") && LocalPlayer!.Energy >= 1)
+                            {
+                                <button class="btn btn-secondary" @onclick="ActivateTelepathAsync" disabled="@_busy">Telepath: extra roll (1 energy)</button>
+                            }
+                            @if (HasCardEffect("card-stretchy") && LocalPlayer!.Energy >= 2)
+                            {
+                                <button class="btn btn-secondary" @onclick="ActivateStretchyAsync" disabled="@(_busy || !HasValidAbilityDie)">Stretchy: change die (2 energy)</button>
+                            }
+                            @if (HasCardEffect("card-herd-culler") && _game.CurrentTurn!.Flags.HerdCullerUsed == false)
+                            {
+                                <button class="btn btn-secondary" @onclick="ActivateHerdCullerAsync" disabled="@(_busy || !HasValidAbilityDie)">Herd Culler: change die to 1</button>
+                            }
+                            @if (LocalPlayer!.KeepCards.Any(card => card.CardId == "card-smoke-cloud" && card.Counters > 0))
+                            {
+                                <button class="btn btn-secondary" @onclick="ActivateSmokeCloudAsync" disabled="@_busy">Smoke Cloud: extra roll</button>
+                            }
+                            @if (HasOwnedCard("card-plot-twist"))
+                            {
+                                <button class="btn btn-secondary" @onclick="ActivatePlotTwistAsync" disabled="@(_busy || !HasValidAbilityDie)">Plot Twist: change die and discard</button>
+                            }
+                        </div>
+                    }
+                    @if (CanUsePsychicProbe)
+                    {
+                        <button class="btn btn-secondary" @onclick="ActivatePsychicProbeAsync" disabled="@(_busy || !HasValidAbilityDie)">Psychic Probe: reroll this die</button>
+                    }
+                    @if (CanUseWings)
+                    {
+                        <button class="btn btn-secondary" @onclick="ActivateWingsAsync" disabled="@_busy">Wings: cancel damage (2 energy)</button>
+                    }
+                    @if (CanSetMimicTarget)
+                    {
+                        <h3>Mimic: copy another monster's card</h3>
+                        <div class="actions">
+                            @foreach (var owner in _game.Players.Where(player => player.IsAlive && player.PlayerId != Session.PlayerId))
+                            {
+                                @foreach (var card in owner.KeepCards.Where(card => card.CardId != "card-mimic"))
+                                {
+                                    <button class="btn btn-secondary" @onclick="() => SetMimicTargetAsync(owner.PlayerId, card.CardId)" disabled="@_busy">@owner.MonsterName: @card.Name</button>
+                                }
+                            }
+                        </div>
+                    }
+                    @if (CanUseMetamorph)
+                    {
+                        <h3>Metamorph: discard a card for its cost</h3>
+                        <div class="actions">
+                            @foreach (var card in LocalPlayer!.KeepCards.Where(card => card.CardId != "card-metamorph"))
+                            {
+                                <button class="btn btn-secondary" @onclick="() => ActivateMetamorphAsync(card.CardId)" disabled="@_busy">Discard @card.Name</button>
+                            }
+                        </div>
+                    }
+                    @if (CanBuyOwnedKeepCards)
+                    {
+                        <h3>Parasitic Tentacles: buy another monster's card</h3>
+                        <div class="actions">
+                            @foreach (var owner in _game.Players.Where(player => player.IsAlive && player.PlayerId != Session.PlayerId))
+                            {
+                                @foreach (var card in owner.KeepCards)
+                                {
+                                    <button class="btn btn-secondary" @onclick="() => BuyOwnedKeepCardAsync(owner.PlayerId, card.CardId)" disabled="@(_busy || LocalPlayer!.Energy < card.Cost)">@owner.MonsterName: @card.Name (⚡ @card.Cost)</button>
+                                }
+                            }
+                        </div>
+                    }
+                </section>
+            }
         </div>
 
         <div class="grid-2 lower-game-grid">
@@ -320,6 +408,8 @@
     private int _healingRayTargetId = -1;
     private int _healingRayAmount = 1;
     private int _rayHeartsReserved;
+    private int _abilityDieIndex;
+    private string _abilityTargetFace = "One";
     private string? _error;
 
     private bool IsRunning => string.Equals(_game?.Status, "Running", StringComparison.OrdinalIgnoreCase);
@@ -367,6 +457,29 @@
         _game.Players.Any(player => player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth);
     private bool HasSelectedHealingRayTarget => _game?.Players.Any(player => player.PlayerId == _healingRayTargetId &&
         player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth) == true;
+    private bool HasOwnedCard(string cardId) => LocalPlayer?.KeepCards.Any(card => card.CardId == cardId) == true;
+    private bool HasCardEffect(string cardId) => LocalPlayer?.KeepCards.Any(card => card.CardId == cardId || card.MimicTarget?.CardId == cardId) == true;
+    private bool CanUseRollingCards => IsRunning && IsLocalActor && LocalPlayer?.IsAlive == true && IsPhase("Rolling") &&
+        _game?.CurrentTurn is { RollCountUsed: > 0, DiceResolved: false } && (!HasPendingDecision || IsSelectDiceToRerollDecision);
+    private bool HasValidAbilityDie => _game?.CurrentTurn?.Dice.Any(die => die.Index == _abilityDieIndex) == true;
+    private bool CanUsePsychicProbe => IsRunning && !IsLocalActor && LocalPlayer?.IsAlive == true && IsPhase("Rolling") &&
+        _game?.CurrentTurn is { RollCountUsed: > 0, DiceResolved: false } && (!HasPendingDecision || IsSelectDiceToRerollDecision) &&
+        LocalPlayer.KeepCards.Any(card => card.CardId == "card-psychic-probe" && card.Counters == 0);
+    private bool CanUseWings => IsRunning && _game?.CurrentTurn is not null && LocalPlayer is { IsAlive: true } player &&
+        player.Health < player.MaxHealth && player.Energy >= 2 && HasCardEffect("card-wings") &&
+        (!HasPendingDecision || CanAnswerLeaveTokyoDecision);
+    private bool CanSetMimicTarget => IsRunning && !HasPendingDecision && IsLocalActor && LocalPlayer is { IsAlive: true } player &&
+        player.KeepCards.FirstOrDefault(card => card.CardId == "card-mimic") is { } mimic &&
+        ((mimic.MimicTarget is null && CanUseMarketActions) ||
+         (mimic.MimicTarget is not null && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed == 0 && player.Energy >= 1)) &&
+        _game!.Players.Any(owner => owner.IsAlive && owner.PlayerId != Session.PlayerId && owner.KeepCards.Any(card => card.CardId != "card-mimic"));
+    private bool CanUseMetamorph => CanUseMarketActions && HasOwnedCard("card-metamorph") &&
+        LocalPlayer!.KeepCards.Any(card => card.CardId != "card-metamorph");
+    private bool CanBuyOwnedKeepCards => CanUseMarketActions && HasOwnedCard("card-parasitic-tentacles") &&
+        _game!.Players.Any(owner => owner.IsAlive && owner.PlayerId != Session.PlayerId && owner.KeepCards.Count > 0);
+    private bool HasAvailableCardActions => CanUseRollingCards && (HasCardEffect("card-telepath") || HasCardEffect("card-stretchy") ||
+        HasCardEffect("card-herd-culler") || HasOwnedCard("card-smoke-cloud") || HasOwnedCard("card-plot-twist")) ||
+        CanUsePsychicProbe || CanUseWings || CanSetMimicTarget || CanUseMetamorph || CanBuyOwnedKeepCards;
     private bool CanPeekTopDeck => CanUseMarketActions && _game?.Market.DrawPileCount > 0 &&
         LocalPlayer?.KeepCards.Any(card => card.CardId == "card-made-in-a-lab" || card.MimicTarget?.CardId == "card-made-in-a-lab") == true;
     private bool IsOpportunistBattery => _game?.PendingDecision?.Payload is System.Text.Json.JsonElement payload &&
@@ -638,6 +751,16 @@
     private Task EndTurnAsync() => ExecuteAsync(() => ApiClient.EndTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
     private Task ActivateRapidHealingAsync() => ExecuteAsync(() => ApiClient.ActivateRapidHealingAsync(GameId, new ActorRequest(Session.PlayerId)));
     private Task ActivateHealingRayAsync() => ExecuteAsync(() => ApiClient.ActivateHealingRayAsync(GameId, new HealingRayRequest(Session.PlayerId, _healingRayTargetId, _healingRayAmount)));
+    private Task ActivateWingsAsync() => ExecuteAsync(() => ApiClient.ActivateWingsAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task ActivateTelepathAsync() => ExecuteAsync(() => ApiClient.ActivateTelepathAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task ActivateStretchyAsync() => ExecuteAsync(() => ApiClient.ActivateStretchyAsync(GameId, new ChangeDieFaceRequest(Session.PlayerId, _abilityDieIndex, _abilityTargetFace)));
+    private Task ActivateHerdCullerAsync() => ExecuteAsync(() => ApiClient.ActivateHerdCullerAsync(GameId, new DieIndexRequest(Session.PlayerId, _abilityDieIndex)));
+    private Task ActivateSmokeCloudAsync() => ExecuteAsync(() => ApiClient.ActivateSmokeCloudAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task ActivatePlotTwistAsync() => ExecuteAsync(() => ApiClient.ActivatePlotTwistAsync(GameId, new ChangeDieFaceRequest(Session.PlayerId, _abilityDieIndex, _abilityTargetFace)));
+    private Task ActivatePsychicProbeAsync() => ExecuteAsync(() => ApiClient.ActivatePsychicProbeAsync(GameId, new PsychicProbeRequest(Session.PlayerId!.Value, _abilityDieIndex)));
+    private Task SetMimicTargetAsync(int ownerId, string cardId) => ExecuteAsync(() => ApiClient.SetMimicTargetAsync(GameId, new SetMimicTargetRequest(Session.PlayerId, ownerId, cardId)));
+    private Task ActivateMetamorphAsync(string cardId) => ExecuteAsync(() => ApiClient.ActivateMetamorphAsync(GameId, new MetamorphRequest(Session.PlayerId, cardId)));
+    private Task BuyOwnedKeepCardAsync(int ownerId, string cardId) => ExecuteAsync(() => ApiClient.BuyOwnedKeepCardAsync(GameId, new BuyOwnedKeepCardRequest(Session.PlayerId, ownerId, cardId)));
     private Task PeekTopDeckAsync() => ExecuteAsync(() => ApiClient.PeekTopDeckCardAsync(GameId, new ActorRequest(Session.PlayerId)));
     private Task AnswerPeekAsync(bool buy) => ExecuteAsync(() => buy
         ? ApiClient.BuyPeekedTopDeckCardAsync(GameId, new BatteryPurchaseRequest(Session.PlayerId, IsPeekedBattery ? _batteryDeposit : 0))

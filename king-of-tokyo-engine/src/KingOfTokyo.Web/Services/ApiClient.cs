@@ -103,6 +103,36 @@ public sealed class ApiClient
     public Task<ApiCommandResultDto> ActivateHealingRayAsync(Guid gameId, HealingRayRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "activate-healing-ray", request, cancellationToken);
 
+    public Task<ApiCommandResultDto> ActivateWingsAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-wings", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateTelepathAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-telepath", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateStretchyAsync(Guid gameId, ChangeDieFaceRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-stretchy", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateHerdCullerAsync(Guid gameId, DieIndexRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-herd-culler", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateSmokeCloudAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-smoke-cloud", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivatePlotTwistAsync(Guid gameId, ChangeDieFaceRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-plot-twist", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivatePsychicProbeAsync(Guid gameId, PsychicProbeRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-psychic-probe", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> SetMimicTargetAsync(Guid gameId, SetMimicTargetRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "set-mimic-target", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateMetamorphAsync(Guid gameId, MetamorphRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-metamorph", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> BuyOwnedKeepCardAsync(Guid gameId, BuyOwnedKeepCardRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "buy-owned-keep-card", request, cancellationToken);
+
     public Task<ApiCommandResultDto> PeekTopDeckCardAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "peek-top-deck-card", request, cancellationToken);
 
