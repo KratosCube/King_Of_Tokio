@@ -1,27 +1,17 @@
 using KingOfTokyo.Core.Abstractions;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.State;
-using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Events;
 
 namespace KingOfTokyo.Core.Services;
 
 public sealed class EnergyPaymentService
 {
-    private readonly KeepCardLifecycleService _keepCardLifecycleService;
-
-    public EnergyPaymentService(KeepCardLifecycleService? keepCardLifecycleService = null)
-    {
-        _keepCardLifecycleService = keepCardLifecycleService ?? new KeepCardLifecycleService();
-    }
-
     public int GetAvailableEnergy(PlayerState player)
     {
         ArgumentNullException.ThrowIfNull(player);
 
-        return player.Energy + player.KeepCards
-            .Where(card => card.CardId == KnownCardIds.MonsterBatteries)
-            .Sum(card => card.StoredEnergy);
+        return player.Energy;
     }
 
     public IReadOnlyList<GameEventBase> SpendEnergy(
@@ -48,49 +38,7 @@ public sealed class EnergyPaymentService
             throw new InvalidOperationException("Cannot spend more energy than the player has available.");
         }
 
-        var events = new List<GameEventBase>();
-        var remainingAmount = amount;
-        var playerEnergyToSpend = Math.Min(player.Energy, remainingAmount);
-
-        if (playerEnergyToSpend > 0)
-        {
-            player.SpendEnergy(playerEnergyToSpend);
-            remainingAmount -= playerEnergyToSpend;
-        }
-
-        if (remainingAmount == 0)
-        {
-            return events;
-        }
-
-        foreach (var battery in player.KeepCards
-                     .Where(card => card.CardId == KnownCardIds.MonsterBatteries && card.StoredEnergy > 0)
-                     .ToArray())
-        {
-            var storedEnergyToSpend = Math.Min(battery.StoredEnergy, remainingAmount);
-            battery.SpendStoredEnergy(storedEnergyToSpend);
-            remainingAmount -= storedEnergyToSpend;
-
-            if (battery.StoredEnergy == 0)
-            {
-                var discardedCard = player.RemoveKeepCard(KnownCardIds.MonsterBatteries);
-                new MimicTargetCleanupService().ClearTargetsForLostCard(gameState, player.PlayerId, discardedCard.CardId);
-                _keepCardLifecycleService.ApplyLostEffect(player, discardedCard);
-                gameState.Market.Discard(discardedCard);
-
-                events.Add(new KeepCardDiscardedEvent(
-                    player.PlayerId,
-                    discardedCard.CardId,
-                    discardedCard.Name,
-                    discardReason));
-            }
-
-            if (remainingAmount == 0)
-            {
-                break;
-            }
-        }
-
-        return events;
+        player.SpendEnergy(amount);
+        return Array.Empty<GameEventBase>();
     }
 }

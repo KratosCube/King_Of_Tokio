@@ -20,7 +20,7 @@ public sealed class MarketInitializationFlowTests
 
         Assert.True(result.Success);
         Assert.Equal(MarketState.FaceUpSlotCount, gameState.Market.FaceUpCards.Count(card => card is not null));
-        Assert.Equal(GetKnownCardCount() - MarketState.FaceUpSlotCount, gameState.Market.DrawPileCount);
+        Assert.Equal(GetKnownCardCount() + 2 - MarketState.FaceUpSlotCount, gameState.Market.DrawPileCount);
         Assert.Equal(0, gameState.Market.DiscardPileCount);
     }
 

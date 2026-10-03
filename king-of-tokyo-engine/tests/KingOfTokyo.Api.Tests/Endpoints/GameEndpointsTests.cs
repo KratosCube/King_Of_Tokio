@@ -16,7 +16,7 @@ public sealed class GameEndpointsTests
 
         var routePatterns = GetRoutePatterns(app);
 
-        Assert.Contains("/api/games/", routePatterns);
+        Assert.DoesNotContain("/api/games/", routePatterns);
         Assert.Contains("/api/games/{gameId:guid}", routePatterns);
         Assert.Contains("/api/games/{gameId:guid}/events", routePatterns);
     }
@@ -32,12 +32,15 @@ public sealed class GameEndpointsTests
         Assert.Contains("/api/games/{gameId:guid}/commands/begin-turn", routePatterns);
         Assert.Contains("/api/games/{gameId:guid}/commands/roll-dice", routePatterns);
         Assert.Contains("/api/games/{gameId:guid}/commands/reroll-dice", routePatterns);
+        Assert.Contains("/api/games/{gameId:guid}/commands/reroll-background-dweller-threes", routePatterns);
         Assert.Contains("/api/games/{gameId:guid}/commands/finalize-dice", routePatterns);
+        Assert.Contains("/api/games/{gameId:guid}/commands/continue-after-rapid-healing", routePatterns);
         Assert.Contains("/api/games/{gameId:guid}/commands/buy-face-up-card", routePatterns);
         Assert.Contains("/api/games/{gameId:guid}/commands/refresh-market", routePatterns);
         Assert.Contains("/api/games/{gameId:guid}/commands/choose-leave-tokyo", routePatterns);
         Assert.Contains("/api/games/{gameId:guid}/commands/end-turn", routePatterns);
         Assert.Contains("/api/games/{gameId:guid}/commands/advance-player", routePatterns);
+        Assert.Contains("/api/games/{gameId:guid}/commands/decline-opportunist-revealed-card", routePatterns);
     }
 
     [Fact]
@@ -72,7 +75,7 @@ public sealed class GameEndpointsTests
 
         var routePatterns = GetRoutePatterns(app);
 
-        Assert.Equal(29, routePatterns.Count);
+        Assert.Equal(31, routePatterns.Count);
     }
 
     private static WebApplication CreateAppWithGameEndpoints()

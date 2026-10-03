@@ -10,7 +10,7 @@ namespace KingOfTokyo.Core.Tests.CardMimic;
 public sealed class MimicMonsterBatteriesCleanupServiceTests
 {
     [Fact]
-    public void SpendEnergy_Should_ClearMimicTarget_WhenMonsterBatteriesAreDiscarded()
+    public void SpendEnergy_Should_NotSpendStoredBatteryEnergy()
     {
         var gameState = CreateGameState(3);
         var batteryOwner = gameState.GetPlayerById(0);
@@ -21,17 +21,16 @@ public sealed class MimicMonsterBatteriesCleanupServiceTests
         mimicOwner.AddKeepCard(mimic);
         var service = new EnergyPaymentService();
 
-        var events = service.SpendEnergy(gameState, batteryOwner, 2, "Test payment.");
+        Assert.Throws<InvalidOperationException>(() => service.SpendEnergy(gameState, batteryOwner, 2, "Test payment."));
 
-        Assert.Null(mimic.MimicTarget);
-        Assert.False(batteryOwner.HasKeepCard(KnownCardIds.MonsterBatteries));
-        Assert.Single(gameState.Market.DiscardPile);
-        Assert.Equal(KnownCardIds.MonsterBatteries, gameState.Market.DiscardPile[0].CardId);
-        Assert.Single(events);
+        Assert.NotNull(mimic.MimicTarget);
+        Assert.True(batteryOwner.HasKeepCard(KnownCardIds.MonsterBatteries));
+        Assert.Equal(2, battery.StoredEnergy);
+        Assert.Empty(gameState.Market.DiscardPile);
     }
 
     [Fact]
-    public void SpendEnergy_Should_NotClearMimicTarget_WhenMonsterBatteriesKeepStoredEnergy()
+    public void SpendEnergy_Should_LeaveBatteriesUntouched_WhenOwnerPaysFromPool()
     {
         var gameState = CreateGameState(3);
         var batteryOwner = gameState.GetPlayerById(0);
@@ -41,12 +40,14 @@ public sealed class MimicMonsterBatteriesCleanupServiceTests
         batteryOwner.AddKeepCard(battery);
         mimicOwner.AddKeepCard(mimic);
         var service = new EnergyPaymentService();
+        batteryOwner.GainEnergy(1);
 
         var events = service.SpendEnergy(gameState, batteryOwner, 1, "Test payment.");
 
         Assert.NotNull(mimic.MimicTarget);
         Assert.True(batteryOwner.HasKeepCard(KnownCardIds.MonsterBatteries));
-        Assert.Equal(1, battery.StoredEnergy);
+        Assert.Equal(2, battery.StoredEnergy);
+        Assert.Equal(0, batteryOwner.Energy);
         Assert.Empty(gameState.Market.DiscardPile);
         Assert.Empty(events);
     }

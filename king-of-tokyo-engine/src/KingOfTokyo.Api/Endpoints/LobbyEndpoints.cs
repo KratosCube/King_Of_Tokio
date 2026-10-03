@@ -73,7 +73,16 @@ public static class LobbyEndpoints
                 return Results.BadRequest(new { error });
             }
 
-            var game = gameSessionStore.CreateGame(preparation.GameRequest);
+            KingOfTokyo.Core.Dto.GameStateDto game;
+            try
+            {
+                game = gameSessionStore.CreateGame(preparation.GameRequest, preparation.PlayerTokens);
+            }
+            catch
+            {
+                lobbyStore.CancelStart(lobbyId);
+                throw;
+            }
             var attached = lobbyStore.TryAttachGame(lobbyId, game.GameId, out var startedLobby, out var attachError);
             if (!attached)
             {

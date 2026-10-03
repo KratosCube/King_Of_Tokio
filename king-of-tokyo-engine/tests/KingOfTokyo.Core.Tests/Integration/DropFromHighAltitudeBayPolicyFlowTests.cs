@@ -13,7 +13,7 @@ namespace KingOfTokyo.Core.Tests.Integration;
 public sealed class DropFromHighAltitudeBayPolicyFlowTests
 {
     [Fact]
-    public void BuyFaceUpCard_Should_EnterBay_WhenCityIsOccupiedAndBayIsAvailableInFivePlayerGame()
+    public void BuyFaceUpCard_Should_EvictCityOccupantEvenWhenBayIsAvailable()
     {
         var gameState = CreateGameState(5);
         var buyer = gameState.GetCurrentPlayer();
@@ -30,12 +30,13 @@ public sealed class DropFromHighAltitudeBayPolicyFlowTests
 
         Assert.True(result.Success, result.Error);
         Assert.Equal(2, buyer.VictoryPoints);
-        Assert.Equal(TokyoSlot.Bay, buyer.TokyoSlot);
-        Assert.Equal(buyer.PlayerId, gameState.Tokyo.BayOccupantId);
-        Assert.Equal(cityOccupant.PlayerId, gameState.Tokyo.CityOccupantId);
+        Assert.Equal(TokyoSlot.City, buyer.TokyoSlot);
+        Assert.Null(gameState.Tokyo.BayOccupantId);
+        Assert.Equal(buyer.PlayerId, gameState.Tokyo.CityOccupantId);
+        Assert.Equal(TokyoSlot.None, cityOccupant.TokyoSlot);
         Assert.Contains(result.NewEvents, e => e is TokyoEnteredEvent entered &&
                                              entered.PlayerId == buyer.PlayerId &&
-                                             entered.Slot == TokyoSlot.Bay);
+                                             entered.Slot == TokyoSlot.City);
         AssertDropDiscarded(gameState);
     }
 
@@ -67,7 +68,7 @@ public sealed class DropFromHighAltitudeBayPolicyFlowTests
     }
 
     [Fact]
-    public void BuyFaceUpCard_Should_NotEnterTokyo_WhenCityAndBayAreBothOccupied()
+    public void BuyFaceUpCard_Should_TakeCity_WhenBothSlotsAreOccupied()
     {
         var gameState = CreateGameState(5);
         var buyer = gameState.GetCurrentPlayer();
@@ -86,15 +87,16 @@ public sealed class DropFromHighAltitudeBayPolicyFlowTests
 
         Assert.True(result.Success, result.Error);
         Assert.Equal(2, buyer.VictoryPoints);
-        Assert.Equal(TokyoSlot.None, buyer.TokyoSlot);
-        Assert.Equal(cityOccupant.PlayerId, gameState.Tokyo.CityOccupantId);
+        Assert.Equal(TokyoSlot.City, buyer.TokyoSlot);
+        Assert.Equal(TokyoSlot.None, cityOccupant.TokyoSlot);
+        Assert.Equal(buyer.PlayerId, gameState.Tokyo.CityOccupantId);
         Assert.Equal(bayOccupant.PlayerId, gameState.Tokyo.BayOccupantId);
-        Assert.DoesNotContain(result.NewEvents, e => e is TokyoEnteredEvent);
+        Assert.Contains(result.NewEvents, e => e is TokyoEnteredEvent);
         AssertDropDiscarded(gameState);
     }
 
     [Fact]
-    public void BuyFaceUpCard_Should_NotEnterTokyo_WhenCityIsOccupiedAndBayIsDisabledInFourPlayerGame()
+    public void BuyFaceUpCard_Should_TakeCity_WhenBayIsDisabled()
     {
         var gameState = CreateGameState(4);
         var buyer = gameState.GetCurrentPlayer();
@@ -112,15 +114,16 @@ public sealed class DropFromHighAltitudeBayPolicyFlowTests
         Assert.True(result.Success, result.Error);
         Assert.False(gameState.Tokyo.BayEnabled);
         Assert.Equal(2, buyer.VictoryPoints);
-        Assert.Equal(TokyoSlot.None, buyer.TokyoSlot);
-        Assert.Equal(cityOccupant.PlayerId, gameState.Tokyo.CityOccupantId);
+        Assert.Equal(TokyoSlot.City, buyer.TokyoSlot);
+        Assert.Equal(TokyoSlot.None, cityOccupant.TokyoSlot);
+        Assert.Equal(buyer.PlayerId, gameState.Tokyo.CityOccupantId);
         Assert.Null(gameState.Tokyo.BayOccupantId);
-        Assert.DoesNotContain(result.NewEvents, e => e is TokyoEnteredEvent);
+        Assert.Contains(result.NewEvents, e => e is TokyoEnteredEvent);
         AssertDropDiscarded(gameState);
     }
 
     [Fact]
-    public void BuyFaceUpCard_Should_NotMovePlayer_WhenBuyerAlreadyOccupiesTokyo()
+    public void BuyFaceUpCard_Should_NotMoveBuyer_WhenAlreadyInTokyoBay()
     {
         var gameState = CreateGameState(5);
         var buyer = gameState.GetCurrentPlayer();

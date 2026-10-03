@@ -3,6 +3,7 @@ using KingOfTokyo.Core.Decisions;
 using KingOfTokyo.Core.Domain.Entities;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.ValueObjects;
+using KingOfTokyo.Core.Services;
 
 namespace KingOfTokyo.Core.Domain.State;
 
@@ -11,6 +12,7 @@ public sealed class GameState
     private readonly List<PlayerState> _players;
     private readonly List<GameEventBase> _eventLog = new();
     private readonly Queue<ScheduledTurnState> _scheduledTurns = new();
+    private readonly Queue<PendingDecision> _opportunistDecisions = new();
     private ScheduledTurnState? _nextScheduledTurn;
 
     public Guid GameId { get; }
@@ -56,6 +58,22 @@ public sealed class GameState
     }
 
     public PlayerState GetCurrentPlayer() => _players[CurrentPlayerIndex];
+
+    public void SelectStartingPlayer(int playerId)
+    {
+        if (Status != GameStatus.Setup)
+        {
+            throw new InvalidOperationException("Starting player can only be selected during setup.");
+        }
+
+        var index = _players.FindIndex(player => player.PlayerId == playerId);
+        if (index < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(playerId));
+        }
+
+        CurrentPlayerIndex = index;
+    }
 
     public PlayerState GetPlayerById(int playerId)
     {
@@ -173,6 +191,48 @@ public sealed class GameState
     public void ClearPendingDecision()
     {
         PendingDecision = null;
+    }
+
+    public PendingDecision? QueueOpportunistDecisions(IEnumerable<PendingDecision> decisions)
+    {
+        foreach (var decision in decisions)
+        {
+            _opportunistDecisions.Enqueue(decision);
+        }
+
+        return PendingDecision ?? AdvanceOpportunistDecision();
+    }
+
+    public PendingDecision? ResolveOpportunistDecision()
+    {
+        PendingDecision = null;
+        return AdvanceOpportunistDecision();
+    }
+
+    private PendingDecision? AdvanceOpportunistDecision()
+    {
+        while (_opportunistDecisions.Count > 0)
+        {
+            var decision = _opportunistDecisions.Dequeue();
+            if (decision.Payload is not MarketCardRevealDecisionData data ||
+                data.SlotIndex < 0 || data.SlotIndex >= Market.FaceUpCards.Count ||
+                Market.FaceUpCards[data.SlotIndex] is not { } card || card.CardId != data.CardId)
+            {
+                continue;
+            }
+
+            var player = GetPlayerById(decision.PlayerId);
+            if (!player.IsAlive || !player.HasKeepCard(KnownCardIds.Opportunist) ||
+                player.Energy < new KeepCardRulesService().GetEffectivePurchaseCost(player, card))
+            {
+                continue;
+            }
+
+            PendingDecision = decision;
+            return decision;
+        }
+
+        return null;
     }
 
     public void RecordSuccessfulCommand(IEnumerable<GameEventBase>? eventsToRecord)

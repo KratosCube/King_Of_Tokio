@@ -14,9 +14,13 @@ public sealed record CreateGameRequest(
 
 public sealed record ActorRequest(int? ActorPlayerId);
 
+public sealed record FinalizeDiceRequest(int? ActorPlayerId, int HeartsReservedForHealingRay = 0);
+
 public sealed record RerollDiceRequest(int? ActorPlayerId, IReadOnlyList<int> DiceIndexesToReroll);
 
-public sealed record BuyFaceUpCardRequest(int? ActorPlayerId, int SlotIndex);
+public sealed record BuyFaceUpCardRequest(int? ActorPlayerId, int SlotIndex, int StoredEnergyToDeposit = 0);
+
+public sealed record BatteryPurchaseRequest(int? ActorPlayerId, int StoredEnergyToDeposit = 0);
 
 public sealed record ChooseLeaveTokyoRequest(int ActorPlayerId, bool LeaveTokyo);
 

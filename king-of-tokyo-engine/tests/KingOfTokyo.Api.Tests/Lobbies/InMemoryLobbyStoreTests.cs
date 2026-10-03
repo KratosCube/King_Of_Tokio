@@ -27,7 +27,7 @@ public sealed class InMemoryLobbyStoreTests
         Assert.Null(result.Lobby.GameId);
         Assert.Single(result.Lobby.Seats);
         Assert.Equal(0, result.PlayerId);
-        Assert.Equal(result.PlayerToken, result.Lobby.Seats[0].PlayerToken);
+        Assert.DoesNotContain("playerToken", System.Text.Json.JsonSerializer.Serialize(result.Lobby), StringComparison.OrdinalIgnoreCase);
         Assert.Equal("Host", result.Lobby.Seats[0].DisplayName);
         Assert.Equal("gigasaur", result.Lobby.Seats[0].MonsterId);
         Assert.Equal("Gigasaur", result.Lobby.Seats[0].MonsterName);
@@ -293,7 +293,7 @@ public sealed class InMemoryLobbyStoreTests
         Assert.True(found);
         Assert.Null(error);
         Assert.NotNull(preparation);
-        Assert.Equal(LobbyStatus.ReadyToStart, preparation!.Lobby.Status);
+        Assert.Equal(LobbyStatus.Starting, preparation!.Lobby.Status);
         Assert.Equal(new[] { "Gigasaur", "Cyber Kitty" }, preparation.GameRequest.MonsterNames);
         Assert.Equal(15, preparation.GameRequest.InitialHealth);
         Assert.Equal(30, preparation.GameRequest.TargetVictoryPoints);
@@ -374,6 +374,9 @@ public sealed class InMemoryLobbyStoreTests
     {
         var store = new InMemoryLobbyStore();
         var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
+        store.TryJoinLobby(created.Lobby.LobbyId, new JoinLobbyRequest("Guest"), out var guest, out _);
+        store.TrySetReady(created.Lobby.LobbyId, new SetLobbyReadyRequest(guest!.PlayerToken, true), out _, out _);
+        store.TryPrepareStart(created.Lobby.LobbyId, new StartLobbyRequest(created.PlayerToken), out _, out _);
         var gameId = Guid.NewGuid();
 
         var found = store.TryAttachGame(created.Lobby.LobbyId, gameId, out var lobby, out var error);
@@ -383,6 +386,25 @@ public sealed class InMemoryLobbyStoreTests
         Assert.NotNull(lobby);
         Assert.Equal(LobbyStatus.Started, lobby!.Status);
         Assert.Equal(gameId, lobby.GameId);
+    }
+
+    [Fact]
+    public void TryPrepareStart_Should_ReserveLobbyAgainstConcurrentStarts()
+    {
+        var store = new InMemoryLobbyStore();
+        var created = store.CreateLobby(new CreateLobbyRequest("Game", 2, true, "Host"));
+        store.TryJoinLobby(created.Lobby.LobbyId, new JoinLobbyRequest("Guest"), out var guest, out _);
+        store.TrySetReady(created.Lobby.LobbyId, new SetLobbyReadyRequest(guest!.PlayerToken, true), out _, out _);
+
+        store.TryPrepareStart(created.Lobby.LobbyId, new StartLobbyRequest(created.PlayerToken), out var first, out _);
+        store.TryPrepareStart(created.Lobby.LobbyId, new StartLobbyRequest(created.PlayerToken), out var second, out var error);
+
+        Assert.NotNull(first);
+        Assert.Null(second);
+        Assert.Equal("Lobby is already starting.", error);
+        store.CancelStart(created.Lobby.LobbyId);
+        store.TryPrepareStart(created.Lobby.LobbyId, new StartLobbyRequest(created.PlayerToken), out var retried, out _);
+        Assert.NotNull(retried);
     }
 
     [Fact]

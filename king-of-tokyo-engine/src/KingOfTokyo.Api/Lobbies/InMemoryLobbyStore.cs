@@ -113,7 +113,7 @@ public sealed class InMemoryLobbyStore : ILobbyStore
                 return true;
             }
 
-            if (state.Status is LobbyStatus.Started or LobbyStatus.Closed)
+            if (state.Status is LobbyStatus.Started or LobbyStatus.Closed or LobbyStatus.Starting)
             {
                 error = "Lobby readiness can no longer be changed.";
                 return true;
@@ -157,6 +157,12 @@ public sealed class InMemoryLobbyStore : ILobbyStore
                 return true;
             }
 
+            if (state.Status is LobbyStatus.Starting)
+            {
+                error = "Lobby is already starting.";
+                return true;
+            }
+
             if (state.Status is LobbyStatus.Closed)
             {
                 error = "Lobby is closed.";
@@ -179,7 +185,10 @@ public sealed class InMemoryLobbyStore : ILobbyStore
                 state.Seats.Select(seat => seat.MonsterName).ToArray(),
                 InitialHealth: state.InitialHealth,
                 TargetVictoryPoints: state.TargetVictoryPoints);
-            result = new LobbyStartPreparationDto(ToDto(state), gameRequest);
+            state.ReserveStart();
+            result = new LobbyStartPreparationDto(
+                ToDto(state), gameRequest,
+                state.Seats.ToDictionary(seat => seat.PlayerId, seat => seat.PlayerToken));
             return true;
         }
     }
@@ -196,21 +205,28 @@ public sealed class InMemoryLobbyStore : ILobbyStore
 
         lock (state.SyncRoot)
         {
-            if (state.Status is LobbyStatus.Closed)
+            if (state.Status != LobbyStatus.Starting)
             {
-                error = "Lobby is closed.";
-                return true;
-            }
-
-            if (state.Status is LobbyStatus.Started && state.GameId != gameId)
-            {
-                error = "Lobby has already been started.";
+                error = "Lobby has not reserved a game start.";
                 return true;
             }
 
             state.AttachGame(gameId);
             lobby = ToDto(state);
             return true;
+        }
+    }
+
+    public void CancelStart(Guid lobbyId)
+    {
+        if (!_lobbies.TryGetValue(lobbyId, out var state))
+        {
+            return;
+        }
+
+        lock (state.SyncRoot)
+        {
+            state.CancelStart();
         }
     }
 
@@ -279,7 +295,6 @@ public sealed class InMemoryLobbyStore : ILobbyStore
                     seat.DisplayName,
                     seat.IsHost,
                     seat.IsReady,
-                    seat.PlayerToken,
                     seat.MonsterId,
                     seat.MonsterName,
                     seat.AvatarId))
@@ -336,9 +351,19 @@ public sealed class InMemoryLobbyStore : ILobbyStore
             Status = LobbyStatus.Started;
         }
 
+        public void ReserveStart() => Status = LobbyStatus.Starting;
+
+        public void CancelStart()
+        {
+            if (Status == LobbyStatus.Starting)
+            {
+                Status = LobbyStatus.ReadyToStart;
+            }
+        }
+
         public void RecalculateStatus()
         {
-            if (Status is LobbyStatus.Started or LobbyStatus.Closed)
+            if (Status is LobbyStatus.Started or LobbyStatus.Closed or LobbyStatus.Starting)
             {
                 return;
             }

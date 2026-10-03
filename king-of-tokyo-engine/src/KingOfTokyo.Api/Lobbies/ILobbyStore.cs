@@ -13,4 +13,6 @@ public interface ILobbyStore
     bool TryPrepareStart(Guid lobbyId, StartLobbyRequest request, out LobbyStartPreparationDto? result, out string? error);
 
     bool TryAttachGame(Guid lobbyId, Guid gameId, out LobbyDto? lobby, out string? error);
+
+    void CancelStart(Guid lobbyId);
 }

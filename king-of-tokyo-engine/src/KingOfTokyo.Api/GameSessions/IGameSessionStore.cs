@@ -7,7 +7,9 @@ namespace KingOfTokyo.Api.GameSessions;
 
 public interface IGameSessionStore
 {
-    GameStateDto CreateGame(CreateGameRequest request);
+    GameStateDto CreateGame(CreateGameRequest request, IReadOnlyDictionary<int, Guid>? playerTokens = null);
+
+    bool TryAuthorize(Guid gameId, Guid playerToken, out int playerId);
 
     bool TryGetSnapshot(Guid gameId, out GameStateDto? snapshot);
 

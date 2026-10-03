@@ -12,7 +12,7 @@ namespace KingOfTokyo.Core.Tests.Integration;
 public sealed class MonsterBatteriesCardEffectsFlowTests
 {
     [Fact]
-    public void EndTurn_Should_DrainTwoStoredEnergyFromMonsterBatteries()
+    public void BeginTurn_Should_TransferTwoStoredEnergyToOwner()
     {
         var gameState = CreateGameState(3);
         var player = gameState.GetCurrentPlayer();
@@ -22,18 +22,21 @@ public sealed class MonsterBatteriesCardEffectsFlowTests
 
         engine.Execute(gameState, new InitializeGameCommand());
         engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
+        Assert.Equal(4, batteries.StoredEnergy);
+        Assert.Equal(2, player.Energy);
         MoveTurnToPurchasePhase(gameState);
 
         var result = engine.Execute(gameState, new EndTurnCommand(player.PlayerId));
 
         Assert.True(result.Success, result.Error);
         Assert.Equal(4, batteries.StoredEnergy);
+        Assert.Equal(2, player.Energy);
         Assert.Contains(batteries, player.KeepCards);
         Assert.DoesNotContain(gameState.Market.DiscardPile, card => card.CardId == KnownCardIds.MonsterBatteries);
     }
 
     [Fact]
-    public void EndTurn_Should_DiscardMonsterBatteries_WhenStoredEnergyReachesZero()
+    public void BeginTurn_Should_DiscardMonsterBatteries_WhenStoredEnergyReachesZero()
     {
         var gameState = CreateGameState(3);
         var player = gameState.GetCurrentPlayer();
@@ -41,12 +44,10 @@ public sealed class MonsterBatteriesCardEffectsFlowTests
         var engine = new GameEngine();
 
         engine.Execute(gameState, new InitializeGameCommand());
-        engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
-        MoveTurnToPurchasePhase(gameState);
-
-        var result = engine.Execute(gameState, new EndTurnCommand(player.PlayerId));
+        var result = engine.Execute(gameState, new BeginTurnCommand(player.PlayerId));
 
         Assert.True(result.Success, result.Error);
+        Assert.Equal(2, player.Energy);
         Assert.DoesNotContain(player.KeepCards, card => card.CardId == KnownCardIds.MonsterBatteries);
         Assert.Contains(gameState.Market.DiscardPile, card =>
             card.CardId == KnownCardIds.MonsterBatteries &&
@@ -57,7 +58,7 @@ public sealed class MonsterBatteriesCardEffectsFlowTests
     }
 
     [Fact]
-    public void EndTurn_Should_DrainMonsterBatteriesOwnedByAnyAlivePlayer()
+    public void BeginTurn_Should_TransferOnlyCurrentPlayersBatteries()
     {
         var gameState = CreateGameState(3);
         var currentPlayer = gameState.GetCurrentPlayer();
@@ -76,7 +77,9 @@ public sealed class MonsterBatteriesCardEffectsFlowTests
 
         Assert.True(result.Success, result.Error);
         Assert.Equal(4, currentPlayerBatteries.StoredEnergy);
-        Assert.Equal(2, otherPlayerBatteries.StoredEnergy);
+        Assert.Equal(4, otherPlayerBatteries.StoredEnergy);
+        Assert.Equal(2, currentPlayer.Energy);
+        Assert.Equal(0, otherPlayer.Energy);
     }
 
     private static GameState CreateGameState(int playerCount)

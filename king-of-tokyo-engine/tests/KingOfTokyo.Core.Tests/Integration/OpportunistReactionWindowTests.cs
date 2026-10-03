@@ -14,6 +14,64 @@ namespace KingOfTokyo.Core.Tests.Integration;
 public sealed class OpportunistReactionWindowTests
 {
     [Fact]
+    public void Decline_Should_OfferRevealedCardToNextEligiblePlayer()
+    {
+        var gameState = CreateGameState(3);
+        gameState.GetPlayerById(0).GainEnergy(5);
+        foreach (var id in new[] { 1, 2 })
+        {
+            gameState.GetPlayerById(id).GainEnergy(5);
+            gameState.GetPlayerById(id).AddKeepCard(CreateKeepCard(KnownCardIds.Opportunist, "Opportunist", 3));
+        }
+        var engine = CreateEngine(
+            CreateDiscardCard("first", "First", 1),
+            CreateDiscardCard("second", "Second", 1),
+            CreateDiscardCard("third", "Third", 1),
+            CreateDiscardCard("revealed", "Revealed", 2));
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(0));
+        gameState.CurrentTurn!.SetPhase(TurnPhase.Purchase);
+        engine.Execute(gameState, new BuyFaceUpCardCommand(0, 0));
+
+        Assert.Equal(1, gameState.PendingDecision?.PlayerId);
+        var firstDecline = engine.Execute(gameState, new DeclineOpportunistRevealedCardCommand(1));
+        Assert.True(firstDecline.Success, firstDecline.Error);
+        Assert.Equal(2, gameState.PendingDecision?.PlayerId);
+        var secondDecline = engine.Execute(gameState, new DeclineOpportunistRevealedCardCommand(2));
+        Assert.True(secondDecline.Success, secondDecline.Error);
+        Assert.Null(gameState.PendingDecision);
+    }
+
+    [Fact]
+    public void Refresh_Should_OfferAllThreeRevealedCardsInOrder()
+    {
+        var gameState = CreateGameState(3);
+        gameState.GetPlayerById(0).GainEnergy(2);
+        gameState.GetPlayerById(1).GainEnergy(10);
+        gameState.GetPlayerById(1).AddKeepCard(CreateKeepCard(KnownCardIds.Opportunist, "Opportunist", 3));
+        var engine = CreateEngine(
+            CreateDiscardCard("old-0", "Old 0", 1),
+            CreateDiscardCard("old-1", "Old 1", 1),
+            CreateDiscardCard("old-2", "Old 2", 1),
+            CreateDiscardCard("new-0", "New 0", 2),
+            CreateDiscardCard("new-1", "New 1", 2),
+            CreateDiscardCard("new-2", "New 2", 2));
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(0));
+        gameState.CurrentTurn!.SetPhase(TurnPhase.Purchase);
+
+        var refresh = engine.Execute(gameState, new RefreshMarketCommand(0));
+        Assert.True(refresh.Success, refresh.Error);
+        for (var slot = 0; slot < 3; slot++)
+        {
+            var payload = Assert.IsType<MarketCardRevealDecisionData>(gameState.PendingDecision?.Payload);
+            Assert.Equal(slot, payload.SlotIndex);
+            Assert.True(engine.Execute(gameState, new DeclineOpportunistRevealedCardCommand(1)).Success);
+        }
+        Assert.Null(gameState.PendingDecision);
+    }
+
+    [Fact]
     public void BuyFaceUpCard_Should_CreateOpportunistPendingDecision_WhenNewCardIsRevealedAndEligiblePlayerCanPay()
     {
         var gameState = CreateGameState(3);

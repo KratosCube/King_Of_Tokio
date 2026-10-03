@@ -11,16 +11,30 @@ public static class GameEndpoints
     public static IEndpointRouteBuilder MapKingOfTokyoGameEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var games = endpoints.MapGroup("/api/games");
-
-        games.MapPost("/", (CreateGameRequest request, [FromServices] IGameSessionStore store) =>
+        games.AddEndpointFilter(async (context, next) =>
         {
-            if (request.MonsterNames.Count is < 2 or > 6)
+            var http = context.HttpContext;
+            var store = http.RequestServices.GetRequiredService<IGameSessionStore>();
+            if (!Guid.TryParse(http.Request.RouteValues["gameId"]?.ToString(), out var gameId) ||
+                !Guid.TryParse(http.Request.Headers["X-Player-Token"].ToString(), out var token) ||
+                !store.TryAuthorize(gameId, token, out var playerId))
             {
-                return Results.BadRequest(new { error = "Player count must be between 2 and 6." });
+                return Results.Unauthorized();
             }
 
-            var snapshot = store.CreateGame(request);
-            return Results.Created($"/api/games/{snapshot.GameId}", snapshot);
+            if (http.Request.Path.Value?.Contains("/commands/", StringComparison.Ordinal) == true)
+            {
+                var isInitialize = http.Request.Path.Value.EndsWith("/initialize", StringComparison.Ordinal);
+                var request = context.Arguments.FirstOrDefault(arg => arg?.GetType().GetProperty("ActorPlayerId") is not null);
+                var claimedActor = request?.GetType().GetProperty("ActorPlayerId")?.GetValue(request);
+                if ((isInitialize && playerId != 0) ||
+                    (!isInitialize && (claimedActor is not int || !Equals(claimedActor, playerId))))
+                {
+                    return Results.StatusCode(StatusCodes.Status403Forbidden);
+                }
+            }
+
+            return await next(context);
         });
 
         games.MapGet("/{gameId:guid}", (Guid gameId, [FromServices] IGameSessionStore store) =>
@@ -68,14 +82,24 @@ public static class GameEndpoints
             return Execute(gameId, store, (engine, state) => engine.Execute(state, new RerollDiceCommand(request.DiceIndexesToReroll, request.ActorPlayerId)));
         });
 
-        games.MapPost("/{gameId:guid}/commands/finalize-dice", (Guid gameId, ActorRequest request, [FromServices] IGameSessionStore store) =>
+        games.MapPost("/{gameId:guid}/commands/reroll-background-dweller-threes", (Guid gameId, RerollDiceRequest request, [FromServices] IGameSessionStore store) =>
         {
-            return Execute(gameId, store, (engine, state) => engine.Execute(state, new FinalizeDiceCommand(request.ActorPlayerId)));
+            return Execute(gameId, store, (engine, state) => engine.Execute(state, new RerollBackgroundDwellerThreesCommand(request.DiceIndexesToReroll, request.ActorPlayerId)));
+        });
+
+        games.MapPost("/{gameId:guid}/commands/finalize-dice", (Guid gameId, FinalizeDiceRequest request, [FromServices] IGameSessionStore store) =>
+        {
+            return Execute(gameId, store, (engine, state) => engine.Execute(state, new FinalizeDiceCommand(request.ActorPlayerId, request.HeartsReservedForHealingRay)));
+        });
+
+        games.MapPost("/{gameId:guid}/commands/continue-after-rapid-healing", (Guid gameId, ActorRequest request, [FromServices] IGameSessionStore store) =>
+        {
+            return Execute(gameId, store, (engine, state) => engine.Execute(state, new ContinueAfterRapidHealingCommand(request.ActorPlayerId)));
         });
 
         games.MapPost("/{gameId:guid}/commands/buy-face-up-card", (Guid gameId, BuyFaceUpCardRequest request, [FromServices] IGameSessionStore store) =>
         {
-            return Execute(gameId, store, (engine, state) => engine.Execute(state, new BuyFaceUpCardCommand(request.SlotIndex, request.ActorPlayerId)));
+            return Execute(gameId, store, (engine, state) => engine.Execute(state, new BuyFaceUpCardCommand(request.SlotIndex, request.ActorPlayerId, request.StoredEnergyToDeposit)));
         });
 
         games.MapPost("/{gameId:guid}/commands/refresh-market", (Guid gameId, ActorRequest request, [FromServices] IGameSessionStore store) =>
@@ -95,7 +119,7 @@ public static class GameEndpoints
 
         games.MapPost("/{gameId:guid}/commands/advance-player", (Guid gameId, ActorRequest request, [FromServices] IGameSessionStore store) =>
         {
-            return Execute(gameId, store, (engine, state) => engine.Execute(state, new AdvanceToNextPlayerCommand()));
+            return Execute(gameId, store, (engine, state) => engine.Execute(state, new AdvanceToNextPlayerCommand(request.ActorPlayerId)));
         });
 
         games.MapPost("/{gameId:guid}/commands/activate-wings", (Guid gameId, ActorRequest request, [FromServices] IGameSessionStore store) =>
@@ -163,9 +187,9 @@ public static class GameEndpoints
             return Execute(gameId, store, (engine, state) => engine.Execute(state, new PeekTopDeckCardCommand(request.ActorPlayerId)));
         });
 
-        games.MapPost("/{gameId:guid}/commands/buy-peeked-top-deck-card", (Guid gameId, ActorRequest request, [FromServices] IGameSessionStore store) =>
+        games.MapPost("/{gameId:guid}/commands/buy-peeked-top-deck-card", (Guid gameId, BatteryPurchaseRequest request, [FromServices] IGameSessionStore store) =>
         {
-            return Execute(gameId, store, (engine, state) => engine.Execute(state, new BuyPeekedTopDeckCardCommand(request.ActorPlayerId)));
+            return Execute(gameId, store, (engine, state) => engine.Execute(state, new BuyPeekedTopDeckCardCommand(request.ActorPlayerId, request.StoredEnergyToDeposit)));
         });
 
         games.MapPost("/{gameId:guid}/commands/decline-peeked-top-deck-card", (Guid gameId, ActorRequest request, [FromServices] IGameSessionStore store) =>
@@ -173,9 +197,14 @@ public static class GameEndpoints
             return Execute(gameId, store, (engine, state) => engine.Execute(state, new DeclinePeekedTopDeckCardCommand(request.ActorPlayerId)));
         });
 
-        games.MapPost("/{gameId:guid}/commands/buy-opportunist-revealed-card", (Guid gameId, ActorRequest request, [FromServices] IGameSessionStore store) =>
+        games.MapPost("/{gameId:guid}/commands/buy-opportunist-revealed-card", (Guid gameId, BatteryPurchaseRequest request, [FromServices] IGameSessionStore store) =>
         {
-            return Execute(gameId, store, (engine, state) => engine.Execute(state, new BuyOpportunistRevealedCardCommand(request.ActorPlayerId)));
+            return Execute(gameId, store, (engine, state) => engine.Execute(state, new BuyOpportunistRevealedCardCommand(request.ActorPlayerId, request.StoredEnergyToDeposit)));
+        });
+
+        games.MapPost("/{gameId:guid}/commands/decline-opportunist-revealed-card", (Guid gameId, ActorRequest request, [FromServices] IGameSessionStore store) =>
+        {
+            return Execute(gameId, store, (engine, state) => engine.Execute(state, new DeclineOpportunistRevealedCardCommand(request.ActorPlayerId)));
         });
 
         return endpoints;

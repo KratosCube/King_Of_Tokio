@@ -4,7 +4,10 @@ namespace KingOfTokyo.Core.Commands;
 
 public sealed class BuyOpportunistRevealedCardCommand : CommandBase
 {
-    public BuyOpportunistRevealedCardCommand(int? actorPlayerId = null) : base(actorPlayerId)
+    public int StoredEnergyToDeposit { get; }
+
+    public BuyOpportunistRevealedCardCommand(int? actorPlayerId = null, int storedEnergyToDeposit = 0) : base(actorPlayerId)
     {
+        StoredEnergyToDeposit = storedEnergyToDeposit;
     }
 }

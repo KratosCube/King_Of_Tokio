@@ -15,6 +15,57 @@ namespace KingOfTokyo.Core.Tests.Integration;
 public sealed class MarketPurchaseFlowTests
 {
     [Fact]
+    public void EliminatedBuyer_CannotPurchaseAnotherCard()
+    {
+        var selfDamage = new MarketCardState(KnownCardIds.NationalGuard, "National Guard", "Self damage.", 3,
+            MarketCardType.Discard, new CardPurchaseEffect { DamageSelf = 2 });
+        var next = new MarketCardState("next", "Next", "Free card.", 0, MarketCardType.Keep);
+        var game = CreateGameState(3);
+        var engine = new GameEngine(marketSetupService: new MarketSetupService(new[]
+        {
+            selfDamage,
+            new MarketCardState("other-1", "Other 1", "Other.", 0, MarketCardType.Keep),
+            new MarketCardState("other-2", "Other 2", "Other.", 0, MarketCardType.Keep),
+            next
+        }));
+        engine.Execute(game, new InitializeGameCommand());
+        engine.Execute(game, new BeginTurnCommand(0));
+        var player = game.GetCurrentPlayer();
+        player.TakeDamage(9);
+        player.GainEnergy(3);
+        game.CurrentTurn!.MarkDiceResolved();
+        game.CurrentTurn.SetPhase(TurnPhase.Purchase);
+
+        var first = engine.Execute(game, new BuyFaceUpCardCommand(0, 0));
+        var second = engine.Execute(game, new BuyFaceUpCardCommand(0, 0));
+
+        Assert.True(first.Success, first.Error);
+        Assert.False(player.IsAlive);
+        Assert.False(second.Success);
+        Assert.Same(next, game.Market.FaceUpCards[0]);
+    }
+
+    [Fact]
+    public void BuyMonsterBatteries_Should_StoreMatchingBankEnergyAfterPayment()
+    {
+        var battery = new MarketCardState(KnownCardIds.MonsterBatteries, "Monster Batteries", "Deposit energy.", 2, MarketCardType.Keep);
+        var gameState = CreateGameState(3);
+        var engine = new GameEngine(marketSetupService: new MarketSetupService(new[] { battery }));
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(0));
+        gameState.GetCurrentPlayer().GainEnergy(5);
+        gameState.CurrentTurn!.MarkDiceResolved();
+        gameState.CurrentTurn.SetPhase(TurnPhase.Purchase);
+
+        var result = engine.Execute(gameState, new BuyFaceUpCardCommand(0, 0, storedEnergyToDeposit: 2));
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(1, gameState.GetCurrentPlayer().Energy);
+        Assert.Equal(4, battery.StoredEnergy);
+        Assert.Contains(battery, gameState.GetCurrentPlayer().KeepCards);
+    }
+
+    [Fact]
     public void BuyFaceUpCard_Should_BuyKeepCard_AndKeepItOwned()
     {
         var gameState = CreateGameState(4);
@@ -46,7 +97,7 @@ public sealed class MarketPurchaseFlowTests
     }
 
     [Fact]
-    public void BuyFaceUpCard_Should_UseMonsterBatteriesStoredEnergy_WhenPlayerEnergyIsInsufficient()
+    public void BuyFaceUpCard_Should_RejectStoredEnergyAsPayment()
     {
         var testCard = new MarketCardState(
             "card-test-cost-5",
@@ -76,16 +127,16 @@ public sealed class MarketPurchaseFlowTests
 
         var result = engine.Execute(gameState, new BuyFaceUpCardCommand(0, currentPlayer.PlayerId));
 
-        Assert.True(result.Success, result.Error);
-        Assert.Equal(0, currentPlayer.Energy);
-        Assert.Equal(2, batteries.StoredEnergy);
-        Assert.Contains(testCard, currentPlayer.KeepCards);
+        Assert.False(result.Success);
+        Assert.Equal(3, currentPlayer.Energy);
+        Assert.Equal(4, batteries.StoredEnergy);
+        Assert.DoesNotContain(testCard, currentPlayer.KeepCards);
         Assert.Contains(batteries, currentPlayer.KeepCards);
         Assert.DoesNotContain(gameState.Market.DiscardPile, card => card.CardId == KnownCardIds.MonsterBatteries);
     }
 
     [Fact]
-    public void BuyFaceUpCard_Should_DiscardMonsterBatteries_WhenPurchaseSpendsLastStoredEnergy()
+    public void BuyFaceUpCard_Should_NotConsumeBatteries_WhenPurchaseFails()
     {
         var testCard = new MarketCardState(
             "card-test-cost-5",
@@ -114,16 +165,11 @@ public sealed class MarketPurchaseFlowTests
 
         var result = engine.Execute(gameState, new BuyFaceUpCardCommand(0, currentPlayer.PlayerId));
 
-        Assert.True(result.Success, result.Error);
-        Assert.Equal(0, currentPlayer.Energy);
-        Assert.Contains(testCard, currentPlayer.KeepCards);
-        Assert.DoesNotContain(currentPlayer.KeepCards, card => card.CardId == KnownCardIds.MonsterBatteries);
-        Assert.Contains(gameState.Market.DiscardPile, card =>
-            card.CardId == KnownCardIds.MonsterBatteries &&
-            card.StoredEnergy == 0);
-        Assert.Contains(result.NewEvents, e => e is KeepCardDiscardedEvent discarded &&
-                                               discarded.PlayerId == currentPlayer.PlayerId &&
-                                               discarded.CardId == KnownCardIds.MonsterBatteries);
+        Assert.False(result.Success);
+        Assert.Equal(3, currentPlayer.Energy);
+        Assert.DoesNotContain(testCard, currentPlayer.KeepCards);
+        Assert.Contains(currentPlayer.KeepCards, card => card.CardId == KnownCardIds.MonsterBatteries && card.StoredEnergy == 2);
+        Assert.Empty(gameState.Market.DiscardPile);
     }
 
     [Fact]

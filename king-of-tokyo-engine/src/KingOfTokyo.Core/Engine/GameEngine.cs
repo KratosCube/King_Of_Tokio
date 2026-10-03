@@ -6,6 +6,7 @@ using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Events;
+using KingOfTokyo.Core.Rules.Attack;
 using KingOfTokyo.Core.Rules.Dice;
 using KingOfTokyo.Core.Services;
 
@@ -70,7 +71,9 @@ public sealed class GameEngine : IGameEngine
                 BeginTurnCommand beginTurnCommand => ExecuteBeginTurn(gameState, beginTurnCommand),
                 RollDiceCommand rollDiceCommand => ExecuteRollDice(gameState, rollDiceCommand),
                 RerollDiceCommand rerollDiceCommand => ExecuteRerollDice(gameState, rerollDiceCommand),
+                RerollBackgroundDwellerThreesCommand backgroundDwellerCommand => ExecuteRerollBackgroundDwellerThrees(gameState, backgroundDwellerCommand),
                 FinalizeDiceCommand finalizeDiceCommand => ExecuteFinalizeDice(gameState, finalizeDiceCommand),
+                ContinueAfterRapidHealingCommand continueAfterRapidHealingCommand => ExecuteContinueAfterRapidHealing(gameState, continueAfterRapidHealingCommand),
                 ChooseLeaveTokyoCommand chooseLeaveTokyoCommand => ExecuteChooseLeaveTokyo(gameState, chooseLeaveTokyoCommand),
                 BuyFaceUpCardCommand buyFaceUpCardCommand => ExecuteBuyFaceUpCard(gameState, buyFaceUpCardCommand),
                 BuyOwnedKeepCardCommand buyOwnedKeepCardCommand => ExecuteBuyOwnedKeepCard(gameState, buyOwnedKeepCardCommand),
@@ -126,6 +129,7 @@ public sealed class GameEngine : IGameEngine
             diceCountModifier: diceCountModifier);
         currentPlayer = gameState.GetCurrentPlayer();
         var newEvents = new List<GameEventBase> { new TurnStartedEvent(currentPlayer.PlayerId) };
+        newEvents.AddRange(_turnLifecycleService.TransferMonsterBatteriesAtTurnStart(gameState));
 
         if (gameState.CurrentTurn!.Flags.StartedTurnInTokyo)
         {
@@ -178,9 +182,165 @@ public sealed class GameEngine : IGameEngine
     private CommandResult ExecuteFinalizeDice(GameState gameState, FinalizeDiceCommand command)
     {
         _validator.EnsureCanFinalizeDice(gameState, command);
-        var stepResult = _finalizeDiceService.Execute(gameState);
+        _finalizeDiceService.ValidateHealingRayReservation(gameState, command.HeartsReservedForHealingRay);
+
+        var defenders = GetDefendersFacingLethalDamage(gameState);
+        if (defenders.Count > 0)
+        {
+            var turn = gameState.CurrentTurn!;
+            turn.StartRapidHealingWindow(defenders, command.HeartsReservedForHealingRay);
+            var decision = CreateRapidHealingDecision(turn.NextRapidHealingDefenderId);
+            gameState.SetPendingDecision(decision);
+            return CommandResult.Successful(gameState, pendingDecision: decision);
+        }
+
+        var stepResult = _finalizeDiceService.Execute(gameState, command.HeartsReservedForHealingRay);
         PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
+    }
+
+    private CommandResult ExecuteContinueAfterRapidHealing(GameState gameState, ContinueAfterRapidHealingCommand command)
+    {
+        var turn = gameState.CurrentTurn;
+        if (gameState.Status != GameStatus.Running || turn is null ||
+            turn.Phase != (turn.EndTurnAfterRapidHealing || turn.PurchaseCommandAfterRapidHealing is not null
+                ? TurnPhase.Purchase : TurnPhase.Rolling) ||
+            !turn.HasPendingRapidHealingDefenders ||
+            gameState.PendingDecision?.DecisionType != DecisionType.RapidHealingBeforeDamage ||
+            command.ActorPlayerId != turn.NextRapidHealingDefenderId ||
+            gameState.PendingDecision.PlayerId != command.ActorPlayerId)
+        {
+            throw new InvalidOperationException("Only the pending defender can continue damage resolution.");
+        }
+
+        turn.ContinueAfterRapidHealing();
+        if (turn.HasPendingRapidHealingDefenders)
+        {
+            var nextDecision = CreateRapidHealingDecision(turn.NextRapidHealingDefenderId);
+            gameState.SetPendingDecision(nextDecision);
+            return CommandResult.Successful(gameState, pendingDecision: nextDecision);
+        }
+
+        gameState.ClearPendingDecision();
+        if (turn.PurchaseCommandAfterRapidHealing is { } purchaseCommand)
+        {
+            gameState.SetPendingDecision(turn.SuspendedPurchaseDecision);
+            return purchaseCommand switch
+            {
+                BuyFaceUpCardCommand faceUp => ExecuteBuyFaceUpCard(gameState, faceUp, allowRapidHealingWindow: false),
+                BuyPeekedTopDeckCardCommand peeked => ExecuteBuyPeekedTopDeckCard(gameState, peeked, allowRapidHealingWindow: false),
+                BuyOpportunistRevealedCardCommand opportunist => ExecuteBuyOpportunistRevealedCard(gameState, opportunist, allowRapidHealingWindow: false),
+                _ => throw new InvalidOperationException("Unsupported purchase after Rapid Healing.")
+            };
+        }
+
+        if (turn.EndTurnAfterRapidHealing)
+        {
+            var endTurnCommand = new EndTurnCommand(turn.CurrentPlayerId);
+            _validator.EnsureCanEndTurn(gameState, endTurnCommand);
+            var endTurnResult = _turnLifecycleService.EndTurn(gameState);
+            PublishEvents(endTurnResult.Events);
+            return CommandResult.Successful(gameState, endTurnResult.Events, endTurnResult.PendingDecision);
+        }
+
+        var finalizeCommand = new FinalizeDiceCommand(turn.CurrentPlayerId, turn.HeartsReservedForHealingRayAfterRapidHealing);
+        _validator.EnsureCanFinalizeDice(gameState, finalizeCommand);
+        var stepResult = _finalizeDiceService.Execute(gameState, finalizeCommand.HeartsReservedForHealingRay);
+        PublishEvents(stepResult.Events);
+        return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
+    }
+
+    private IReadOnlyList<int> GetDefendersFacingLethalDamage(GameState gameState)
+    {
+        var attacker = gameState.GetCurrentPlayer();
+        var summary = new DiceSummaryBuilder().Build(gameState.CurrentTurn!.DicePool);
+        var projectedDamage = new Dictionary<int, int>();
+        foreach (var packet in new AttackResolver(_keepCardRulesService).ResolveAttack(gameState, attacker, summary))
+        {
+            projectedDamage[packet.TargetPlayerId] = packet.Amount;
+        }
+
+        var poisonDamage = _keepCardRulesService.GetPoisonQuillsDamage(attacker, summary.OneCount);
+        if (poisonDamage > 0)
+        {
+            poisonDamage += _keepCardRulesService.GetAcidAttackBonusDamage(attacker, poisonDamage);
+            var poisonTargets = gameState.Players.Where(player => player.IsAlive && player.PlayerId != attacker.PlayerId &&
+                (attacker.TokyoSlot == TokyoSlot.None ? player.TokyoSlot != TokyoSlot.None : player.TokyoSlot == TokyoSlot.None));
+            foreach (var target in poisonTargets)
+            {
+                projectedDamage[target.PlayerId] = projectedDamage.GetValueOrDefault(target.PlayerId) + poisonDamage;
+            }
+        }
+
+        return gameState.Players
+            .Where(player => player.IsAlive && projectedDamage.GetValueOrDefault(player.PlayerId) >= player.Health &&
+                _keepCardRulesService.CanUseRapidHealing(player))
+            .Select(player => player.PlayerId)
+            .ToArray();
+    }
+
+    private static PendingDecision CreateRapidHealingDecision(int defenderId) => new()
+    {
+        DecisionType = DecisionType.RapidHealingBeforeDamage,
+        PlayerId = defenderId
+    };
+
+    private CommandResult? StartPurchaseRapidHealingWindow(
+        GameState gameState,
+        PlayerState buyer,
+        MarketCardState card,
+        IGameCommand command)
+    {
+        var effect = card.PurchaseEffect;
+        if (effect.DamageAllOthers <= 0 && effect.DamageAllIncludingSelf <= 0 && effect.DamageOthersPerTwoEnergy <= 0)
+        {
+            return null;
+        }
+
+        var defenders = gameState.Players
+            .Where(target => target.PlayerId != buyer.PlayerId && target.IsAlive && _keepCardRulesService.CanUseRapidHealing(target))
+            .Where(target =>
+            {
+                var energyDamage = (target.Energy / 2) * effect.DamageOthersPerTwoEnergy;
+                var amounts = new[] { effect.DamageAllOthers, effect.DamageAllIncludingSelf, energyDamage };
+                var projectedDamage = amounts.Where(amount => amount > 0)
+                    .Sum(amount => amount + _keepCardRulesService.GetAcidAttackBonusDamage(buyer, amount));
+                return projectedDamage >= target.Health;
+            })
+            .Select(target => target.PlayerId)
+            .ToArray();
+
+        if (defenders.Length == 0)
+        {
+            return null;
+        }
+
+        var turn = gameState.CurrentTurn!;
+        turn.StartRapidHealingWindow(defenders, 0, purchaseCommand: command,
+            suspendedPurchaseDecision: gameState.PendingDecision);
+        var decision = CreateRapidHealingDecision(turn.NextRapidHealingDefenderId);
+        gameState.SetPendingDecision(decision);
+        return CommandResult.Successful(gameState, pendingDecision: decision);
+    }
+
+    private CommandResult ExecuteRerollBackgroundDwellerThrees(GameState gameState, RerollBackgroundDwellerThreesCommand command)
+    {
+        var turn = gameState.CurrentTurn;
+        if (gameState.Status != GameStatus.Running || turn is null || turn.Phase != TurnPhase.Rolling ||
+            turn.RollCountUsed == 0 || turn.DiceResolved || command.ActorPlayerId != turn.CurrentPlayerId ||
+            !gameState.GetCurrentPlayer().HasKeepCard(KnownCardIds.BackgroundDweller) ||
+            (gameState.PendingDecision is not null && gameState.PendingDecision.DecisionType != DecisionType.SelectDiceToReroll))
+        {
+            throw new InvalidOperationException("Background Dweller cannot be used now.");
+        }
+
+        _diceRollService.RerollBackgroundDwellerThrees(turn.DicePool, command.DiceIndexes);
+        var events = new GameEventBase[]
+        {
+            new DiceRolledEvent(turn.CurrentPlayerId, turn.RollCountUsed, turn.DicePool.Dice.Select(die => die.CurrentFace).ToArray())
+        };
+        PublishEvents(events);
+        return CommandResult.Successful(gameState, events, gameState.PendingDecision);
     }
 
     private CommandResult ExecuteChooseLeaveTokyo(GameState gameState, ChooseLeaveTokyoCommand command)
@@ -191,13 +351,19 @@ public sealed class GameEngine : IGameEngine
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
 
-    private CommandResult ExecuteBuyFaceUpCard(GameState gameState, BuyFaceUpCardCommand command)
+    private CommandResult ExecuteBuyFaceUpCard(GameState gameState, BuyFaceUpCardCommand command, bool allowRapidHealingWindow = true)
     {
         var card = gameState.Market.FaceUpCards[command.SlotIndex] ?? throw new InvalidOperationException("Selected market slot is empty.");
         var currentPlayer = gameState.GetCurrentPlayer();
         var effectiveCost = _keepCardRulesService.GetEffectivePurchaseCost(currentPlayer, card);
         _validator.EnsureCanBuyFaceUpCard(gameState, command, effectiveCost);
-        var stepResult = _marketPurchaseService.BuyFaceUpCard(gameState, command.SlotIndex, effectiveCost);
+        if (allowRapidHealingWindow && command.StoredEnergyToDeposit == 0 &&
+            StartPurchaseRapidHealingWindow(gameState, currentPlayer, card, command) is { } window)
+        {
+            return window;
+        }
+
+        var stepResult = _marketPurchaseService.BuyFaceUpCard(gameState, command.SlotIndex, effectiveCost, command.StoredEnergyToDeposit);
         PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
@@ -221,9 +387,9 @@ public sealed class GameEngine : IGameEngine
     private CommandResult ExecuteActivateRapidHealing(GameState gameState, ActivateRapidHealingCommand command)
     {
         _validator.EnsureCanActivateRapidHealing(gameState, command);
-        var stepResult = _rapidHealingService.Activate(gameState);
+        var stepResult = _rapidHealingService.Activate(gameState, command.ActorPlayerId!.Value);
         PublishEvents(stepResult.Events);
-        return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
+        return CommandResult.Successful(gameState, stepResult.Events, gameState.PendingDecision);
     }
 
     private CommandResult ExecuteActivateHealingRay(GameState gameState, ActivateHealingRayCommand command)
@@ -341,13 +507,19 @@ public sealed class GameEngine : IGameEngine
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
 
-    private CommandResult ExecuteBuyPeekedTopDeckCard(GameState gameState, BuyPeekedTopDeckCardCommand command)
+    private CommandResult ExecuteBuyPeekedTopDeckCard(GameState gameState, BuyPeekedTopDeckCardCommand command, bool allowRapidHealingWindow = true)
     {
         var topCard = gameState.Market.PeekTopDrawCard();
         var currentPlayer = gameState.GetCurrentPlayer();
         var effectiveCost = _keepCardRulesService.GetEffectivePurchaseCost(currentPlayer, topCard);
         _validator.EnsureCanBuyPeekedTopDeckCard(gameState, command, effectiveCost);
-        var stepResult = _marketPurchaseService.BuyTopDeckCard(gameState, effectiveCost);
+        if (allowRapidHealingWindow && command.StoredEnergyToDeposit == 0 &&
+            StartPurchaseRapidHealingWindow(gameState, currentPlayer, topCard, command) is { } window)
+        {
+            return window;
+        }
+
+        var stepResult = _marketPurchaseService.BuyTopDeckCard(gameState, effectiveCost, command.StoredEnergyToDeposit);
         gameState.ClearPendingDecision();
         PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, null);
@@ -360,32 +532,51 @@ public sealed class GameEngine : IGameEngine
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
 
-    private CommandResult ExecuteBuyOpportunistRevealedCard(GameState gameState, BuyOpportunistRevealedCardCommand command)
+    private CommandResult ExecuteBuyOpportunistRevealedCard(GameState gameState, BuyOpportunistRevealedCardCommand command, bool allowRapidHealingWindow = true)
     {
         var payload = EnsureCanBuyOpportunistRevealedCard(gameState, command);
         var actor = gameState.GetPlayerById(command.ActorPlayerId!.Value);
         var card = gameState.Market.FaceUpCards[payload.SlotIndex]
             ?? throw new InvalidOperationException("Selected market slot is empty.");
         var effectiveCost = _keepCardRulesService.GetEffectivePurchaseCost(actor, card);
+        if (allowRapidHealingWindow && command.StoredEnergyToDeposit == 0 &&
+            StartPurchaseRapidHealingWindow(gameState, actor, card, command) is { } window)
+        {
+            return window;
+        }
+
         var stepResult = _marketPurchaseService.BuyOpportunistRevealedCard(
             gameState,
             actor.PlayerId,
             payload.SlotIndex,
-            effectiveCost);
+            effectiveCost,
+            command.StoredEnergyToDeposit);
+        var nextDecision = gameState.ResolveOpportunistDecision();
         PublishEvents(stepResult.Events);
-        return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
+        return CommandResult.Successful(gameState, stepResult.Events, nextDecision);
     }
 
     private CommandResult ExecuteDeclineOpportunistRevealedCard(GameState gameState, DeclineOpportunistRevealedCardCommand command)
     {
         EnsureCanDeclineOpportunistRevealedCard(gameState, command);
-        gameState.ClearPendingDecision();
-        return CommandResult.Successful(gameState);
+        var nextDecision = gameState.ResolveOpportunistDecision();
+        return CommandResult.Successful(gameState, pendingDecision: nextDecision);
     }
 
     private CommandResult ExecuteEndTurn(GameState gameState, EndTurnCommand command)
     {
         _validator.EnsureCanEndTurn(gameState, command);
+        var currentPlayer = gameState.GetCurrentPlayer();
+        if (currentPlayer.Status.PoisonTokens >= currentPlayer.Health &&
+            _keepCardRulesService.CanUseRapidHealing(currentPlayer))
+        {
+            var turn = gameState.CurrentTurn!;
+            turn.StartRapidHealingWindow(new[] { currentPlayer.PlayerId }, 0, endTurn: true);
+            var decision = CreateRapidHealingDecision(currentPlayer.PlayerId);
+            gameState.SetPendingDecision(decision);
+            return CommandResult.Successful(gameState, pendingDecision: decision);
+        }
+
         var stepResult = _turnLifecycleService.EndTurn(gameState);
         PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
@@ -445,7 +636,8 @@ public sealed class GameEngine : IGameEngine
         }
 
         var unusedHeartCount = gameState.CurrentTurn.DicePool.Dice.Count(die => die.CurrentFace == DieFace.Heart) -
-                               gameState.CurrentTurn.HealingRayHeartsSpent;
+                               gameState.CurrentTurn.HealingRayHeartsSpent -
+                               gameState.CurrentTurn.HeartsUsedElsewhere;
         if (command.HealingAmount > unusedHeartCount)
         {
             throw new InvalidOperationException("Not enough unused heart dice for Healing Ray.");

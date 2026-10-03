@@ -37,7 +37,7 @@ public sealed class MarketPurchaseService
         _energyPaymentService = energyPaymentService ?? new EnergyPaymentService();
     }
 
-    public EngineStepResult BuyFaceUpCard(GameState gameState, int slotIndex, int effectiveCost)
+    public EngineStepResult BuyFaceUpCard(GameState gameState, int slotIndex, int effectiveCost, int storedEnergyToDeposit = 0)
     {
         ArgumentNullException.ThrowIfNull(gameState);
 
@@ -52,6 +52,8 @@ public sealed class MarketPurchaseService
             throw new InvalidOperationException("Selected market slot is empty.");
         }
 
+        ValidateDeposit(player, card, effectiveCost, storedEnergyToDeposit);
+
         var paymentEvents = _energyPaymentService.SpendEnergy(
             gameState,
             player,
@@ -60,18 +62,17 @@ public sealed class MarketPurchaseService
 
         var boughtCard = gameState.Market.RemoveFaceUpCardAt(slotIndex);
 
-        var events = FinalizePurchasedCard(gameState, currentTurn, player, boughtCard, effectiveCost);
+        var events = FinalizePurchasedCard(gameState, currentTurn, player, boughtCard, effectiveCost, storedEnergyToDeposit);
         events.InsertRange(0, paymentEvents);
 
         currentTurn.Flags.BoughtCard = true;
 
-        var pendingDecision = CreateOpportunistDecisionForSlot(gameState, slotIndex);
-        gameState.SetPendingDecision(pendingDecision);
+        var pendingDecision = gameState.QueueOpportunistDecisions(CreateOpportunistDecisionsForSlot(gameState, slotIndex));
 
         return new EngineStepResult(events, pendingDecision);
     }
 
-    public EngineStepResult BuyOpportunistRevealedCard(GameState gameState, int actorPlayerId, int slotIndex, int effectiveCost)
+    public EngineStepResult BuyOpportunistRevealedCard(GameState gameState, int actorPlayerId, int slotIndex, int effectiveCost, int storedEnergyToDeposit = 0)
     {
         ArgumentNullException.ThrowIfNull(gameState);
 
@@ -86,6 +87,8 @@ public sealed class MarketPurchaseService
             throw new InvalidOperationException("Selected market slot is empty.");
         }
 
+        ValidateDeposit(player, card, effectiveCost, storedEnergyToDeposit);
+
         var paymentEvents = _energyPaymentService.SpendEnergy(
             gameState,
             player,
@@ -94,18 +97,17 @@ public sealed class MarketPurchaseService
 
         var boughtCard = gameState.Market.RemoveFaceUpCardAt(slotIndex);
 
-        var events = FinalizePurchasedCard(gameState, currentTurn, player, boughtCard, effectiveCost);
+        var events = FinalizePurchasedCard(gameState, currentTurn, player, boughtCard, effectiveCost, storedEnergyToDeposit);
         events.InsertRange(0, paymentEvents);
 
         currentTurn.Flags.BoughtCard = true;
 
-        var pendingDecision = CreateOpportunistDecisionForSlot(gameState, slotIndex);
-        gameState.SetPendingDecision(pendingDecision);
+        var pendingDecision = gameState.QueueOpportunistDecisions(CreateOpportunistDecisionsForSlot(gameState, slotIndex));
 
         return new EngineStepResult(events, pendingDecision);
     }
 
-    public EngineStepResult BuyTopDeckCard(GameState gameState, int effectiveCost)
+    public EngineStepResult BuyTopDeckCard(GameState gameState, int effectiveCost, int storedEnergyToDeposit = 0)
     {
         ArgumentNullException.ThrowIfNull(gameState);
 
@@ -113,6 +115,7 @@ public sealed class MarketPurchaseService
             ?? throw new InvalidOperationException("Cannot buy a card without an active turn.");
 
         var player = gameState.GetCurrentPlayer();
+        ValidateDeposit(player, gameState.Market.PeekTopDrawCard(), effectiveCost, storedEnergyToDeposit);
         var boughtCard = gameState.Market.RemoveTopDrawCard();
 
         var paymentEvents = _energyPaymentService.SpendEnergy(
@@ -121,7 +124,7 @@ public sealed class MarketPurchaseService
             effectiveCost,
             "Keep card: Monster Batteries.");
 
-        var events = FinalizePurchasedCard(gameState, currentTurn, player, boughtCard, effectiveCost);
+        var events = FinalizePurchasedCard(gameState, currentTurn, player, boughtCard, effectiveCost, storedEnergyToDeposit);
         events.InsertRange(0, paymentEvents);
 
         currentTurn.Flags.BoughtCard = true;
@@ -129,12 +132,22 @@ public sealed class MarketPurchaseService
         return new EngineStepResult(events);
     }
 
+    private static void ValidateDeposit(PlayerState player, MarketCardState card, int effectiveCost, int amount)
+    {
+        if (amount < 0 || amount > player.Energy - effectiveCost ||
+            (card.CardId != KnownCardIds.MonsterBatteries && amount != 0))
+        {
+            throw new InvalidOperationException("Invalid energy deposit for Monster Batteries.");
+        }
+    }
+
     private List<GameEventBase> FinalizePurchasedCard(
         GameState gameState,
         TurnState currentTurn,
         PlayerState player,
         MarketCardState boughtCard,
-        int effectiveCost)
+        int effectiveCost,
+        int storedEnergyToDeposit)
     {
         var events = new List<GameEventBase>
         {
@@ -145,6 +158,12 @@ public sealed class MarketPurchaseService
                 effectiveCost,
                 boughtCard.CardType)
         };
+
+        if (boughtCard.CardId == KnownCardIds.MonsterBatteries && storedEnergyToDeposit > 0)
+        {
+            player.SpendEnergy(storedEnergyToDeposit);
+            boughtCard.AddStoredEnergy(2 * storedEnergyToDeposit);
+        }
 
         ApplyPurchaseEffect(gameState, player, boughtCard, currentTurn, events);
 
@@ -158,7 +177,12 @@ public sealed class MarketPurchaseService
                 "Keep card: Dedicated News Team."));
         }
 
-        if (boughtCard.CardType == MarketCardType.Keep)
+        if (boughtCard.CardId == KnownCardIds.MonsterBatteries && boughtCard.StoredEnergy == 0)
+        {
+            gameState.Market.Discard(boughtCard);
+            events.Add(new KeepCardDiscardedEvent(player.PlayerId, boughtCard.CardId, boughtCard.Name, "Empty Monster Batteries."));
+        }
+        else if (boughtCard.CardType == MarketCardType.Keep)
         {
             player.AddKeepCard(boughtCard);
         }
@@ -231,7 +255,20 @@ public sealed class MarketPurchaseService
             }
         }
 
-        if (effect.EnterTokyo && player.TokyoSlot == TokyoSlot.None && _tokyoResolver.GetPreferredAvailableSlot(gameState) is not null)
+        if (boughtCard.CardId == KnownCardIds.DropFromHighAltitude && player.TokyoSlot == TokyoSlot.None)
+        {
+            if (gameState.Tokyo.CityOccupantId is int occupantId)
+            {
+                var occupant = gameState.GetPlayerById(occupantId);
+                _tokyoResolver.LeaveTokyo(gameState, occupant);
+                events.Add(new TokyoLeftEvent(occupantId, TokyoSlot.City));
+            }
+
+            var enteredSlot = _tokyoResolver.EnterTokyo(gameState, player);
+            currentTurn.Flags.EnteredTokyo = true;
+            events.Add(new TokyoEnteredEvent(player.PlayerId, enteredSlot));
+        }
+        else if (effect.EnterTokyo && player.TokyoSlot == TokyoSlot.None && _tokyoResolver.GetPreferredAvailableSlot(gameState) is not null)
         {
             var enteredSlot = _tokyoResolver.EnterTokyo(gameState, player);
             currentTurn.Flags.EnteredTokyo = true;
@@ -358,12 +395,12 @@ public sealed class MarketPurchaseService
         }
     }
 
-    private PendingDecision? CreateOpportunistDecisionForSlot(GameState gameState, int slotIndex)
+    private IReadOnlyList<PendingDecision> CreateOpportunistDecisionsForSlot(GameState gameState, int slotIndex)
     {
         var revealedCard = gameState.Market.FaceUpCards[slotIndex];
         if (revealedCard is null)
         {
-            return null;
+            return Array.Empty<PendingDecision>();
         }
 
         var eligiblePlayerIds = gameState.Players
@@ -375,22 +412,22 @@ public sealed class MarketPurchaseService
 
         if (eligiblePlayerIds.Length == 0)
         {
-            return null;
+            return Array.Empty<PendingDecision>();
         }
 
-        return new PendingDecision
+        return eligiblePlayerIds.Select(playerId => new PendingDecision
         {
             DecisionType = DecisionType.OpportunistPurchase,
-            PlayerId = eligiblePlayerIds[0],
+            PlayerId = playerId,
             Payload = new MarketCardRevealDecisionData
             {
                 SlotIndex = slotIndex,
                 CardId = revealedCard.CardId,
                 CardName = revealedCard.Name,
-                Cost = _keepCardRulesService.GetEffectivePurchaseCost(gameState.GetPlayerById(eligiblePlayerIds[0]), revealedCard),
+                Cost = _keepCardRulesService.GetEffectivePurchaseCost(gameState.GetPlayerById(playerId), revealedCard),
                 EligiblePlayerIds = eligiblePlayerIds
             }
-        };
+        }).ToArray();
     }
 
     private void AwardEaterOfTheDeadPoints(GameState gameState, List<GameEventBase> events)

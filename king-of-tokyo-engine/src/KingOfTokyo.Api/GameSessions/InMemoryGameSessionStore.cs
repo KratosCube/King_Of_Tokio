@@ -5,6 +5,7 @@ using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Dto;
 using KingOfTokyo.Core.Engine;
+using KingOfTokyo.Core.Services;
 
 namespace KingOfTokyo.Api.GameSessions;
 
@@ -12,7 +13,7 @@ public sealed class InMemoryGameSessionStore : IGameSessionStore
 {
     private readonly ConcurrentDictionary<Guid, GameSession> _sessions = new();
 
-    public GameStateDto CreateGame(CreateGameRequest request)
+    public GameStateDto CreateGame(CreateGameRequest request, IReadOnlyDictionary<int, Guid>? playerTokens = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -31,7 +32,26 @@ public sealed class InMemoryGameSessionStore : IGameSessionStore
             initialHealth: initialHealth,
             targetVictoryPoints: targetVictoryPoints);
         var gameState = new GameState(players, gameOptions);
-        var session = new GameSession(gameState, new GameEngine());
+        if (playerTokens is not null)
+        {
+            var tied = players.Select(player => player.PlayerId).ToArray();
+            while (tied.Length > 1)
+            {
+                var rolls = tied.Select(id => (Id: id, Attacks: Enumerable.Range(0, 6).Count(_ => Random.Shared.Next(6) == 0))).ToArray();
+                var highest = rolls.Max(roll => roll.Attacks);
+                tied = rolls.Where(roll => roll.Attacks == highest).Select(roll => roll.Id).ToArray();
+            }
+            gameState.SelectStartingPlayer(tied[0]);
+        }
+        if (playerTokens is not null &&
+            (playerTokens.Count != playerCount ||
+             Enumerable.Range(0, playerCount).Any(index => !playerTokens.TryGetValue(index, out var token) || token == Guid.Empty) ||
+             playerTokens.Values.Distinct().Count() != playerCount))
+        {
+            throw new ArgumentException("Each player must have a distinct nonempty token.", nameof(playerTokens));
+        }
+
+        var session = new GameSession(gameState, new GameEngine(marketSetupService: new MarketSetupService(shuffleDeck: true)), playerTokens);
 
         if (!_sessions.TryAdd(gameState.GameId, session))
         {
@@ -39,6 +59,14 @@ public sealed class InMemoryGameSessionStore : IGameSessionStore
         }
 
         return gameState.ToDto();
+    }
+
+    public bool TryAuthorize(Guid gameId, Guid playerToken, out int playerId)
+    {
+        playerId = -1;
+        return playerToken != Guid.Empty &&
+               _sessions.TryGetValue(gameId, out var session) &&
+               session.PlayerIdsByToken.TryGetValue(playerToken, out playerId);
     }
 
     public bool TryGetSnapshot(Guid gameId, out GameStateDto? snapshot)
@@ -93,14 +121,17 @@ public sealed class InMemoryGameSessionStore : IGameSessionStore
 
     private sealed class GameSession
     {
-        public GameSession(GameState gameState, GameEngine engine)
+        public GameSession(GameState gameState, GameEngine engine, IReadOnlyDictionary<int, Guid>? playerTokens)
         {
             GameState = gameState;
             Engine = engine;
+            PlayerIdsByToken = playerTokens?.ToDictionary(pair => pair.Value, pair => pair.Key)
+                ?? new Dictionary<Guid, int>();
         }
 
         public GameState GameState { get; }
         public GameEngine Engine { get; }
+        public IReadOnlyDictionary<Guid, int> PlayerIdsByToken { get; }
         public object SyncRoot { get; } = new();
     }
 }

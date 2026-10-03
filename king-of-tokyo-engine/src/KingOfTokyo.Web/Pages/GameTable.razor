@@ -53,6 +53,10 @@
                                 <span>⚡ @player.Energy</span>
                             </div>
                             <PlayerStatusTokens Status="player.Status" />
+                            @if (CanUseRapidHealing && player.PlayerId == Session.PlayerId)
+                            {
+                                <button class="btn btn-secondary" @onclick="ActivateRapidHealingAsync" disabled="@_busy">Rapid Healing (2 energy)</button>
+                            }
                             @if (!player.IsAlive)
                             {
                                 <span class="status-pill danger-pill">Eliminated</span>
@@ -82,6 +86,42 @@
                                 <button class="btn btn-secondary" @onclick="() => ChooseLeaveTokyoAsync(false)" disabled="@_busy">Stay in Tokyo</button>
                             </div>
                         }
+                        else if (CanAnswerRapidHealingDecision)
+                        {
+                            <p class="muted">Incoming damage may eliminate your monster. You may use Rapid Healing before the damage is resolved.</p>
+                            <div class="actions">
+                                @if (CanUseRapidHealing)
+                                {
+                                    <button class="btn btn-secondary" @onclick="ActivateRapidHealingAsync" disabled="@_busy">Rapid Healing (2 energy)</button>
+                                }
+                                <button class="btn btn-primary" @onclick="ContinueAfterRapidHealingAsync" disabled="@_busy">Continue damage resolution</button>
+                            </div>
+                        }
+                        else if (CanAnswerOpportunistDecision)
+                        {
+                            @if (IsOpportunistBattery)
+                            {
+                                <label>Energy to deposit (matched by bank)</label>
+                                <InputNumber @bind-Value="_batteryDeposit" min="0" />
+                            }
+                            <div class="actions">
+                                <button class="btn btn-primary" @onclick="() => AnswerOpportunistAsync(true)" disabled="@_busy">Buy revealed card</button>
+                                <button class="btn btn-secondary" @onclick="() => AnswerOpportunistAsync(false)" disabled="@_busy">Decline</button>
+                            </div>
+                        }
+                        else if (CanAnswerPeekDecision)
+                        {
+                            <p>@PeekedCardName</p>
+                            @if (IsPeekedBattery)
+                            {
+                                <label>Energy to deposit (matched by bank)</label>
+                                <InputNumber @bind-Value="_batteryDeposit" min="0" />
+                            }
+                            <div class="actions">
+                                <button class="btn btn-primary" @onclick="() => AnswerPeekAsync(true)" disabled="@_busy">Buy top card</button>
+                                <button class="btn btn-secondary" @onclick="() => AnswerPeekAsync(false)" disabled="@_busy">Decline</button>
+                            </div>
+                        }
                         else if (IsSelectDiceToRerollDecision)
                         {
                             <p class="muted">Select dice below and press Reroll selected dice, or finalize dice to keep the current result.</p>
@@ -108,8 +148,18 @@
                     </div>
                     <div class="actions compact-actions">
                         <button class="btn btn-primary" @onclick="RerollSelectedDiceAsync" disabled="@(!CanRerollSelected || _busy)">Reroll selected dice</button>
+                        @if (CanUseBackgroundDweller)
+                        {
+                            <button class="btn btn-secondary" @onclick="RerollBackgroundDwellerAsync" disabled="@(!CanRerollBackgroundDweller || _busy)">Reroll selected 3s (Background Dweller)</button>
+                        }
                         <button class="btn btn-secondary" @onclick="ClearSelectedDice" disabled="@(_busy || _selectedDiceIndexes.Count == 0)">Clear dice selection</button>
                     </div>
+                    @if (CanFinalizeDice && HasHealingRay)
+                    {
+                        <label>Hearts to reserve for Healing Ray</label>
+                        <InputNumber @bind-Value="_rayHeartsReserved" min="0" max="@AvailableRayHeartsBeforeFinalizing" />
+                        <p class="muted">Other hearts heal you after poison and shrink tokens are removed.</p>
+                    }
                     @if (_selectedDiceIndexes.Count > 0 && !CanRerollSelected)
                     {
                         <p class="muted">Dice are selected. Reroll becomes available only during your reroll decision.</p>
@@ -139,6 +189,11 @@
                                 </div>
                                 <small class="market-card-type">@card.value.CardType</small>
                                 <p>@card.value.Description</p>
+                                @if (card.value.CardId == "card-monster-batteries" && CanUseMarketActions)
+                                {
+                                    <label>Energy to deposit (matched by bank)</label>
+                                    <InputNumber @bind-Value="_batteryDeposit" min="0" />
+                                }
                                 <button class="btn btn-primary" @onclick="() => BuyFaceUpCardAsync(card.index)" disabled="@(_busy || !CanUseMarketActions)">Buy</button>
                             }
                         </article>
@@ -147,8 +202,118 @@
                 <div class="market-footer">
                     <p class="muted">Deck: @_game.Market.DrawPileCount • Discard: @_game.Market.DiscardPileCount</p>
                     <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@(_busy || !CanUseMarketActions)">Refresh market</button>
+                    @if (CanPeekTopDeck)
+                    {
+                        <button class="btn btn-secondary" @onclick="PeekTopDeckAsync" disabled="@_busy">Peek top card (Made in a Lab)</button>
+                    }
                 </div>
             </section>
+            @if (CanUseHealingRay)
+            {
+                <section class="panel">
+                    <h2>Healing Ray</h2>
+                    <p class="muted">Available hearts: @(_game.CurrentTurn?.UnusedHealingRayHearts ?? 0)</p>
+                    <label>Heal another monster</label>
+                    <select @bind="_healingRayTargetId">
+                        <option value="-1">Select a monster</option>
+                        @foreach (var target in _game.Players.Where(player => player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth))
+                        {
+                            <option value="@target.PlayerId">@target.MonsterName</option>
+                        }
+                    </select>
+                    <label>Hearts to use</label>
+                    <InputNumber @bind-Value="_healingRayAmount" min="1" max="@_game.CurrentTurn.UnusedHealingRayHearts" />
+                    <button class="btn btn-primary" @onclick="ActivateHealingRayAsync" disabled="@(_busy || !HasSelectedHealingRayTarget || _healingRayAmount < 1 || _healingRayAmount > _game.CurrentTurn.UnusedHealingRayHearts)">Heal</button>
+                </section>
+            }
+            @if (HasAvailableCardActions)
+            {
+                <section class="panel">
+                    <h2>Keep card actions</h2>
+                    @if (CanUseRollingCards && (HasCardEffect("card-stretchy") || HasCardEffect("card-herd-culler") || HasOwnedCard("card-plot-twist")) || CanUsePsychicProbe)
+                    {
+                        <label>Die index</label>
+                        <InputNumber @bind-Value="_abilityDieIndex" min="0" max="@(_game.CurrentTurn!.Dice.Count - 1)" />
+                    }
+                    @if (CanUseRollingCards && (HasCardEffect("card-stretchy") || HasOwnedCard("card-plot-twist")))
+                    {
+                        <label>New die face</label>
+                        <select @bind="_abilityTargetFace">
+                            <option value="One">1</option><option value="Two">2</option><option value="Three">3</option>
+                            <option value="Energy">Energy</option><option value="Heart">Heart</option><option value="Attack">Attack</option>
+                        </select>
+                    }
+                    @if (CanUseRollingCards)
+                    {
+                        <div class="actions">
+                            @if (HasCardEffect("card-telepath") && LocalPlayer!.Energy >= 1)
+                            {
+                                <button class="btn btn-secondary" @onclick="ActivateTelepathAsync" disabled="@_busy">Telepath: extra roll (1 energy)</button>
+                            }
+                            @if (HasCardEffect("card-stretchy") && LocalPlayer!.Energy >= 2)
+                            {
+                                <button class="btn btn-secondary" @onclick="ActivateStretchyAsync" disabled="@(_busy || !HasValidAbilityDie)">Stretchy: change die (2 energy)</button>
+                            }
+                            @if (HasCardEffect("card-herd-culler") && _game.CurrentTurn!.Flags.HerdCullerUsed == false)
+                            {
+                                <button class="btn btn-secondary" @onclick="ActivateHerdCullerAsync" disabled="@(_busy || !HasValidAbilityDie)">Herd Culler: change die to 1</button>
+                            }
+                            @if (LocalPlayer!.KeepCards.Any(card => card.CardId == "card-smoke-cloud" && card.Counters > 0))
+                            {
+                                <button class="btn btn-secondary" @onclick="ActivateSmokeCloudAsync" disabled="@_busy">Smoke Cloud: extra roll</button>
+                            }
+                            @if (HasOwnedCard("card-plot-twist"))
+                            {
+                                <button class="btn btn-secondary" @onclick="ActivatePlotTwistAsync" disabled="@(_busy || !HasValidAbilityDie)">Plot Twist: change die and discard</button>
+                            }
+                        </div>
+                    }
+                    @if (CanUsePsychicProbe)
+                    {
+                        <button class="btn btn-secondary" @onclick="ActivatePsychicProbeAsync" disabled="@(_busy || !HasValidAbilityDie)">Psychic Probe: reroll this die</button>
+                    }
+                    @if (CanUseWings)
+                    {
+                        <button class="btn btn-secondary" @onclick="ActivateWingsAsync" disabled="@_busy">Wings: cancel damage (2 energy)</button>
+                    }
+                    @if (CanSetMimicTarget)
+                    {
+                        <h3>Mimic: copy another monster's card</h3>
+                        <div class="actions">
+                            @foreach (var owner in _game.Players.Where(player => player.IsAlive && player.PlayerId != Session.PlayerId))
+                            {
+                                @foreach (var card in owner.KeepCards.Where(card => card.CardId != "card-mimic"))
+                                {
+                                    <button class="btn btn-secondary" @onclick="() => SetMimicTargetAsync(owner.PlayerId, card.CardId)" disabled="@_busy">@owner.MonsterName: @card.Name</button>
+                                }
+                            }
+                        </div>
+                    }
+                    @if (CanUseMetamorph)
+                    {
+                        <h3>Metamorph: discard a card for its cost</h3>
+                        <div class="actions">
+                            @foreach (var card in LocalPlayer!.KeepCards.Where(card => card.CardId != "card-metamorph"))
+                            {
+                                <button class="btn btn-secondary" @onclick="() => ActivateMetamorphAsync(card.CardId)" disabled="@_busy">Discard @card.Name</button>
+                            }
+                        </div>
+                    }
+                    @if (CanBuyOwnedKeepCards)
+                    {
+                        <h3>Parasitic Tentacles: buy another monster's card</h3>
+                        <div class="actions">
+                            @foreach (var owner in _game.Players.Where(player => player.IsAlive && player.PlayerId != Session.PlayerId))
+                            {
+                                @foreach (var card in owner.KeepCards)
+                                {
+                                    <button class="btn btn-secondary" @onclick="() => BuyOwnedKeepCardAsync(owner.PlayerId, card.CardId)" disabled="@(_busy || LocalPlayer!.Energy < card.Cost)">@owner.MonsterName: @card.Name (⚡ @card.Cost)</button>
+                                }
+                            }
+                        </div>
+                    }
+                </section>
+            }
         </div>
 
         <div class="grid-2 lower-game-grid">
@@ -187,6 +352,10 @@
                     {
                         <button class="btn btn-primary" @onclick="EndTurnAsync" disabled="@_busy">End turn</button>
                         <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@_busy">Refresh market</button>
+                    }
+                    else if (CanEndTurn)
+                    {
+                        <button class="btn btn-primary" @onclick="EndTurnAsync" disabled="@_busy">End turn</button>
                     }
                     else if (CanAdvancePlayer)
                     {
@@ -246,6 +415,12 @@
     private PeriodicTimer? _timer;
     private CancellationTokenSource? _cts;
     private bool _busy;
+    private int _batteryDeposit;
+    private int _healingRayTargetId = -1;
+    private int _healingRayAmount = 1;
+    private int _rayHeartsReserved;
+    private int _abilityDieIndex;
+    private string _abilityTargetFace = "One";
     private string? _error;
 
     private bool IsRunning => string.Equals(_game?.Status, "Running", StringComparison.OrdinalIgnoreCase);
@@ -261,17 +436,66 @@
         _game.CurrentTurn is not null &&
         _game.PendingDecision.PlayerId == _game.CurrentTurn.CurrentPlayerId;
 
-    private bool CanInitialize => IsSetup;
+    private bool CanInitialize => IsSetup && Session.PlayerId == 0;
     private bool CanBeginTurn => IsRunning && !HasPendingDecision && IsLocalActor && (_game?.CurrentTurn is null || IsPhase("Finished"));
     private bool CanRollDice => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed == 0;
     private bool CanRerollStep => IsRunning && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed > 0 && _game.CurrentTurn.RollCountUsed < _game.CurrentTurn.MaxRolls && (!HasPendingDecision || IsSelectDiceToRerollDecision);
-    private bool CanSelectDiceForReroll => CanRerollStep && _game?.CurrentTurn?.DiceResolved == false;
-    private bool CanRerollSelected => CanSelectDiceForReroll && _selectedDiceIndexes.Count > 0 && _selectedDiceIndexes.All(index => _game!.CurrentTurn!.Dice.Any(die => die.Index == index && !die.IsLocked));
+    private bool CanUseBackgroundDweller => IsRunning && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed > 0 &&
+        _game.CurrentTurn.DiceResolved == false && (!HasPendingDecision || IsSelectDiceToRerollDecision) &&
+        _game.Players.FirstOrDefault(player => player.PlayerId == Session.PlayerId)?.KeepCards.Any(card => card.CardId == "card-background-dweller") == true;
+    private bool CanSelectDiceForReroll => (CanRerollStep || CanUseBackgroundDweller) && _game?.CurrentTurn?.DiceResolved == false;
+    private bool CanRerollSelected => CanRerollStep && _selectedDiceIndexes.Count > 0 && _selectedDiceIndexes.All(index => _game!.CurrentTurn!.Dice.Any(die => die.Index == index && !die.IsLocked));
+    private bool CanRerollBackgroundDweller => CanUseBackgroundDweller && _selectedDiceIndexes.Count > 0 &&
+        _selectedDiceIndexes.All(index => _game!.CurrentTurn!.Dice.Any(die => die.Index == index && die.CurrentFace == "Three"));
     private bool CanFinalizeDice => IsRunning && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed > 0 && _game.CurrentTurn.DiceResolved == false && (!HasPendingDecision || IsSelectDiceToRerollDecision);
-    private bool CanUseMarketActions => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Purchase");
-    private bool CanEndTurn => CanUseMarketActions;
-    private bool CanAdvancePlayer => IsRunning && !HasPendingDecision && IsPhase("Finished");
+    private bool CanUseMarketActions => CanEndTurn && LocalPlayer?.IsAlive == true;
+    private bool CanEndTurn => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Purchase");
+    private bool CanAdvancePlayer => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Finished");
     private bool CanAnswerLeaveTokyoDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "LeaveTokyo", StringComparison.OrdinalIgnoreCase);
+    private bool CanAnswerRapidHealingDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "RapidHealingBeforeDamage", StringComparison.OrdinalIgnoreCase);
+    private bool CanAnswerOpportunistDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "OpportunistPurchase", StringComparison.OrdinalIgnoreCase);
+    private bool CanAnswerPeekDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "PeekTopDeckCardPurchase", StringComparison.OrdinalIgnoreCase);
+    private string PeekedCardName => _game?.PendingDecision?.Payload is System.Text.Json.JsonElement payload && payload.TryGetProperty("cardName", out var name) ? name.GetString() ?? "Top card" : "Top card";
+    private bool IsPeekedBattery => IsOpportunistBattery;
+    private PlayerDto? LocalPlayer => _game?.Players.FirstOrDefault(player => player.PlayerId == Session.PlayerId);
+    private bool HasHealingRay => LocalPlayer?.KeepCards.Any(card => card.CardId == "card-healing-ray" || card.MimicTarget?.CardId == "card-healing-ray") == true;
+    private int AvailableRayHeartsBeforeFinalizing => Math.Max(0,
+        (_game?.CurrentTurn?.Dice.Count(die => die.CurrentFace == "Heart") ?? 0) -
+        (LocalPlayer?.Status.PoisonTokens ?? 0) - (LocalPlayer?.Status.ShrinkTokens ?? 0));
+    private bool CanUseRapidHealing => IsRunning && LocalPlayer is { IsAlive: true } player &&
+        player.Health < player.MaxHealth && player.Energy >= 2 && player.KeepCards.Any(card => card.CardId == "card-rapid-healing" || card.MimicTarget?.CardId == "card-rapid-healing");
+    private bool CanUseHealingRay => CanUseMarketActions && _game?.CurrentTurn?.UnusedHealingRayHearts > 0 &&
+        HasHealingRay &&
+        _game.Players.Any(player => player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth);
+    private bool HasSelectedHealingRayTarget => _game?.Players.Any(player => player.PlayerId == _healingRayTargetId &&
+        player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth) == true;
+    private bool HasOwnedCard(string cardId) => LocalPlayer?.KeepCards.Any(card => card.CardId == cardId) == true;
+    private bool HasCardEffect(string cardId) => LocalPlayer?.KeepCards.Any(card => card.CardId == cardId || card.MimicTarget?.CardId == cardId) == true;
+    private bool CanUseRollingCards => IsRunning && IsLocalActor && LocalPlayer?.IsAlive == true && IsPhase("Rolling") &&
+        _game?.CurrentTurn is { RollCountUsed: > 0, DiceResolved: false } && (!HasPendingDecision || IsSelectDiceToRerollDecision);
+    private bool HasValidAbilityDie => _game?.CurrentTurn?.Dice.Any(die => die.Index == _abilityDieIndex) == true;
+    private bool CanUsePsychicProbe => IsRunning && !IsLocalActor && LocalPlayer?.IsAlive == true && IsPhase("Rolling") &&
+        _game?.CurrentTurn is { RollCountUsed: > 0, DiceResolved: false } && (!HasPendingDecision || IsSelectDiceToRerollDecision) &&
+        LocalPlayer.KeepCards.Any(card => card.CardId == "card-psychic-probe" && card.Counters == 0);
+    private bool CanUseWings => IsRunning && _game?.CurrentTurn is not null && LocalPlayer is { IsAlive: true } player &&
+        player.Health < player.MaxHealth && player.Energy >= 2 && HasCardEffect("card-wings") &&
+        (!HasPendingDecision || CanAnswerLeaveTokyoDecision);
+    private bool CanSetMimicTarget => IsRunning && !HasPendingDecision && IsLocalActor && LocalPlayer is { IsAlive: true } player &&
+        player.KeepCards.FirstOrDefault(card => card.CardId == "card-mimic") is { } mimic &&
+        ((mimic.MimicTarget is null && CanUseMarketActions) ||
+         (mimic.MimicTarget is not null && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed == 0 && player.Energy >= 1)) &&
+        _game!.Players.Any(owner => owner.IsAlive && owner.PlayerId != Session.PlayerId && owner.KeepCards.Any(card => card.CardId != "card-mimic"));
+    private bool CanUseMetamorph => CanUseMarketActions && HasOwnedCard("card-metamorph") &&
+        LocalPlayer!.KeepCards.Any(card => card.CardId != "card-metamorph");
+    private bool CanBuyOwnedKeepCards => CanUseMarketActions && HasOwnedCard("card-parasitic-tentacles") &&
+        _game!.Players.Any(owner => owner.IsAlive && owner.PlayerId != Session.PlayerId && owner.KeepCards.Count > 0);
+    private bool HasAvailableCardActions => CanUseRollingCards && (HasCardEffect("card-telepath") || HasCardEffect("card-stretchy") ||
+        HasCardEffect("card-herd-culler") || HasOwnedCard("card-smoke-cloud") || HasOwnedCard("card-plot-twist")) ||
+        CanUsePsychicProbe || CanUseWings || CanSetMimicTarget || CanUseMetamorph || CanBuyOwnedKeepCards;
+    private bool CanPeekTopDeck => CanUseMarketActions && _game?.Market.DrawPileCount > 0 &&
+        LocalPlayer?.KeepCards.Any(card => card.CardId == "card-made-in-a-lab" || card.MimicTarget?.CardId == "card-made-in-a-lab") == true;
+    private bool IsOpportunistBattery => _game?.PendingDecision?.Payload is System.Text.Json.JsonElement payload &&
+        payload.TryGetProperty("cardId", out var cardId) && cardId.GetString() == "card-monster-batteries";
 
     private string SmartActionTitle
     {
@@ -285,6 +509,7 @@
             if (CanSelectDiceForReroll) return "Choose dice or finalize";
             if (CanFinalizeDice) return "Finalize dice";
             if (CanUseMarketActions) return "Buy cards or end turn";
+            if (CanEndTurn) return "End your turn";
             if (CanAdvancePlayer) return "Advance to next player";
             if (_game?.PendingDecision is not null) return $"Waiting for {PlayerName(_game.PendingDecision.PlayerId)}";
             if (_game?.CurrentTurn is not null && !IsLocalActor) return $"Waiting for {PlayerName(_game.CurrentTurn.CurrentPlayerId)}";
@@ -304,6 +529,7 @@
             if (CanSelectDiceForReroll) return "Click dice below to select them for reroll, or finalize the current result.";
             if (CanFinalizeDice) return "Resolve the current dice result and move to the next step.";
             if (CanUseMarketActions) return "Buy cards from the market, refresh the market, or end your turn.";
+            if (CanEndTurn) return "Your monster was eliminated; finish this turn.";
             if (CanAdvancePlayer) return "The current turn is finished. Move to the next monster.";
             if (_game?.PendingDecision is not null) return "Another decision must be answered before the game can continue.";
             if (_game?.CurrentTurn is not null && !IsLocalActor) return "This browser is not controlling the active monster.";
@@ -380,7 +606,7 @@
         "Two" => "2",
         "Three" => "3",
         "Energy" => "⚡",
-        "Heal" => "❤",
+        "Heart" => "❤",
         "Attack" => "🗯",
         _ => face
     };
@@ -418,6 +644,10 @@
         try
         {
             _game = await ApiClient.GetGameAsync(GameId);
+            if (_game is not null && !_game.Players.Any(player => player.PlayerId == _healingRayTargetId && player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth))
+            {
+                _healingRayTargetId = _game.Players.FirstOrDefault(player => player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth)?.PlayerId ?? -1;
+            }
             PruneSelectedDice();
         }
         catch (Exception ex)
@@ -479,6 +709,11 @@
             }
 
             _game = result.GameState;
+            if (result.Success)
+            {
+                _batteryDeposit = 0;
+                _rayHeartsReserved = 0;
+            }
             _selectedDiceIndexes.Clear();
             foreach (var newEvent in result.NewEvents)
             {
@@ -508,8 +743,12 @@
     private Task BeginTurnAsync() => ExecuteAsync(() => ApiClient.BeginTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
     private Task RollDiceAsync() => ExecuteAsync(() => ApiClient.RollDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
     private Task RerollSelectedDiceAsync() => ExecuteAsync(() => ApiClient.RerollDiceAsync(GameId, new RerollDiceRequest(Session.PlayerId, _selectedDiceIndexes.OrderBy(index => index).ToArray())));
-    private Task FinalizeDiceAsync() => ExecuteAsync(() => ApiClient.FinalizeDiceAsync(GameId, new ActorRequest(Session.PlayerId)));
-    private Task BuyFaceUpCardAsync(int slotIndex) => ExecuteAsync(() => ApiClient.BuyFaceUpCardAsync(GameId, new BuyFaceUpCardRequest(Session.PlayerId, slotIndex)));
+    private Task RerollBackgroundDwellerAsync() => ExecuteAsync(() => ApiClient.RerollBackgroundDwellerAsync(GameId, new RerollDiceRequest(Session.PlayerId, _selectedDiceIndexes.OrderBy(index => index).ToArray())));
+    private Task FinalizeDiceAsync() => ExecuteAsync(() => ApiClient.FinalizeDiceAsync(GameId, new FinalizeDiceRequest(Session.PlayerId, _rayHeartsReserved)));
+    private Task ContinueAfterRapidHealingAsync() => ExecuteAsync(() => ApiClient.ContinueAfterRapidHealingAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task BuyFaceUpCardAsync(int slotIndex) => ExecuteAsync(() => ApiClient.BuyFaceUpCardAsync(GameId,
+        new BuyFaceUpCardRequest(Session.PlayerId, slotIndex,
+            _game?.Market.FaceUpCards[slotIndex]?.CardId == "card-monster-batteries" ? _batteryDeposit : 0)));
     private Task RefreshMarketAsync() => ExecuteAsync(() => ApiClient.RefreshMarketAsync(GameId, new ActorRequest(Session.PlayerId)));
 
     private Task ChooseLeaveTokyoAsync(bool leaveTokyo)
@@ -523,6 +762,25 @@
     }
 
     private Task EndTurnAsync() => ExecuteAsync(() => ApiClient.EndTurnAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task ActivateRapidHealingAsync() => ExecuteAsync(() => ApiClient.ActivateRapidHealingAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task ActivateHealingRayAsync() => ExecuteAsync(() => ApiClient.ActivateHealingRayAsync(GameId, new HealingRayRequest(Session.PlayerId, _healingRayTargetId, _healingRayAmount)));
+    private Task ActivateWingsAsync() => ExecuteAsync(() => ApiClient.ActivateWingsAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task ActivateTelepathAsync() => ExecuteAsync(() => ApiClient.ActivateTelepathAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task ActivateStretchyAsync() => ExecuteAsync(() => ApiClient.ActivateStretchyAsync(GameId, new ChangeDieFaceRequest(Session.PlayerId, _abilityDieIndex, _abilityTargetFace)));
+    private Task ActivateHerdCullerAsync() => ExecuteAsync(() => ApiClient.ActivateHerdCullerAsync(GameId, new DieIndexRequest(Session.PlayerId, _abilityDieIndex)));
+    private Task ActivateSmokeCloudAsync() => ExecuteAsync(() => ApiClient.ActivateSmokeCloudAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task ActivatePlotTwistAsync() => ExecuteAsync(() => ApiClient.ActivatePlotTwistAsync(GameId, new ChangeDieFaceRequest(Session.PlayerId, _abilityDieIndex, _abilityTargetFace)));
+    private Task ActivatePsychicProbeAsync() => ExecuteAsync(() => ApiClient.ActivatePsychicProbeAsync(GameId, new PsychicProbeRequest(Session.PlayerId!.Value, _abilityDieIndex)));
+    private Task SetMimicTargetAsync(int ownerId, string cardId) => ExecuteAsync(() => ApiClient.SetMimicTargetAsync(GameId, new SetMimicTargetRequest(Session.PlayerId, ownerId, cardId)));
+    private Task ActivateMetamorphAsync(string cardId) => ExecuteAsync(() => ApiClient.ActivateMetamorphAsync(GameId, new MetamorphRequest(Session.PlayerId, cardId)));
+    private Task BuyOwnedKeepCardAsync(int ownerId, string cardId) => ExecuteAsync(() => ApiClient.BuyOwnedKeepCardAsync(GameId, new BuyOwnedKeepCardRequest(Session.PlayerId, ownerId, cardId)));
+    private Task PeekTopDeckAsync() => ExecuteAsync(() => ApiClient.PeekTopDeckCardAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task AnswerPeekAsync(bool buy) => ExecuteAsync(() => buy
+        ? ApiClient.BuyPeekedTopDeckCardAsync(GameId, new BatteryPurchaseRequest(Session.PlayerId, IsPeekedBattery ? _batteryDeposit : 0))
+        : ApiClient.DeclinePeekedTopDeckCardAsync(GameId, new ActorRequest(Session.PlayerId)));
+    private Task AnswerOpportunistAsync(bool buy) => ExecuteAsync(() => buy
+        ? ApiClient.BuyOpportunistAsync(GameId, new BatteryPurchaseRequest(Session.PlayerId, IsOpportunistBattery ? _batteryDeposit : 0))
+        : ApiClient.DeclineOpportunistAsync(GameId, new ActorRequest(Session.PlayerId)));
     private Task AdvancePlayerAsync() => ExecuteAsync(() => ApiClient.AdvancePlayerAsync(GameId, new ActorRequest(Session.PlayerId)));
 
     public void Dispose()
@@ -630,7 +888,7 @@
             "Two" => "2",
             "Three" => "3",
             "Energy" => "⚡",
-            "Heal" => "❤",
+            "Heart" => "❤",
             "Attack" => "💥",
             _ => face ?? "?"
         };

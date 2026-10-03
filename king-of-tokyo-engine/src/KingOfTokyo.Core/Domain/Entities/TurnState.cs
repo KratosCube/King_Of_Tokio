@@ -1,3 +1,4 @@
+using KingOfTokyo.Core.Abstractions;
 using KingOfTokyo.Core.Decisions;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
@@ -7,6 +8,7 @@ namespace KingOfTokyo.Core.Domain.Entities;
 public sealed class TurnState
 {
     private readonly Queue<TokyoLeaveDecisionContext> _pendingTokyoLeaveDecisions = new();
+    private readonly Queue<int> _pendingRapidHealingDefenders = new();
     private readonly Dictionary<int, int> _damageTakenThisTurnByPlayer = new();
 
     public int CurrentPlayerId { get; }
@@ -20,9 +22,16 @@ public sealed class TurnState
     public bool DiceResolved { get; private set; }
     public bool PurchasePhaseFinished { get; private set; }
     public int HealingRayHeartsSpent { get; private set; }
+    public int HeartsUsedElsewhere { get; private set; }
+    public int HeartsReservedForHealingRayAfterRapidHealing { get; private set; }
+    public bool EndTurnAfterRapidHealing { get; private set; }
+    public IGameCommand? PurchaseCommandAfterRapidHealing { get; private set; }
+    public PendingDecision? SuspendedPurchaseDecision { get; private set; }
     public TurnFlags Flags { get; }
 
     public bool HasPendingTokyoLeaveDecisions => _pendingTokyoLeaveDecisions.Count > 0;
+    public bool HasPendingRapidHealingDefenders => _pendingRapidHealingDefenders.Count > 0;
+    public int NextRapidHealingDefenderId => _pendingRapidHealingDefenders.Peek();
 
     public TurnState(
         int currentPlayerId,
@@ -59,6 +68,7 @@ public sealed class TurnState
         DiceResolved = false;
         PurchasePhaseFinished = false;
         HealingRayHeartsSpent = 0;
+        HeartsUsedElsewhere = 0;
     }
 
     public void SetPhase(TurnPhase phase)
@@ -87,6 +97,40 @@ public sealed class TurnState
         PurchasePhaseFinished = true;
     }
 
+    public void StartRapidHealingWindow(
+        IEnumerable<int> defenderIds,
+        int heartsReservedForHealingRay,
+        bool endTurn = false,
+        IGameCommand? purchaseCommand = null,
+        PendingDecision? suspendedPurchaseDecision = null)
+    {
+        ArgumentNullException.ThrowIfNull(defenderIds);
+        if (HasPendingRapidHealingDefenders || heartsReservedForHealingRay < 0)
+        {
+            throw new InvalidOperationException("Rapid Healing window cannot be started now.");
+        }
+
+        foreach (var defenderId in defenderIds.Distinct())
+        {
+            _pendingRapidHealingDefenders.Enqueue(defenderId);
+        }
+
+        if (!HasPendingRapidHealingDefenders)
+        {
+            throw new InvalidOperationException("Rapid Healing window requires a defender.");
+        }
+
+        HeartsReservedForHealingRayAfterRapidHealing = heartsReservedForHealingRay;
+        EndTurnAfterRapidHealing = endTurn;
+        PurchaseCommandAfterRapidHealing = purchaseCommand;
+        SuspendedPurchaseDecision = suspendedPurchaseDecision;
+    }
+
+    public void ContinueAfterRapidHealing()
+    {
+        _pendingRapidHealingDefenders.Dequeue();
+    }
+
     public void SpendHealingRayHearts(int amount)
     {
         if (amount < 0)
@@ -95,6 +139,16 @@ public sealed class TurnState
         }
 
         HealingRayHeartsSpent += amount;
+    }
+
+    public void ReserveHeartsUsedElsewhere(int amount)
+    {
+        if (amount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(amount));
+        }
+
+        HeartsUsedElsewhere += amount;
     }
 
     public void RecordDamageTaken(int playerId, int amount)

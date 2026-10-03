@@ -11,6 +11,16 @@ namespace KingOfTokyo.Core.Tests.Cards;
 public sealed class DefaultDeckTests
 {
     [Fact]
+    public void DefaultDeck_Should_ContainAllSixtySixPhysicalCards()
+    {
+        var cards = GetDefaultDeckCards();
+
+        Assert.Equal(66, cards.Count);
+        Assert.Equal(2, cards.Count(card => card.CardId == KnownCardIds.ExtraHead));
+        Assert.Equal(2, cards.Count(card => card.CardId == KnownCardIds.EvacuationOrders));
+    }
+
+    [Fact]
     public void DefaultDeck_Should_ContainEveryKnownCardId()
     {
         var knownCardIds = GetKnownCardIds();

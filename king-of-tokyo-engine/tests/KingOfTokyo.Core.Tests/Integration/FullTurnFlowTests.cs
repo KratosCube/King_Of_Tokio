@@ -156,6 +156,29 @@ public sealed class FullTurnFlowTests
     }
 
     [Fact]
+    public void AdvanceToNextPlayer_Should_RejectAnotherPlayersClaimAfterFinishedTurn()
+    {
+        var gameState = CreateGameState(4);
+        var engine = CreateEngine(
+            DieFace.Two, DieFace.Two, DieFace.Heart,
+            DieFace.Heart, DieFace.Energy, DieFace.Energy);
+
+        engine.Execute(gameState, new InitializeGameCommand());
+        engine.Execute(gameState, new BeginTurnCommand(0));
+        engine.Execute(gameState, new RollDiceCommand(0));
+        engine.Execute(gameState, new FinalizeDiceCommand(0));
+        engine.Execute(gameState, new EndTurnCommand(0));
+
+        var otherPlayer = engine.Execute(gameState, new AdvanceToNextPlayerCommand(1));
+        Assert.False(otherPlayer.Success);
+        Assert.Equal(0, gameState.GetCurrentPlayer().PlayerId);
+
+        var owner = engine.Execute(gameState, new AdvanceToNextPlayerCommand(0));
+        Assert.True(owner.Success, owner.Error);
+        Assert.Equal(1, gameState.GetCurrentPlayer().PlayerId);
+    }
+
+    [Fact]
     public void EndTurn_Should_EndGame_WhenCurrentPlayerHasTwentyPoints()
     {
         var gameState = CreateGameState(4);

@@ -6,10 +6,12 @@ namespace KingOfTokyo.Web.Services;
 public sealed class ApiClient
 {
     private readonly HttpClient _httpClient;
+    private readonly ClientSessionState _session;
 
-    public ApiClient(HttpClient httpClient)
+    public ApiClient(HttpClient httpClient, ClientSessionState session)
     {
         _httpClient = httpClient;
+        _session = session;
     }
 
     public async Task<LobbyJoinResultDto> CreateLobbyAsync(CreateLobbyRequest request, CancellationToken cancellationToken = default)
@@ -44,13 +46,15 @@ public sealed class ApiClient
 
     public async Task<GameStateDto> GetGameAsync(Guid gameId, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.GetAsync($"api/games/{gameId}", cancellationToken);
+        using var request = GameRequest(HttpMethod.Get, $"api/games/{gameId}");
+        var response = await _httpClient.SendAsync(request, cancellationToken);
         return await ReadRequiredAsync<GameStateDto>(response, cancellationToken);
     }
 
     public async Task<GameEventCursorDto> GetEventsAsync(Guid gameId, long after, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.GetAsync($"api/games/{gameId}/events?after={after}", cancellationToken);
+        using var request = GameRequest(HttpMethod.Get, $"api/games/{gameId}/events?after={after}");
+        var response = await _httpClient.SendAsync(request, cancellationToken);
         return await ReadRequiredAsync<GameEventCursorDto>(response, cancellationToken);
     }
 
@@ -66,8 +70,14 @@ public sealed class ApiClient
     public Task<ApiCommandResultDto> RerollDiceAsync(Guid gameId, RerollDiceRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "reroll-dice", request, cancellationToken);
 
-    public Task<ApiCommandResultDto> FinalizeDiceAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+    public Task<ApiCommandResultDto> RerollBackgroundDwellerAsync(Guid gameId, RerollDiceRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "reroll-background-dweller-threes", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> FinalizeDiceAsync(Guid gameId, FinalizeDiceRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "finalize-dice", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ContinueAfterRapidHealingAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "continue-after-rapid-healing", request, cancellationToken);
 
     public Task<ApiCommandResultDto> BuyFaceUpCardAsync(Guid gameId, BuyFaceUpCardRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "buy-face-up-card", request, cancellationToken);
@@ -84,13 +94,77 @@ public sealed class ApiClient
     public Task<ApiCommandResultDto> AdvancePlayerAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "advance-player", request, cancellationToken);
 
+    public Task<ApiCommandResultDto> BuyOpportunistAsync(Guid gameId, BatteryPurchaseRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "buy-opportunist-revealed-card", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> DeclineOpportunistAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "decline-opportunist-revealed-card", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateRapidHealingAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-rapid-healing", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateHealingRayAsync(Guid gameId, HealingRayRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-healing-ray", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateWingsAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-wings", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateTelepathAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-telepath", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateStretchyAsync(Guid gameId, ChangeDieFaceRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-stretchy", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateHerdCullerAsync(Guid gameId, DieIndexRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-herd-culler", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateSmokeCloudAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-smoke-cloud", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivatePlotTwistAsync(Guid gameId, ChangeDieFaceRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-plot-twist", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivatePsychicProbeAsync(Guid gameId, PsychicProbeRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-psychic-probe", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> SetMimicTargetAsync(Guid gameId, SetMimicTargetRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "set-mimic-target", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> ActivateMetamorphAsync(Guid gameId, MetamorphRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "activate-metamorph", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> BuyOwnedKeepCardAsync(Guid gameId, BuyOwnedKeepCardRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "buy-owned-keep-card", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> PeekTopDeckCardAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "peek-top-deck-card", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> BuyPeekedTopDeckCardAsync(Guid gameId, BatteryPurchaseRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "buy-peeked-top-deck-card", request, cancellationToken);
+
+    public Task<ApiCommandResultDto> DeclinePeekedTopDeckCardAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "decline-peeked-top-deck-card", request, cancellationToken);
+
     private async Task<ApiCommandResultDto> PostCommandAsync(Guid gameId, string commandName, object? request, CancellationToken cancellationToken)
     {
-        var response = request is null
-            ? await _httpClient.PostAsync($"api/games/{gameId}/commands/{commandName}", null, cancellationToken)
-            : await _httpClient.PostAsJsonAsync($"api/games/{gameId}/commands/{commandName}", request, cancellationToken);
+        using var message = GameRequest(HttpMethod.Post, $"api/games/{gameId}/commands/{commandName}");
+        if (request is not null)
+        {
+            message.Content = JsonContent.Create(request);
+        }
+        var response = await _httpClient.SendAsync(message, cancellationToken);
 
         return await ReadRequiredAsync<ApiCommandResultDto>(response, cancellationToken);
+    }
+
+    private HttpRequestMessage GameRequest(HttpMethod method, string path)
+    {
+        var message = new HttpRequestMessage(method, path);
+        if (_session.PlayerToken is Guid token)
+        {
+            message.Headers.Add("X-Player-Token", token.ToString());
+        }
+        return message;
     }
 
     private static async Task<T> ReadRequiredAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)

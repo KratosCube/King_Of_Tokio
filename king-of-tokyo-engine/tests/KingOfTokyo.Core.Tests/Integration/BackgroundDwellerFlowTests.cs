@@ -14,7 +14,7 @@ namespace KingOfTokyo.Core.Tests.Integration;
 public sealed class BackgroundDwellerFlowTests
 {
     [Fact]
-    public void RollDice_Should_RerollThreesUntilNoneRemain_WhenCurrentPlayerHasBackgroundDweller()
+    public void RollDice_Should_AllowOptionalRepeatedRerollsOfSelectedThrees()
     {
         var gameState = CreateGameState(3);
         var player = gameState.GetCurrentPlayer();
@@ -30,7 +30,16 @@ public sealed class BackgroundDwellerFlowTests
         var result = engine.Execute(gameState, new RollDiceCommand(player.PlayerId));
 
         Assert.True(result.Success, result.Error);
-        Assert.DoesNotContain(gameState.CurrentTurn!.DicePool.Dice, die => die.CurrentFace == DieFace.Three);
+        Assert.Equal(3, gameState.CurrentTurn!.DicePool.Dice.Count(die => die.CurrentFace == DieFace.Three));
+
+        var firstReroll = engine.Execute(gameState, new RerollBackgroundDwellerThreesCommand(new[] { 0, 2, 4 }, player.PlayerId));
+        Assert.True(firstReroll.Success, firstReroll.Error);
+        Assert.Equal(DieFace.Three, gameState.CurrentTurn.DicePool.Dice[0].CurrentFace);
+        Assert.Equal(1, gameState.CurrentTurn.RollCountUsed);
+
+        var secondReroll = engine.Execute(gameState, new RerollBackgroundDwellerThreesCommand(new[] { 0 }, player.PlayerId));
+        Assert.True(secondReroll.Success, secondReroll.Error);
+        Assert.DoesNotContain(gameState.CurrentTurn.DicePool.Dice, die => die.CurrentFace == DieFace.Three);
         Assert.Equal(new[]
         {
             DieFace.Attack,
@@ -40,13 +49,13 @@ public sealed class BackgroundDwellerFlowTests
             DieFace.Two,
             DieFace.Energy
         }, gameState.CurrentTurn.DicePool.Dice.Select(die => die.CurrentFace));
-        Assert.Contains(result.NewEvents, e => e is DiceRolledEvent rolled &&
+        Assert.Contains(secondReroll.NewEvents, e => e is DiceRolledEvent rolled &&
                                                rolled.PlayerId == player.PlayerId &&
                                                !rolled.Faces.Contains(DieFace.Three));
     }
 
     [Fact]
-    public void RerollDice_Should_RerollThreesUntilNoneRemain_WhenCurrentPlayerHasBackgroundDweller()
+    public void RerollDice_Should_LeaveUnselectedThreeUntouched()
     {
         var gameState = CreateGameState(3);
         var player = gameState.GetCurrentPlayer();
@@ -64,12 +73,17 @@ public sealed class BackgroundDwellerFlowTests
         var result = engine.Execute(gameState, new RerollDiceCommand(new[] { 0, 1 }, player.PlayerId));
 
         Assert.True(result.Success, result.Error);
-        Assert.DoesNotContain(gameState.CurrentTurn!.DicePool.Dice, die => die.CurrentFace == DieFace.Three);
-        Assert.Equal(DieFace.Attack, gameState.CurrentTurn.DicePool.Dice[0].CurrentFace);
-        Assert.Equal(DieFace.Heart, gameState.CurrentTurn.DicePool.Dice[1].CurrentFace);
-        Assert.Contains(result.NewEvents, e => e is DiceRolledEvent rolled &&
+        Assert.Equal(DieFace.Three, gameState.CurrentTurn!.DicePool.Dice[0].CurrentFace);
+        Assert.Equal(DieFace.Three, gameState.CurrentTurn.DicePool.Dice[1].CurrentFace);
+
+        var optionalReroll = engine.Execute(gameState, new RerollBackgroundDwellerThreesCommand(new[] { 0 }, player.PlayerId));
+        Assert.True(optionalReroll.Success, optionalReroll.Error);
+        Assert.Equal(DieFace.Three, gameState.CurrentTurn.DicePool.Dice[0].CurrentFace);
+        Assert.Equal(DieFace.Three, gameState.CurrentTurn.DicePool.Dice[1].CurrentFace);
+        Assert.Equal(2, gameState.CurrentTurn.RollCountUsed);
+        Assert.Contains(optionalReroll.NewEvents, e => e is DiceRolledEvent rolled &&
                                                rolled.PlayerId == player.PlayerId &&
-                                               !rolled.Faces.Contains(DieFace.Three));
+                                               rolled.Faces.Contains(DieFace.Three));
     }
 
     private static GameState CreateGameState(int playerCount)
@@ -86,7 +100,7 @@ public sealed class BackgroundDwellerFlowTests
         return new MarketCardState(
             KnownCardIds.BackgroundDweller,
             "Background Dweller",
-            "Whenever you roll any 3s, reroll them until none remain.",
+            "After rolling, you may reroll selected 3s without spending a regular reroll.",
             4,
             MarketCardType.Keep);
     }
