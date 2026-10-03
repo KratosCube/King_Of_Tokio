@@ -203,7 +203,8 @@ public sealed class GameEngine : IGameEngine
     {
         var turn = gameState.CurrentTurn;
         if (gameState.Status != GameStatus.Running || turn is null ||
-            turn.Phase != (turn.EndTurnAfterRapidHealing ? TurnPhase.Purchase : TurnPhase.Rolling) ||
+            turn.Phase != (turn.EndTurnAfterRapidHealing || turn.PurchaseCommandAfterRapidHealing is not null
+                ? TurnPhase.Purchase : TurnPhase.Rolling) ||
             !turn.HasPendingRapidHealingDefenders ||
             gameState.PendingDecision?.DecisionType != DecisionType.RapidHealingBeforeDamage ||
             command.ActorPlayerId != turn.NextRapidHealingDefenderId ||
@@ -221,6 +222,18 @@ public sealed class GameEngine : IGameEngine
         }
 
         gameState.ClearPendingDecision();
+        if (turn.PurchaseCommandAfterRapidHealing is { } purchaseCommand)
+        {
+            gameState.SetPendingDecision(turn.SuspendedPurchaseDecision);
+            return purchaseCommand switch
+            {
+                BuyFaceUpCardCommand faceUp => ExecuteBuyFaceUpCard(gameState, faceUp, allowRapidHealingWindow: false),
+                BuyPeekedTopDeckCardCommand peeked => ExecuteBuyPeekedTopDeckCard(gameState, peeked, allowRapidHealingWindow: false),
+                BuyOpportunistRevealedCardCommand opportunist => ExecuteBuyOpportunistRevealedCard(gameState, opportunist, allowRapidHealingWindow: false),
+                _ => throw new InvalidOperationException("Unsupported purchase after Rapid Healing.")
+            };
+        }
+
         if (turn.EndTurnAfterRapidHealing)
         {
             var endTurnCommand = new EndTurnCommand(turn.CurrentPlayerId);
@@ -272,6 +285,44 @@ public sealed class GameEngine : IGameEngine
         PlayerId = defenderId
     };
 
+    private CommandResult? StartPurchaseRapidHealingWindow(
+        GameState gameState,
+        PlayerState buyer,
+        MarketCardState card,
+        IGameCommand command)
+    {
+        var effect = card.PurchaseEffect;
+        if (effect.DamageAllOthers <= 0 && effect.DamageAllIncludingSelf <= 0 && effect.DamageOthersPerTwoEnergy <= 0)
+        {
+            return null;
+        }
+
+        var defenders = gameState.Players
+            .Where(target => target.PlayerId != buyer.PlayerId && target.IsAlive && _keepCardRulesService.CanUseRapidHealing(target))
+            .Where(target =>
+            {
+                var energyDamage = (target.Energy / 2) * effect.DamageOthersPerTwoEnergy;
+                var amounts = new[] { effect.DamageAllOthers, effect.DamageAllIncludingSelf, energyDamage };
+                var projectedDamage = amounts.Where(amount => amount > 0)
+                    .Sum(amount => amount + _keepCardRulesService.GetAcidAttackBonusDamage(buyer, amount));
+                return projectedDamage >= target.Health;
+            })
+            .Select(target => target.PlayerId)
+            .ToArray();
+
+        if (defenders.Length == 0)
+        {
+            return null;
+        }
+
+        var turn = gameState.CurrentTurn!;
+        turn.StartRapidHealingWindow(defenders, 0, purchaseCommand: command,
+            suspendedPurchaseDecision: gameState.PendingDecision);
+        var decision = CreateRapidHealingDecision(turn.NextRapidHealingDefenderId);
+        gameState.SetPendingDecision(decision);
+        return CommandResult.Successful(gameState, pendingDecision: decision);
+    }
+
     private CommandResult ExecuteRerollBackgroundDwellerThrees(GameState gameState, RerollBackgroundDwellerThreesCommand command)
     {
         var turn = gameState.CurrentTurn;
@@ -300,12 +351,18 @@ public sealed class GameEngine : IGameEngine
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
 
-    private CommandResult ExecuteBuyFaceUpCard(GameState gameState, BuyFaceUpCardCommand command)
+    private CommandResult ExecuteBuyFaceUpCard(GameState gameState, BuyFaceUpCardCommand command, bool allowRapidHealingWindow = true)
     {
         var card = gameState.Market.FaceUpCards[command.SlotIndex] ?? throw new InvalidOperationException("Selected market slot is empty.");
         var currentPlayer = gameState.GetCurrentPlayer();
         var effectiveCost = _keepCardRulesService.GetEffectivePurchaseCost(currentPlayer, card);
         _validator.EnsureCanBuyFaceUpCard(gameState, command, effectiveCost);
+        if (allowRapidHealingWindow && command.StoredEnergyToDeposit == 0 &&
+            StartPurchaseRapidHealingWindow(gameState, currentPlayer, card, command) is { } window)
+        {
+            return window;
+        }
+
         var stepResult = _marketPurchaseService.BuyFaceUpCard(gameState, command.SlotIndex, effectiveCost, command.StoredEnergyToDeposit);
         PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
@@ -450,12 +507,18 @@ public sealed class GameEngine : IGameEngine
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
 
-    private CommandResult ExecuteBuyPeekedTopDeckCard(GameState gameState, BuyPeekedTopDeckCardCommand command)
+    private CommandResult ExecuteBuyPeekedTopDeckCard(GameState gameState, BuyPeekedTopDeckCardCommand command, bool allowRapidHealingWindow = true)
     {
         var topCard = gameState.Market.PeekTopDrawCard();
         var currentPlayer = gameState.GetCurrentPlayer();
         var effectiveCost = _keepCardRulesService.GetEffectivePurchaseCost(currentPlayer, topCard);
         _validator.EnsureCanBuyPeekedTopDeckCard(gameState, command, effectiveCost);
+        if (allowRapidHealingWindow && command.StoredEnergyToDeposit == 0 &&
+            StartPurchaseRapidHealingWindow(gameState, currentPlayer, topCard, command) is { } window)
+        {
+            return window;
+        }
+
         var stepResult = _marketPurchaseService.BuyTopDeckCard(gameState, effectiveCost, command.StoredEnergyToDeposit);
         gameState.ClearPendingDecision();
         PublishEvents(stepResult.Events);
@@ -469,13 +532,19 @@ public sealed class GameEngine : IGameEngine
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
 
-    private CommandResult ExecuteBuyOpportunistRevealedCard(GameState gameState, BuyOpportunistRevealedCardCommand command)
+    private CommandResult ExecuteBuyOpportunistRevealedCard(GameState gameState, BuyOpportunistRevealedCardCommand command, bool allowRapidHealingWindow = true)
     {
         var payload = EnsureCanBuyOpportunistRevealedCard(gameState, command);
         var actor = gameState.GetPlayerById(command.ActorPlayerId!.Value);
         var card = gameState.Market.FaceUpCards[payload.SlotIndex]
             ?? throw new InvalidOperationException("Selected market slot is empty.");
         var effectiveCost = _keepCardRulesService.GetEffectivePurchaseCost(actor, card);
+        if (allowRapidHealingWindow && command.StoredEnergyToDeposit == 0 &&
+            StartPurchaseRapidHealingWindow(gameState, actor, card, command) is { } window)
+        {
+            return window;
+        }
+
         var stepResult = _marketPurchaseService.BuyOpportunistRevealedCard(
             gameState,
             actor.PlayerId,

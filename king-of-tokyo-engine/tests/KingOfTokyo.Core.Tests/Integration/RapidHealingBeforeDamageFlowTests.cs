@@ -8,6 +8,7 @@ using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Engine;
 using KingOfTokyo.Core.Events;
 using KingOfTokyo.Core.Rules.Dice;
+using KingOfTokyo.Core.Services;
 using Xunit;
 
 namespace KingOfTokyo.Core.Tests.Integration;
@@ -164,6 +165,103 @@ public sealed class RapidHealingBeforeDamageFlowTests
         Assert.Equal(TurnPhase.Finished, game.CurrentTurn!.Phase);
         Assert.Contains(resolved.NewEvents, gameEvent => gameEvent is DamageDealtEvent damage &&
             damage.TargetPlayerId == player.PlayerId && damage.Amount == 1);
+    }
+
+    [Fact]
+    public void Defender_CanHealBeforeFaceUpCardDamageAndPurchaseCompletesAfterDecision()
+    {
+        var (game, engine, card, defender) = CreateDamagingMarketGame();
+
+        var window = engine.Execute(game, new BuyFaceUpCardCommand(0, 0));
+        Assert.True(window.Success, window.Error);
+        Assert.Equal(DecisionType.RapidHealingBeforeDamage, window.PendingDecision!.DecisionType);
+        Assert.Same(card, game.Market.FaceUpCards[0]);
+        Assert.Empty(window.NewEvents);
+
+        Assert.True(engine.Execute(game, new ActivateRapidHealingCommand(defender.PlayerId)).Success);
+        var purchase = engine.Execute(game, new ContinueAfterRapidHealingCommand(defender.PlayerId));
+        Assert.True(purchase.Success, purchase.Error);
+        Assert.Equal(1, defender.Health);
+        Assert.Contains(purchase.NewEvents, gameEvent => gameEvent is CardBoughtEvent bought && bought.CardId == card.CardId);
+        Assert.DoesNotContain(game.Market.FaceUpCards, faceUp => faceUp?.CardId == card.CardId);
+    }
+
+    [Fact]
+    public void Defender_CanHealBeforePeekedTopCardDamage()
+    {
+        var buyer = new PlayerState(0, "Buyer");
+        buyer.AddKeepCard(new MarketCardState(KnownCardIds.MadeInALab, "Made in a Lab", "Peek.", 2, MarketCardType.Keep));
+        var defender = CreateWoundedHealer(1, health: 2);
+        var card = DamagingCard();
+        var game = new GameState(new[] { buyer, defender }, new GameOptions(2));
+        var engine = new GameEngine(marketSetupService: new MarketSetupService(new[] { Filler(0), Filler(1), Filler(2), card }));
+        BeginPurchase(engine, game);
+
+        var peek = engine.Execute(game, new PeekTopDeckCardCommand(0));
+        Assert.True(peek.Success, peek.Error);
+        var window = engine.Execute(game, new BuyPeekedTopDeckCardCommand(0));
+        Assert.True(window.Success, window.Error);
+        Assert.Equal(DecisionType.RapidHealingBeforeDamage, window.PendingDecision!.DecisionType);
+
+        Assert.True(engine.Execute(game, new ActivateRapidHealingCommand(defender.PlayerId)).Success);
+        var purchase = engine.Execute(game, new ContinueAfterRapidHealingCommand(defender.PlayerId));
+        Assert.True(purchase.Success, purchase.Error);
+        Assert.Equal(1, defender.Health);
+        Assert.Null(game.PendingDecision);
+        Assert.Contains(purchase.NewEvents, gameEvent => gameEvent is CardBoughtEvent bought && bought.CardId == card.CardId);
+    }
+
+    [Fact]
+    public void Defender_CanHealBeforeOpportunistCardDamage()
+    {
+        var buyer = new PlayerState(0, "Buyer");
+        var opportunist = new PlayerState(1, "Opportunist");
+        opportunist.AddKeepCard(new MarketCardState(KnownCardIds.Opportunist, "Opportunist", "Buy a reveal.", 3, MarketCardType.Keep));
+        var defender = CreateWoundedHealer(2, health: 2);
+        var card = DamagingCard();
+        var game = new GameState(new[] { buyer, opportunist, defender }, new GameOptions(3));
+        var engine = new GameEngine(marketSetupService: new MarketSetupService(new[] { Filler(0), Filler(1), Filler(2), card }));
+        BeginPurchase(engine, game);
+        Assert.True(engine.Execute(game, new BuyFaceUpCardCommand(0, 0)).Success);
+        Assert.Equal(DecisionType.OpportunistPurchase, game.PendingDecision!.DecisionType);
+
+        var window = engine.Execute(game, new BuyOpportunistRevealedCardCommand(opportunist.PlayerId));
+        Assert.True(window.Success, window.Error);
+        Assert.Equal(defender.PlayerId, window.PendingDecision!.PlayerId);
+        Assert.Same(card, game.Market.FaceUpCards[0]);
+
+        Assert.True(engine.Execute(game, new ActivateRapidHealingCommand(defender.PlayerId)).Success);
+        var purchase = engine.Execute(game, new ContinueAfterRapidHealingCommand(defender.PlayerId));
+        Assert.True(purchase.Success, purchase.Error);
+        Assert.Equal(1, defender.Health);
+        Assert.Null(game.PendingDecision);
+        Assert.Contains(purchase.NewEvents, gameEvent => gameEvent is CardBoughtEvent bought &&
+            bought.PlayerId == opportunist.PlayerId && bought.CardId == card.CardId);
+    }
+
+    private static (GameState Game, GameEngine Engine, MarketCardState Card, PlayerState Defender) CreateDamagingMarketGame()
+    {
+        var buyer = new PlayerState(0, "Buyer");
+        var defender = CreateWoundedHealer(1, health: 2);
+        var other = new PlayerState(2, "Other");
+        var card = DamagingCard();
+        var game = new GameState(new[] { buyer, defender, other }, new GameOptions(3));
+        var engine = new GameEngine(marketSetupService: new MarketSetupService(new[] { card, Filler(0), Filler(1), Filler(2) }));
+        BeginPurchase(engine, game);
+        return (game, engine, card, defender);
+    }
+
+    private static MarketCardState DamagingCard() => new("test-damage-card", "Damage Card", "Deal 2 damage to others.", 0,
+        MarketCardType.Discard, new CardPurchaseEffect { DamageAllOthers = 2 });
+
+    private static MarketCardState Filler(int index) => new($"test-filler-{index}", $"Filler {index}", "No effect.", 0, MarketCardType.Keep);
+
+    private static void BeginPurchase(GameEngine engine, GameState game)
+    {
+        Assert.True(engine.Execute(game, new InitializeGameCommand()).Success);
+        Assert.True(engine.Execute(game, new BeginTurnCommand(0)).Success);
+        game.CurrentTurn!.MarkDiceResolved();
+        game.CurrentTurn.SetPhase(TurnPhase.Purchase);
     }
 
     private static PlayerState CreateWoundedHealer(int playerId, int health)

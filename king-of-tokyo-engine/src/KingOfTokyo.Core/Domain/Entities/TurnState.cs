@@ -1,3 +1,4 @@
+using KingOfTokyo.Core.Abstractions;
 using KingOfTokyo.Core.Decisions;
 using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
@@ -24,6 +25,8 @@ public sealed class TurnState
     public int HeartsUsedElsewhere { get; private set; }
     public int HeartsReservedForHealingRayAfterRapidHealing { get; private set; }
     public bool EndTurnAfterRapidHealing { get; private set; }
+    public IGameCommand? PurchaseCommandAfterRapidHealing { get; private set; }
+    public PendingDecision? SuspendedPurchaseDecision { get; private set; }
     public TurnFlags Flags { get; }
 
     public bool HasPendingTokyoLeaveDecisions => _pendingTokyoLeaveDecisions.Count > 0;
@@ -94,7 +97,12 @@ public sealed class TurnState
         PurchasePhaseFinished = true;
     }
 
-    public void StartRapidHealingWindow(IEnumerable<int> defenderIds, int heartsReservedForHealingRay, bool endTurn = false)
+    public void StartRapidHealingWindow(
+        IEnumerable<int> defenderIds,
+        int heartsReservedForHealingRay,
+        bool endTurn = false,
+        IGameCommand? purchaseCommand = null,
+        PendingDecision? suspendedPurchaseDecision = null)
     {
         ArgumentNullException.ThrowIfNull(defenderIds);
         if (HasPendingRapidHealingDefenders || heartsReservedForHealingRay < 0)
@@ -114,6 +122,8 @@ public sealed class TurnState
 
         HeartsReservedForHealingRayAfterRapidHealing = heartsReservedForHealingRay;
         EndTurnAfterRapidHealing = endTurn;
+        PurchaseCommandAfterRapidHealing = purchaseCommand;
+        SuspendedPurchaseDecision = suspendedPurchaseDecision;
     }
 
     public void ContinueAfterRapidHealing()
