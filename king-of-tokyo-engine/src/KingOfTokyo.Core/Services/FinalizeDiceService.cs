@@ -236,6 +236,13 @@ public sealed class FinalizeDiceService
             var target = gameState.GetPlayerById(packet.TargetPlayerId);
             var wasInTokyoBeforeDamage = target.TokyoSlot != TokyoSlot.None;
 
+            if (currentTurn.IsProtectedByWings(target.PlayerId))
+            {
+                newEvents.Add(new DamagePreventedEvent(packet.SourcePlayerId, target.PlayerId,
+                    packet.Amount, packet.DamageKind, "Keep card: Wings."));
+                continue;
+            }
+
             var actualDamage = _damageApplier.ApplyDamage(target, packet);
 
             if (actualDamage <= 0)
@@ -430,6 +437,13 @@ public sealed class FinalizeDiceService
                 CountsAsAttack = false,
                 AllowsTokyoLeave = false
             };
+
+            if (currentTurn.IsProtectedByWings(target.PlayerId))
+            {
+                newEvents.Add(new DamagePreventedEvent(packet.SourcePlayerId, target.PlayerId,
+                    packet.Amount, packet.DamageKind, "Keep card: Wings."));
+                continue;
+            }
 
             var actualDamage = _damageApplier.ApplyDamage(target, packet);
             if (actualDamage <= 0)

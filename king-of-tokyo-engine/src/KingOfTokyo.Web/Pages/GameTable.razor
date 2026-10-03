@@ -88,11 +88,15 @@
                         }
                         else if (CanAnswerRapidHealingDecision)
                         {
-                            <p class="muted">Incoming damage may eliminate your monster. You may use Rapid Healing before the damage is resolved.</p>
+                            <p class="muted">Incoming damage may eliminate your monster. You may use Rapid Healing or Wings before the damage is resolved.</p>
                             <div class="actions">
                                 @if (CanUseRapidHealing)
                                 {
                                     <button class="btn btn-secondary" @onclick="ActivateRapidHealingAsync" disabled="@_busy">Rapid Healing (2 energy)</button>
+                                }
+                                @if (CanUseWings)
+                                {
+                                    <button class="btn btn-secondary" @onclick="ActivateWingsAsync" disabled="@_busy">Wings: cancel damage (2 energy)</button>
                                 }
                                 <button class="btn btn-primary" @onclick="ContinueAfterRapidHealingAsync" disabled="@_busy">Continue damage resolution</button>
                             </div>
@@ -272,7 +276,7 @@
                     {
                         <button class="btn btn-secondary" @onclick="ActivatePsychicProbeAsync" disabled="@(_busy || !HasValidAbilityDie)">Psychic Probe: reroll this die</button>
                     }
-                    @if (CanUseWings)
+                    @if (CanUseWings && !CanAnswerRapidHealingDecision)
                     {
                         <button class="btn btn-secondary" @onclick="ActivateWingsAsync" disabled="@_busy">Wings: cancel damage (2 energy)</button>
                     }
@@ -478,8 +482,10 @@
         _game?.CurrentTurn is { RollCountUsed: > 0, DiceResolved: false } && (!HasPendingDecision || IsSelectDiceToRerollDecision) &&
         LocalPlayer.KeepCards.Any(card => card.CardId == "card-psychic-probe" && card.Counters == 0);
     private bool CanUseWings => IsRunning && _game?.CurrentTurn is not null && LocalPlayer is { IsAlive: true } player &&
-        player.Health < player.MaxHealth && player.Energy >= 2 && HasCardEffect("card-wings") &&
-        (!HasPendingDecision || CanAnswerLeaveTokyoDecision);
+        (player.Health < player.MaxHealth || CanAnswerRapidHealingDecision) && player.Energy >= 2 && HasCardEffect("card-wings") &&
+        (!HasPendingDecision || CanAnswerLeaveTokyoDecision || CanAnswerRapidHealingDecision) &&
+        !(CanAnswerRapidHealingDecision && _game.PendingDecision?.Payload is System.Text.Json.JsonElement payload &&
+            payload.TryGetProperty("wingsActivated", out var activated) && activated.ValueKind == System.Text.Json.JsonValueKind.True);
     private bool CanSetMimicTarget => IsRunning && !HasPendingDecision && IsLocalActor && LocalPlayer is { IsAlive: true } player &&
         player.KeepCards.FirstOrDefault(card => card.CardId == "card-mimic") is { } mimic &&
         ((mimic.MimicTarget is null && CanUseMarketActions) ||

@@ -427,6 +427,13 @@ public sealed class GameStateValidator
         {
             throw new InvalidOperationException("Player cannot use Rapid Healing right now.");
         }
+
+        if (gameState.PendingDecision?.DecisionType == DecisionType.RapidHealingBeforeDamage &&
+            gameState.CurrentTurn?.PurchaseBuyerIdAfterRapidHealing == currentPlayer.PlayerId &&
+            currentPlayer.Energy - Services.RapidHealingService.ActivationCost < gameState.CurrentTurn.PurchaseCostAfterRapidHealing)
+        {
+            throw new InvalidOperationException("The pending purchase requires the remaining energy.");
+        }
     }
 
     public void EnsureCanActivateTelepath(GameState gameState, ActivateTelepathCommand command)

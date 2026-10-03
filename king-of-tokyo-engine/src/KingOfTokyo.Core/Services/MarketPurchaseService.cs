@@ -364,6 +364,13 @@ public sealed class MarketPurchaseService
                 AllowsTokyoLeave = false
             };
 
+            if (currentTurn.IsProtectedByWings(target.PlayerId))
+            {
+                events.Add(new DamagePreventedEvent(packet.SourcePlayerId, target.PlayerId,
+                    packet.Amount, packet.DamageKind, "Keep card: Wings."));
+                continue;
+            }
+
             var actualDamage = _damageApplier.ApplyDamage(target, packet);
             if (actualDamage <= 0)
             {
