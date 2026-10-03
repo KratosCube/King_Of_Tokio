@@ -114,26 +114,27 @@
                         }
                         else if (CanAnswerOpportunistDecision)
                         {
+                            <p class="muted">Card: @PeekedCardName • Cost: ⚡ @PendingCardCost</p>
                             @if (IsOpportunistBattery)
                             {
                                 <label>Energy to deposit (matched by bank)</label>
-                                <InputNumber @bind-Value="_batteryDeposit" min="0" />
+                                <InputNumber @bind-Value="_batteryDeposit" min="0" max="@MaximumPendingCardDeposit" />
                             }
                             <div class="actions">
-                                <button class="btn btn-primary" @onclick="() => AnswerOpportunistAsync(true)" disabled="@_busy">Buy revealed card</button>
+                                <button class="btn btn-primary" @onclick="() => AnswerOpportunistAsync(true)" disabled="@(_busy || !CanBuyPendingCard)">Buy revealed card</button>
                                 <button class="btn btn-secondary" @onclick="() => AnswerOpportunistAsync(false)" disabled="@_busy">Decline</button>
                             </div>
                         }
                         else if (CanAnswerPeekDecision)
                         {
-                            <p>@PeekedCardName</p>
+                            <p>@PeekedCardName • Cost: ⚡ @PendingCardCost</p>
                             @if (IsPeekedBattery)
                             {
                                 <label>Energy to deposit (matched by bank)</label>
-                                <InputNumber @bind-Value="_batteryDeposit" min="0" />
+                                <InputNumber @bind-Value="_batteryDeposit" min="0" max="@MaximumPendingCardDeposit" />
                             }
                             <div class="actions">
-                                <button class="btn btn-primary" @onclick="() => AnswerPeekAsync(true)" disabled="@_busy">Buy top card</button>
+                                <button class="btn btn-primary" @onclick="() => AnswerPeekAsync(true)" disabled="@(_busy || !CanBuyPendingCard)">Buy top card</button>
                                 <button class="btn btn-secondary" @onclick="() => AnswerPeekAsync(false)" disabled="@_busy">Decline</button>
                             </div>
                         }
@@ -198,25 +199,30 @@
                             }
                             else
                             {
+                                var effectiveCost = EffectiveMarketCardCost(card.value);
                                 <div class="market-card-header">
                                     <h3>@card.value.Name</h3>
-                                    <span class="market-cost">⚡ @card.value.Cost</span>
+                                    <span class="market-cost">⚡ @effectiveCost</span>
                                 </div>
+                                @if (effectiveCost != card.value.Cost)
+                                {
+                                    <small class="muted">Base cost: ⚡ @card.value.Cost</small>
+                                }
                                 <small class="market-card-type">@card.value.CardType</small>
                                 <p>@card.value.Description</p>
                                 @if (card.value.CardId == "card-monster-batteries" && CanUseMarketActions)
                                 {
                                     <label>Energy to deposit (matched by bank)</label>
-                                    <InputNumber @bind-Value="_batteryDeposit" min="0" />
+                                    <InputNumber @bind-Value="_batteryDeposit" min="0" max="@(Math.Max(0, (LocalPlayer?.Energy ?? 0) - effectiveCost))" />
                                 }
-                                <button class="btn btn-primary" @onclick="() => BuyFaceUpCardAsync(card.index)" disabled="@(_busy || !CanUseMarketActions)">Buy</button>
+                                <button class="btn btn-primary" @onclick="() => BuyFaceUpCardAsync(card.index)" disabled="@(_busy || !CanUseMarketActions || LocalPlayer!.Energy < effectiveCost || (card.value.CardId == "card-monster-batteries" && (_batteryDeposit < 0 || _batteryDeposit > LocalPlayer.Energy - effectiveCost)))">Buy</button>
                             }
                         </article>
                     }
                 </div>
                 <div class="market-footer">
                     <p class="muted">Deck: @_game.Market.DrawPileCount • Discard: @_game.Market.DiscardPileCount</p>
-                    <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@(_busy || !CanUseMarketActions)">Refresh market</button>
+                    <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@(_busy || !CanUseMarketActions || LocalPlayer!.Energy < 2)">Refresh market (⚡ 2)</button>
                     @if (CanPeekTopDeck)
                     {
                         <button class="btn btn-secondary" @onclick="PeekTopDeckAsync" disabled="@_busy">Peek top card (Made in a Lab)</button>
@@ -366,7 +372,7 @@
                     else if (CanUseMarketActions)
                     {
                         <button class="btn btn-primary" @onclick="EndTurnAsync" disabled="@_busy">End turn</button>
-                        <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@_busy">Refresh market</button>
+                        <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@(_busy || LocalPlayer!.Energy < 2)">Refresh market (⚡ 2)</button>
                     }
                     else if (CanEndTurn)
                     {
@@ -466,8 +472,17 @@
     private bool CanAnswerOpportunistDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "OpportunistPurchase", StringComparison.OrdinalIgnoreCase);
     private bool CanAnswerPeekDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "PeekTopDeckCardPurchase", StringComparison.OrdinalIgnoreCase);
     private string PeekedCardName => _game?.PendingDecision?.Payload is System.Text.Json.JsonElement payload && payload.TryGetProperty("cardName", out var name) ? name.GetString() ?? "Top card" : "Top card";
+    private int PendingCardCost => _game?.PendingDecision?.Payload is System.Text.Json.JsonElement payload &&
+        (payload.TryGetProperty("effectiveCost", out var cost) || payload.TryGetProperty("cost", out cost)) &&
+        cost.ValueKind == System.Text.Json.JsonValueKind.Number ? cost.GetInt32() : int.MaxValue;
+    private int MaximumPendingCardDeposit => Math.Max(0, (LocalPlayer?.Energy ?? 0) - PendingCardCost);
+    private bool CanBuyPendingCard => LocalPlayer is { IsAlive: true } player && player.Energy >= PendingCardCost &&
+        (!(IsOpportunistBattery || IsPeekedBattery) || _batteryDeposit >= 0 && _batteryDeposit <= MaximumPendingCardDeposit);
     private bool IsPeekedBattery => IsOpportunistBattery;
     private PlayerDto? LocalPlayer => _game?.Players.FirstOrDefault(player => player.PlayerId == Session.PlayerId);
+    private int EffectiveMarketCardCost(CardDto card) => Math.Max(0, card.Cost -
+        (LocalPlayer?.KeepCards.Count(owned => owned.CardId == "card-alien-metabolism" ||
+            owned.CardId == "card-mimic" && owned.MimicTarget?.CardId == "card-alien-metabolism") ?? 0));
     private bool HasHealingRay => LocalPlayer?.KeepCards.Any(card => card.CardId == "card-healing-ray" || card.MimicTarget?.CardId == "card-healing-ray") == true;
     private int AvailableRayHeartsBeforeFinalizing => Math.Max(0,
         (_game?.CurrentTurn?.Dice.Count(die => die.CurrentFace == "Heart") ?? 0) -
@@ -528,7 +543,7 @@
             if (CanAnswerLeaveTokyoDecision) return "Leave or stay in Tokyo";
             if (CanAnswerOpportunistDecision || CanAnswerPeekDecision) return "Choose whether to buy";
             if (_game?.PendingDecision is not null) return $"Waiting for {PlayerName(_game.PendingDecision.PlayerId)}";
-            if (_game?.CurrentTurn is not null && !IsLocalActor) return $"Waiting for {PlayerName(_game.CurrentTurn.CurrentPlayerId)}";
+            if (_game?.CurrentTurn is not null && !IsLocalActor) return $"Waiting for {PlayerName(CurrentActorId ?? _game.CurrentTurn.CurrentPlayerId)}";
             return "Waiting";
         }
     }

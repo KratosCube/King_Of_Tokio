@@ -29,13 +29,32 @@ async function pageWithButton(pages, label) {
   throw new Error(`No player was offered ${label}`);
 }
 
+async function capture(page, name, heading, mobile = false) {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const titleBox = await page.getByRole('heading', { name: heading }).boundingBox();
+  assert.ok(titleBox && titleBox.y >= 0, `${heading} must be visible in ${name}`);
+  const width = await page.evaluate(() => document.documentElement.scrollWidth);
+  assert.ok(width <= (mobile ? 390 : 1440), `${name} must not overflow horizontally (${width}px)`);
+  await page.screenshot({ path: new URL(`${name}.png`, artifacts).pathname, fullPage: true });
+}
+
 try {
   await host.goto(webUrl);
+  await capture(host, 'home-desktop', 'Become the King of Tokyo');
+  await capture(host, 'home-mobile', 'Become the King of Tokyo', true);
+  await host.setViewportSize({ width: 1440, height: 900 });
   await host.getByRole('link', { name: 'Create lobby' }).last().click();
+  await capture(host, 'create-desktop', 'Create lobby');
+  await capture(host, 'create-mobile', 'Create lobby', true);
+  await host.setViewportSize({ width: 1440, height: 900 });
   await host.getByLabel('Lobby name').fill('UI smoke test');
   await host.getByLabel('Your display name').fill('Host QA');
   await host.getByRole('button', { name: 'Create lobby' }).click();
   await host.waitForURL(/\/lobbies\/[0-9a-f-]{36}$/i);
+  await capture(host, 'lobby-desktop', 'Lobby');
+  await capture(host, 'lobby-mobile', 'Lobby', true);
+  await host.setViewportSize({ width: 1440, height: 900 });
 
   const invite = await host.getByLabel('Invite link').inputValue();
   assert.match(invite, /\/lobbies\/[0-9a-f-]{36}$/i);
@@ -69,17 +88,22 @@ try {
 
   assert.equal(await actor.locator('.die-button').count() >= 6, true);
   assert.equal(await actor.locator('.market-card').count() >= 3, true);
+  const energy = Number((await actor.locator('.monster-card.selected .monster-stats span').last().innerText()).match(/\d+/)?.[0]);
+  assert.ok(Number.isInteger(energy), 'The local monster must display its energy');
+  for (const card of await actor.locator('.market-card').all()) {
+    const buy = card.getByRole('button', { name: 'Buy', exact: true });
+    if (await buy.count() === 0) continue;
+    const cost = Number((await card.locator('.market-cost').innerText()).match(/\d+/)?.[0]);
+    assert.equal(await buy.isDisabled(), energy < cost, 'Buy must reflect available energy');
+  }
+  for (const refresh of await actor.getByRole('button', { name: 'Refresh market (⚡ 2)' }).all()) {
+    assert.equal(await refresh.isDisabled(), energy < 2, 'Refresh costs two energy');
+  }
   await actor.getByText('Dice resolved', { exact: true }).waitFor();
   await actor.reload();
   await actor.getByText('Dice resolved', { exact: true }).waitFor();
-  const titleBox = await actor.getByRole('heading', { name: 'Tokyo arena' }).boundingBox();
-  assert.ok(titleBox && titleBox.y >= 0, 'The game title must remain visible after reload');
-  await actor.screenshot({ path: new URL('game-desktop.png', artifacts).pathname, fullPage: true });
-  await actor.setViewportSize({ width: 390, height: 844 });
-  await actor.evaluate(() => window.scrollTo(0, 0));
-  const mobileTitleBox = await actor.getByRole('heading', { name: 'Tokyo arena' }).boundingBox();
-  assert.ok(mobileTitleBox && mobileTitleBox.y >= 0, 'The game title must remain visible on mobile');
-  await actor.screenshot({ path: new URL('game-mobile.png', artifacts).pathname, fullPage: true });
+  await capture(actor, 'game-desktop', 'Tokyo arena');
+  await capture(actor, 'game-mobile', 'Tokyo arena', true);
 
   await actor.getByRole('button', { name: 'End turn', exact: true }).click();
   await actor.getByRole('button', { name: 'Advance player', exact: true }).click();
