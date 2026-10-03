@@ -43,6 +43,7 @@ try {
   await guest.getByLabel('Your display name').fill('Guest QA');
   await guest.getByLabel('Your monster').selectOption({ index: 1 });
   await guest.getByRole('button', { name: 'Join', exact: true }).click();
+  assert.equal(await guest.getByText('Cyber Kitty', { exact: true }).count(), 1);
   await guest.getByRole('button', { name: 'Set ready', exact: true }).click();
 
   const hostSession = await host.evaluate(() => JSON.parse(localStorage.getItem('king-of-tokyo.client-session')));

@@ -610,7 +610,6 @@ public sealed class GameEngine : IGameEngine
     {
         _validator.EnsureCanAdvanceToNextPlayer(gameState, command);
         _turnLifecycleService.AdvanceToNextPlayer(gameState);
-        gameState.CurrentTurn!.MarkAdvancedToNextPlayer();
         return CommandResult.Successful(gameState);
     }
 

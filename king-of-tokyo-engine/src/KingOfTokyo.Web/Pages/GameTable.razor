@@ -650,6 +650,7 @@
                 {
                     await RefreshAsync();
                     await RefreshEventsAsync();
+                    StateHasChanged();
                 });
             }
         }
