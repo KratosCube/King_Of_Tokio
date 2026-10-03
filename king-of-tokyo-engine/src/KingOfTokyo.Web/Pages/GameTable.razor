@@ -86,6 +86,17 @@
                                 <button class="btn btn-secondary" @onclick="() => ChooseLeaveTokyoAsync(false)" disabled="@_busy">Stay in Tokyo</button>
                             </div>
                         }
+                        else if (CanAnswerRapidHealingDecision)
+                        {
+                            <p class="muted">Incoming damage may eliminate your monster. You may use Rapid Healing before the damage is resolved.</p>
+                            <div class="actions">
+                                @if (CanUseRapidHealing)
+                                {
+                                    <button class="btn btn-secondary" @onclick="ActivateRapidHealingAsync" disabled="@_busy">Rapid Healing (2 energy)</button>
+                                }
+                                <button class="btn btn-primary" @onclick="ContinueAfterRapidHealingAsync" disabled="@_busy">Continue damage resolution</button>
+                            </div>
+                        }
                         else if (CanAnswerOpportunistDecision)
                         {
                             @if (IsOpportunistBattery)
@@ -441,6 +452,7 @@
     private bool CanEndTurn => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Purchase");
     private bool CanAdvancePlayer => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Finished");
     private bool CanAnswerLeaveTokyoDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "LeaveTokyo", StringComparison.OrdinalIgnoreCase);
+    private bool CanAnswerRapidHealingDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "RapidHealingBeforeDamage", StringComparison.OrdinalIgnoreCase);
     private bool CanAnswerOpportunistDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "OpportunistPurchase", StringComparison.OrdinalIgnoreCase);
     private bool CanAnswerPeekDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "PeekTopDeckCardPurchase", StringComparison.OrdinalIgnoreCase);
     private string PeekedCardName => _game?.PendingDecision?.Payload is System.Text.Json.JsonElement payload && payload.TryGetProperty("cardName", out var name) ? name.GetString() ?? "Top card" : "Top card";
@@ -733,6 +745,7 @@
     private Task RerollSelectedDiceAsync() => ExecuteAsync(() => ApiClient.RerollDiceAsync(GameId, new RerollDiceRequest(Session.PlayerId, _selectedDiceIndexes.OrderBy(index => index).ToArray())));
     private Task RerollBackgroundDwellerAsync() => ExecuteAsync(() => ApiClient.RerollBackgroundDwellerAsync(GameId, new RerollDiceRequest(Session.PlayerId, _selectedDiceIndexes.OrderBy(index => index).ToArray())));
     private Task FinalizeDiceAsync() => ExecuteAsync(() => ApiClient.FinalizeDiceAsync(GameId, new FinalizeDiceRequest(Session.PlayerId, _rayHeartsReserved)));
+    private Task ContinueAfterRapidHealingAsync() => ExecuteAsync(() => ApiClient.ContinueAfterRapidHealingAsync(GameId, new ActorRequest(Session.PlayerId)));
     private Task BuyFaceUpCardAsync(int slotIndex) => ExecuteAsync(() => ApiClient.BuyFaceUpCardAsync(GameId,
         new BuyFaceUpCardRequest(Session.PlayerId, slotIndex,
             _game?.Market.FaceUpCards[slotIndex]?.CardId == "card-monster-batteries" ? _batteryDeposit : 0)));

@@ -7,6 +7,7 @@ namespace KingOfTokyo.Core.Domain.Entities;
 public sealed class TurnState
 {
     private readonly Queue<TokyoLeaveDecisionContext> _pendingTokyoLeaveDecisions = new();
+    private readonly Queue<int> _pendingRapidHealingDefenders = new();
     private readonly Dictionary<int, int> _damageTakenThisTurnByPlayer = new();
 
     public int CurrentPlayerId { get; }
@@ -21,9 +22,12 @@ public sealed class TurnState
     public bool PurchasePhaseFinished { get; private set; }
     public int HealingRayHeartsSpent { get; private set; }
     public int HeartsUsedElsewhere { get; private set; }
+    public int HeartsReservedForHealingRayAfterRapidHealing { get; private set; }
     public TurnFlags Flags { get; }
 
     public bool HasPendingTokyoLeaveDecisions => _pendingTokyoLeaveDecisions.Count > 0;
+    public bool HasPendingRapidHealingDefenders => _pendingRapidHealingDefenders.Count > 0;
+    public int NextRapidHealingDefenderId => _pendingRapidHealingDefenders.Peek();
 
     public TurnState(
         int currentPlayerId,
@@ -87,6 +91,32 @@ public sealed class TurnState
     public void MarkPurchasePhaseFinished()
     {
         PurchasePhaseFinished = true;
+    }
+
+    public void StartRapidHealingWindow(IEnumerable<int> defenderIds, int heartsReservedForHealingRay)
+    {
+        ArgumentNullException.ThrowIfNull(defenderIds);
+        if (HasPendingRapidHealingDefenders || heartsReservedForHealingRay < 0)
+        {
+            throw new InvalidOperationException("Rapid Healing window cannot be started now.");
+        }
+
+        foreach (var defenderId in defenderIds.Distinct())
+        {
+            _pendingRapidHealingDefenders.Enqueue(defenderId);
+        }
+
+        if (!HasPendingRapidHealingDefenders)
+        {
+            throw new InvalidOperationException("Rapid Healing window requires a defender.");
+        }
+
+        HeartsReservedForHealingRayAfterRapidHealing = heartsReservedForHealingRay;
+    }
+
+    public void ContinueAfterRapidHealing()
+    {
+        _pendingRapidHealingDefenders.Dequeue();
     }
 
     public void SpendHealingRayHearts(int amount)

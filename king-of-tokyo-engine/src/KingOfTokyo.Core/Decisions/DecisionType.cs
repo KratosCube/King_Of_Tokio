@@ -6,5 +6,6 @@ public enum DecisionType
     SelectDiceToReroll = 1,
     LeaveTokyo = 2,
     PeekTopDeckCardPurchase = 3,
-    OpportunistPurchase = 4
+    OpportunistPurchase = 4,
+    RapidHealingBeforeDamage = 5
 }

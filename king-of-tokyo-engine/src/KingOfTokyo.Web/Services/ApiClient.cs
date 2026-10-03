@@ -76,6 +76,9 @@ public sealed class ApiClient
     public Task<ApiCommandResultDto> FinalizeDiceAsync(Guid gameId, FinalizeDiceRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "finalize-dice", request, cancellationToken);
 
+    public Task<ApiCommandResultDto> ContinueAfterRapidHealingAsync(Guid gameId, ActorRequest request, CancellationToken cancellationToken = default)
+        => PostCommandAsync(gameId, "continue-after-rapid-healing", request, cancellationToken);
+
     public Task<ApiCommandResultDto> BuyFaceUpCardAsync(Guid gameId, BuyFaceUpCardRequest request, CancellationToken cancellationToken = default)
         => PostCommandAsync(gameId, "buy-face-up-card", request, cancellationToken);
 

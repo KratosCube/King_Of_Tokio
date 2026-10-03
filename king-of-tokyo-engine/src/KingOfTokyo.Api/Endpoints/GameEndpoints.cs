@@ -92,6 +92,11 @@ public static class GameEndpoints
             return Execute(gameId, store, (engine, state) => engine.Execute(state, new FinalizeDiceCommand(request.ActorPlayerId, request.HeartsReservedForHealingRay)));
         });
 
+        games.MapPost("/{gameId:guid}/commands/continue-after-rapid-healing", (Guid gameId, ActorRequest request, [FromServices] IGameSessionStore store) =>
+        {
+            return Execute(gameId, store, (engine, state) => engine.Execute(state, new ContinueAfterRapidHealingCommand(request.ActorPlayerId)));
+        });
+
         games.MapPost("/{gameId:guid}/commands/buy-face-up-card", (Guid gameId, BuyFaceUpCardRequest request, [FromServices] IGameSessionStore store) =>
         {
             return Execute(gameId, store, (engine, state) => engine.Execute(state, new BuyFaceUpCardCommand(request.SlotIndex, request.ActorPlayerId, request.StoredEnergyToDeposit)));

@@ -6,6 +6,7 @@ using KingOfTokyo.Core.Domain.Enums;
 using KingOfTokyo.Core.Domain.State;
 using KingOfTokyo.Core.Domain.ValueObjects;
 using KingOfTokyo.Core.Events;
+using KingOfTokyo.Core.Rules.Attack;
 using KingOfTokyo.Core.Rules.Dice;
 using KingOfTokyo.Core.Services;
 
@@ -72,6 +73,7 @@ public sealed class GameEngine : IGameEngine
                 RerollDiceCommand rerollDiceCommand => ExecuteRerollDice(gameState, rerollDiceCommand),
                 RerollBackgroundDwellerThreesCommand backgroundDwellerCommand => ExecuteRerollBackgroundDwellerThrees(gameState, backgroundDwellerCommand),
                 FinalizeDiceCommand finalizeDiceCommand => ExecuteFinalizeDice(gameState, finalizeDiceCommand),
+                ContinueAfterRapidHealingCommand continueAfterRapidHealingCommand => ExecuteContinueAfterRapidHealing(gameState, continueAfterRapidHealingCommand),
                 ChooseLeaveTokyoCommand chooseLeaveTokyoCommand => ExecuteChooseLeaveTokyo(gameState, chooseLeaveTokyoCommand),
                 BuyFaceUpCardCommand buyFaceUpCardCommand => ExecuteBuyFaceUpCard(gameState, buyFaceUpCardCommand),
                 BuyOwnedKeepCardCommand buyOwnedKeepCardCommand => ExecuteBuyOwnedKeepCard(gameState, buyOwnedKeepCardCommand),
@@ -180,10 +182,85 @@ public sealed class GameEngine : IGameEngine
     private CommandResult ExecuteFinalizeDice(GameState gameState, FinalizeDiceCommand command)
     {
         _validator.EnsureCanFinalizeDice(gameState, command);
+        _finalizeDiceService.ValidateHealingRayReservation(gameState, command.HeartsReservedForHealingRay);
+
+        var defenders = GetDefendersFacingLethalDamage(gameState);
+        if (defenders.Count > 0)
+        {
+            var turn = gameState.CurrentTurn!;
+            turn.StartRapidHealingWindow(defenders, command.HeartsReservedForHealingRay);
+            var decision = CreateRapidHealingDecision(turn.NextRapidHealingDefenderId);
+            gameState.SetPendingDecision(decision);
+            return CommandResult.Successful(gameState, pendingDecision: decision);
+        }
+
         var stepResult = _finalizeDiceService.Execute(gameState, command.HeartsReservedForHealingRay);
         PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
+
+    private CommandResult ExecuteContinueAfterRapidHealing(GameState gameState, ContinueAfterRapidHealingCommand command)
+    {
+        var turn = gameState.CurrentTurn;
+        if (gameState.Status != GameStatus.Running || turn is null || turn.Phase != TurnPhase.Rolling ||
+            !turn.HasPendingRapidHealingDefenders ||
+            gameState.PendingDecision?.DecisionType != DecisionType.RapidHealingBeforeDamage ||
+            command.ActorPlayerId != turn.NextRapidHealingDefenderId ||
+            gameState.PendingDecision.PlayerId != command.ActorPlayerId)
+        {
+            throw new InvalidOperationException("Only the pending defender can continue damage resolution.");
+        }
+
+        turn.ContinueAfterRapidHealing();
+        if (turn.HasPendingRapidHealingDefenders)
+        {
+            var nextDecision = CreateRapidHealingDecision(turn.NextRapidHealingDefenderId);
+            gameState.SetPendingDecision(nextDecision);
+            return CommandResult.Successful(gameState, pendingDecision: nextDecision);
+        }
+
+        gameState.ClearPendingDecision();
+        var finalizeCommand = new FinalizeDiceCommand(turn.CurrentPlayerId, turn.HeartsReservedForHealingRayAfterRapidHealing);
+        _validator.EnsureCanFinalizeDice(gameState, finalizeCommand);
+        var stepResult = _finalizeDiceService.Execute(gameState, finalizeCommand.HeartsReservedForHealingRay);
+        PublishEvents(stepResult.Events);
+        return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
+    }
+
+    private IReadOnlyList<int> GetDefendersFacingLethalDamage(GameState gameState)
+    {
+        var attacker = gameState.GetCurrentPlayer();
+        var summary = new DiceSummaryBuilder().Build(gameState.CurrentTurn!.DicePool);
+        var projectedDamage = new Dictionary<int, int>();
+        foreach (var packet in new AttackResolver(_keepCardRulesService).ResolveAttack(gameState, attacker, summary))
+        {
+            projectedDamage[packet.TargetPlayerId] = packet.Amount;
+        }
+
+        var poisonDamage = _keepCardRulesService.GetPoisonQuillsDamage(attacker, summary.OneCount);
+        if (poisonDamage > 0)
+        {
+            poisonDamage += _keepCardRulesService.GetAcidAttackBonusDamage(attacker, poisonDamage);
+            var poisonTargets = gameState.Players.Where(player => player.IsAlive && player.PlayerId != attacker.PlayerId &&
+                (attacker.TokyoSlot == TokyoSlot.None ? player.TokyoSlot != TokyoSlot.None : player.TokyoSlot == TokyoSlot.None));
+            foreach (var target in poisonTargets)
+            {
+                projectedDamage[target.PlayerId] = projectedDamage.GetValueOrDefault(target.PlayerId) + poisonDamage;
+            }
+        }
+
+        return gameState.Players
+            .Where(player => player.IsAlive && projectedDamage.GetValueOrDefault(player.PlayerId) >= player.Health &&
+                _keepCardRulesService.CanUseRapidHealing(player))
+            .Select(player => player.PlayerId)
+            .ToArray();
+    }
+
+    private static PendingDecision CreateRapidHealingDecision(int defenderId) => new()
+    {
+        DecisionType = DecisionType.RapidHealingBeforeDamage,
+        PlayerId = defenderId
+    };
 
     private CommandResult ExecuteRerollBackgroundDwellerThrees(GameState gameState, RerollBackgroundDwellerThreesCommand command)
     {

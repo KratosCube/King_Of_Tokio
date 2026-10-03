@@ -49,15 +49,12 @@ public sealed class FinalizeDiceService
         _keepCardRulesService = keepCardRulesService ?? new KeepCardRulesService();
     }
 
-    public EngineStepResult Execute(GameState gameState, int heartsReservedForHealingRay = 0)
+    public void ValidateHealingRayReservation(GameState gameState, int heartsReservedForHealingRay)
     {
         ArgumentNullException.ThrowIfNull(gameState);
-
         var currentTurn = gameState.CurrentTurn
             ?? throw new InvalidOperationException("Cannot finalize dice without an active turn.");
-
         var currentPlayer = gameState.GetCurrentPlayer();
-
         var heartsRolled = currentTurn.DicePool.Dice.Count(die => die.CurrentFace == DieFace.Heart);
         var heartsAfterStatus = Math.Max(0, heartsRolled - currentPlayer.Status.PoisonTokens - currentPlayer.Status.ShrinkTokens);
         if (heartsReservedForHealingRay < 0 || heartsReservedForHealingRay > heartsAfterStatus ||
@@ -67,6 +64,16 @@ public sealed class FinalizeDiceService
         {
             throw new InvalidOperationException("Invalid hearts reserved for Healing Ray.");
         }
+    }
+
+    public EngineStepResult Execute(GameState gameState, int heartsReservedForHealingRay = 0)
+    {
+        ArgumentNullException.ThrowIfNull(gameState);
+
+        ValidateHealingRayReservation(gameState, heartsReservedForHealingRay);
+
+        var currentTurn = gameState.CurrentTurn!;
+        var currentPlayer = gameState.GetCurrentPlayer();
 
         gameState.ClearPendingDecision();
 
