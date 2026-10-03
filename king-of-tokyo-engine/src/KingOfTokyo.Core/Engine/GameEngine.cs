@@ -222,32 +222,39 @@ public sealed class GameEngine : IGameEngine
         }
 
         gameState.ClearPendingDecision();
-        if (turn.PurchaseCommandAfterRapidHealing is { } purchaseCommand)
+        try
         {
-            gameState.SetPendingDecision(turn.SuspendedPurchaseDecision);
-            return purchaseCommand switch
+            if (turn.PurchaseCommandAfterRapidHealing is { } purchaseCommand)
             {
-                BuyFaceUpCardCommand faceUp => ExecuteBuyFaceUpCard(gameState, faceUp, allowRapidHealingWindow: false),
-                BuyPeekedTopDeckCardCommand peeked => ExecuteBuyPeekedTopDeckCard(gameState, peeked, allowRapidHealingWindow: false),
-                BuyOpportunistRevealedCardCommand opportunist => ExecuteBuyOpportunistRevealedCard(gameState, opportunist, allowRapidHealingWindow: false),
-                _ => throw new InvalidOperationException("Unsupported purchase after Rapid Healing.")
-            };
-        }
+                gameState.SetPendingDecision(turn.SuspendedPurchaseDecision);
+                return purchaseCommand switch
+                {
+                    BuyFaceUpCardCommand faceUp => ExecuteBuyFaceUpCard(gameState, faceUp, allowRapidHealingWindow: false),
+                    BuyPeekedTopDeckCardCommand peeked => ExecuteBuyPeekedTopDeckCard(gameState, peeked, allowRapidHealingWindow: false),
+                    BuyOpportunistRevealedCardCommand opportunist => ExecuteBuyOpportunistRevealedCard(gameState, opportunist, allowRapidHealingWindow: false),
+                    _ => throw new InvalidOperationException("Unsupported purchase after Rapid Healing.")
+                };
+            }
 
-        if (turn.EndTurnAfterRapidHealing)
+            if (turn.EndTurnAfterRapidHealing)
+            {
+                var endTurnCommand = new EndTurnCommand(turn.CurrentPlayerId);
+                _validator.EnsureCanEndTurn(gameState, endTurnCommand);
+                var endTurnResult = _turnLifecycleService.EndTurn(gameState);
+                PublishEvents(endTurnResult.Events);
+                return CommandResult.Successful(gameState, endTurnResult.Events, endTurnResult.PendingDecision);
+            }
+
+            var finalizeCommand = new FinalizeDiceCommand(turn.CurrentPlayerId, turn.HeartsReservedForHealingRayAfterRapidHealing);
+            _validator.EnsureCanFinalizeDice(gameState, finalizeCommand);
+            var stepResult = _finalizeDiceService.Execute(gameState, finalizeCommand.HeartsReservedForHealingRay);
+            PublishEvents(stepResult.Events);
+            return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
+        }
+        finally
         {
-            var endTurnCommand = new EndTurnCommand(turn.CurrentPlayerId);
-            _validator.EnsureCanEndTurn(gameState, endTurnCommand);
-            var endTurnResult = _turnLifecycleService.EndTurn(gameState);
-            PublishEvents(endTurnResult.Events);
-            return CommandResult.Successful(gameState, endTurnResult.Events, endTurnResult.PendingDecision);
+            turn.ClearWingsProtection();
         }
-
-        var finalizeCommand = new FinalizeDiceCommand(turn.CurrentPlayerId, turn.HeartsReservedForHealingRayAfterRapidHealing);
-        _validator.EnsureCanFinalizeDice(gameState, finalizeCommand);
-        var stepResult = _finalizeDiceService.Execute(gameState, finalizeCommand.HeartsReservedForHealingRay);
-        PublishEvents(stepResult.Events);
-        return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
     }
 
     private IReadOnlyList<int> GetDefendersFacingLethalDamage(GameState gameState)
@@ -257,7 +264,7 @@ public sealed class GameEngine : IGameEngine
         var projectedDamage = new Dictionary<int, int>();
         foreach (var packet in new AttackResolver(_keepCardRulesService).ResolveAttack(gameState, attacker, summary))
         {
-            projectedDamage[packet.TargetPlayerId] = packet.Amount;
+            projectedDamage[packet.TargetPlayerId] = projectedDamage.GetValueOrDefault(packet.TargetPlayerId) + packet.Amount;
         }
 
         var poisonDamage = _keepCardRulesService.GetPoisonQuillsDamage(attacker, summary.OneCount);
@@ -274,15 +281,19 @@ public sealed class GameEngine : IGameEngine
 
         return gameState.Players
             .Where(player => player.IsAlive && projectedDamage.GetValueOrDefault(player.PlayerId) >= player.Health &&
-                _keepCardRulesService.CanUseRapidHealing(player))
+                CanPreventLethalDamage(player))
             .Select(player => player.PlayerId)
             .ToArray();
     }
 
+    private bool CanPreventLethalDamage(PlayerState player) =>
+        _keepCardRulesService.CanUseRapidHealing(player) || _keepCardRulesService.CanUseWings(player);
+
     private static PendingDecision CreateRapidHealingDecision(int defenderId) => new()
     {
         DecisionType = DecisionType.RapidHealingBeforeDamage,
-        PlayerId = defenderId
+        PlayerId = defenderId,
+        Payload = new LethalDamageDecisionData()
     };
 
     private CommandResult? StartPurchaseRapidHealingWindow(
@@ -292,19 +303,28 @@ public sealed class GameEngine : IGameEngine
         IGameCommand command)
     {
         var effect = card.PurchaseEffect;
-        if (effect.DamageAllOthers <= 0 && effect.DamageAllIncludingSelf <= 0 && effect.DamageOthersPerTwoEnergy <= 0)
+        if (effect.DamageAllOthers <= 0 && effect.DamageAllIncludingSelf <= 0 &&
+            effect.DamageSelf <= 0 && effect.DamageOthersPerTwoEnergy <= 0)
         {
             return null;
         }
 
         var defenders = gameState.Players
-            .Where(target => target.PlayerId != buyer.PlayerId && target.IsAlive && _keepCardRulesService.CanUseRapidHealing(target))
+            .Where(target => target.IsAlive && CanPreventLethalDamage(target) &&
+                (target.PlayerId != buyer.PlayerId ||
+                 target.Energy >= _keepCardRulesService.GetEffectivePurchaseCost(buyer, card) + 2))
             .Where(target =>
             {
-                var energyDamage = (target.Energy / 2) * effect.DamageOthersPerTwoEnergy;
-                var amounts = new[] { effect.DamageAllOthers, effect.DamageAllIncludingSelf, energyDamage };
+                var isBuyer = target.PlayerId == buyer.PlayerId;
+                var energyDamage = isBuyer ? 0 : (target.Energy / 2) * effect.DamageOthersPerTwoEnergy;
+                var amounts = new[]
+                {
+                    isBuyer ? effect.DamageSelf : effect.DamageAllOthers,
+                    effect.DamageAllIncludingSelf,
+                    energyDamage
+                };
                 var projectedDamage = amounts.Where(amount => amount > 0)
-                    .Sum(amount => amount + _keepCardRulesService.GetAcidAttackBonusDamage(buyer, amount));
+                    .Sum(amount => amount + (isBuyer ? 0 : _keepCardRulesService.GetAcidAttackBonusDamage(buyer, amount)));
                 return projectedDamage >= target.Health;
             })
             .Select(target => target.PlayerId)
@@ -317,7 +337,9 @@ public sealed class GameEngine : IGameEngine
 
         var turn = gameState.CurrentTurn!;
         turn.StartRapidHealingWindow(defenders, 0, purchaseCommand: command,
-            suspendedPurchaseDecision: gameState.PendingDecision);
+            suspendedPurchaseDecision: gameState.PendingDecision,
+            purchaseBuyerId: buyer.PlayerId,
+            purchaseCost: _keepCardRulesService.GetEffectivePurchaseCost(buyer, card));
         var decision = CreateRapidHealingDecision(turn.NextRapidHealingDefenderId);
         gameState.SetPendingDecision(decision);
         return CommandResult.Successful(gameState, pendingDecision: decision);
@@ -568,7 +590,7 @@ public sealed class GameEngine : IGameEngine
         _validator.EnsureCanEndTurn(gameState, command);
         var currentPlayer = gameState.GetCurrentPlayer();
         if (currentPlayer.Status.PoisonTokens >= currentPlayer.Health &&
-            _keepCardRulesService.CanUseRapidHealing(currentPlayer))
+            CanPreventLethalDamage(currentPlayer))
         {
             var turn = gameState.CurrentTurn!;
             turn.StartRapidHealingWindow(new[] { currentPlayer.PlayerId }, 0, endTurn: true);

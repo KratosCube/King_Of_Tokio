@@ -38,7 +38,12 @@ public sealed class TurnLifecycleService
         var newEvents = new List<GameEventBase>();
 
         var poisonDamage = currentPlayer.Status.PoisonTokens;
-        if (poisonDamage > 0)
+        if (poisonDamage > 0 && currentTurn.IsProtectedByWings(currentPlayer.PlayerId))
+        {
+            newEvents.Add(new DamagePreventedEvent(currentPlayer.PlayerId, currentPlayer.PlayerId,
+                poisonDamage, DamageKind.StatusEffect, "Keep card: Wings."));
+        }
+        else if (poisonDamage > 0)
         {
             var healthBefore = currentPlayer.Health;
             currentPlayer.TakeDamage(poisonDamage);

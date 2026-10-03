@@ -9,6 +9,7 @@ public sealed class TurnState
 {
     private readonly Queue<TokyoLeaveDecisionContext> _pendingTokyoLeaveDecisions = new();
     private readonly Queue<int> _pendingRapidHealingDefenders = new();
+    private readonly HashSet<int> _wingsProtectedPlayers = new();
     private readonly Dictionary<int, int> _damageTakenThisTurnByPlayer = new();
 
     public int CurrentPlayerId { get; }
@@ -27,6 +28,8 @@ public sealed class TurnState
     public bool EndTurnAfterRapidHealing { get; private set; }
     public IGameCommand? PurchaseCommandAfterRapidHealing { get; private set; }
     public PendingDecision? SuspendedPurchaseDecision { get; private set; }
+    public int? PurchaseBuyerIdAfterRapidHealing { get; private set; }
+    public int PurchaseCostAfterRapidHealing { get; private set; }
     public TurnFlags Flags { get; }
 
     public bool HasPendingTokyoLeaveDecisions => _pendingTokyoLeaveDecisions.Count > 0;
@@ -102,10 +105,13 @@ public sealed class TurnState
         int heartsReservedForHealingRay,
         bool endTurn = false,
         IGameCommand? purchaseCommand = null,
-        PendingDecision? suspendedPurchaseDecision = null)
+        PendingDecision? suspendedPurchaseDecision = null,
+        int? purchaseBuyerId = null,
+        int purchaseCost = 0)
     {
         ArgumentNullException.ThrowIfNull(defenderIds);
-        if (HasPendingRapidHealingDefenders || heartsReservedForHealingRay < 0)
+        if (HasPendingRapidHealingDefenders || heartsReservedForHealingRay < 0 || purchaseCost < 0 ||
+            (purchaseCommand is not null) != purchaseBuyerId.HasValue)
         {
             throw new InvalidOperationException("Rapid Healing window cannot be started now.");
         }
@@ -124,12 +130,27 @@ public sealed class TurnState
         EndTurnAfterRapidHealing = endTurn;
         PurchaseCommandAfterRapidHealing = purchaseCommand;
         SuspendedPurchaseDecision = suspendedPurchaseDecision;
+        PurchaseBuyerIdAfterRapidHealing = purchaseBuyerId;
+        PurchaseCostAfterRapidHealing = purchaseCost;
     }
 
     public void ContinueAfterRapidHealing()
     {
         _pendingRapidHealingDefenders.Dequeue();
     }
+
+    public bool IsProtectedByWings(int playerId) => _wingsProtectedPlayers.Contains(playerId);
+
+    public void ProtectWithWings(int playerId)
+    {
+        if (!HasPendingRapidHealingDefenders || NextRapidHealingDefenderId != playerId ||
+            !_wingsProtectedPlayers.Add(playerId))
+        {
+            throw new InvalidOperationException("Wings can only protect the pending defender once.");
+        }
+    }
+
+    public void ClearWingsProtection() => _wingsProtectedPlayers.Clear();
 
     public void SpendHealingRayHearts(int amount)
     {

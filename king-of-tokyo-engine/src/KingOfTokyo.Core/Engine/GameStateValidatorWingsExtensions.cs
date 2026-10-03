@@ -50,8 +50,12 @@ public static class GameStateValidatorWingsExtensions
             throw new InvalidOperationException("Player cannot use Wings right now.");
         }
 
+        var impendingDamage = gameState.PendingDecision?.DecisionType == DecisionType.RapidHealingBeforeDamage &&
+            gameState.CurrentTurn.HasPendingRapidHealingDefenders &&
+            gameState.CurrentTurn.NextRapidHealingDefenderId == player.PlayerId;
+
         if (gameState.PendingDecision is not null &&
-            gameState.PendingDecision.DecisionType != DecisionType.LeaveTokyo)
+            gameState.PendingDecision.DecisionType != DecisionType.LeaveTokyo && !impendingDamage)
         {
             throw new InvalidOperationException("Cannot activate Wings while another decision is pending.");
         }
@@ -59,15 +63,26 @@ public static class GameStateValidatorWingsExtensions
         if (gameState.PendingDecision is not null &&
             gameState.PendingDecision.PlayerId != player.PlayerId)
         {
-            throw new InvalidOperationException("Only the pending Tokyo defender can activate Wings right now.");
+            throw new InvalidOperationException("Only the pending defender can activate Wings right now.");
         }
 
-        if (GetNetDamageTakenThisTurn(gameState, player.PlayerId) <= 0)
+        if (impendingDamage && gameState.CurrentTurn.IsProtectedByWings(player.PlayerId))
+        {
+            throw new InvalidOperationException("Wings have already been activated for this damage.");
+        }
+
+        if (impendingDamage && gameState.CurrentTurn.PurchaseBuyerIdAfterRapidHealing == player.PlayerId &&
+            player.Energy - KeepCardRulesService.WingsCost < gameState.CurrentTurn.PurchaseCostAfterRapidHealing)
+        {
+            throw new InvalidOperationException("The pending purchase requires the remaining energy.");
+        }
+
+        if (!impendingDamage && GetNetDamageTakenThisTurn(gameState, player.PlayerId) <= 0)
         {
             throw new InvalidOperationException("Player has not taken damage during this turn.");
         }
 
-        if (player.Health >= player.MaxHealth)
+        if (!impendingDamage && player.Health >= player.MaxHealth)
         {
             throw new InvalidOperationException("Player has no damage left to cancel.");
         }

@@ -124,13 +124,22 @@ public sealed class SpecialCardActivationService
         var damageTakenThisTurn = GameStateValidatorWingsExtensions.GetNetDamageTakenThisTurn(gameState, player.PlayerId);
         var cancelableDamage = Math.Min(damageTakenThisTurn, player.MaxHealth - player.Health);
 
-        if (cancelableDamage <= 0)
+        var impendingDamage = gameState.PendingDecision?.DecisionType == DecisionType.RapidHealingBeforeDamage;
+        if (cancelableDamage <= 0 && !impendingDamage)
         {
             throw new InvalidOperationException("Player has no damage left to cancel.");
         }
 
         player.SpendEnergy(KeepCardRulesService.WingsCost);
         player.Heal(cancelableDamage);
+        if (impendingDamage)
+        {
+            currentTurn.ProtectWithWings(player.PlayerId);
+            gameState.SetPendingDecision(gameState.PendingDecision! with
+            {
+                Payload = new LethalDamageDecisionData(WingsActivated: true)
+            });
+        }
         currentTurn.ClearDamageTakenThisTurn(player.PlayerId);
         currentTurn.SetPendingTokyoLeaveDamageTaken(player.PlayerId, 0);
 
@@ -138,10 +147,7 @@ public sealed class SpecialCardActivationService
 
         var events = new GameEventBase[]
         {
-            new DamageCanceledEvent(
-                player.PlayerId,
-                cancelableDamage,
-                "Keep card: Wings.")
+            new DamageCanceledEvent(player.PlayerId, cancelableDamage, "Keep card: Wings.")
         };
 
         return new EngineStepResult(events, pendingDecision);
