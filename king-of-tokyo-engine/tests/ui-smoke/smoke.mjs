@@ -62,12 +62,23 @@ try {
   const next = actor === host ? guest : host;
   await actor.getByRole('button', { name: 'Begin turn' }).click();
   await actor.getByRole('button', { name: 'Roll dice', exact: true }).click();
+  await actor.locator('.die-button').first().click();
+  assert.match(await actor.locator('.die-button').first().getAttribute('class'), /selected/);
+  await actor.getByRole('button', { name: 'Clear dice selection' }).click();
   await actor.getByRole('button', { name: 'Finalize dice', exact: true }).click();
 
   assert.equal(await actor.locator('.die-button').count() >= 6, true);
   assert.equal(await actor.locator('.market-card').count() >= 3, true);
+  await actor.getByText('Dice resolved', { exact: true }).waitFor();
+  await actor.reload();
+  await actor.getByText('Dice resolved', { exact: true }).waitFor();
+  const titleBox = await actor.getByRole('heading', { name: 'Tokyo arena' }).boundingBox();
+  assert.ok(titleBox && titleBox.y >= 0, 'The game title must remain visible after reload');
   await actor.screenshot({ path: new URL('game-desktop.png', artifacts).pathname, fullPage: true });
   await actor.setViewportSize({ width: 390, height: 844 });
+  await actor.evaluate(() => window.scrollTo(0, 0));
+  const mobileTitleBox = await actor.getByRole('heading', { name: 'Tokyo arena' }).boundingBox();
+  assert.ok(mobileTitleBox && mobileTitleBox.y >= 0, 'The game title must remain visible on mobile');
   await actor.screenshot({ path: new URL('game-mobile.png', artifacts).pathname, fullPage: true });
 
   await actor.getByRole('button', { name: 'End turn', exact: true }).click();

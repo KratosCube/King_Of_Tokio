@@ -566,7 +566,7 @@
         }
 
         await RefreshAsync();
-        await RefreshEventsAsync();
+        await RefreshEventsAsync(replayHistory: true);
         _cts = new CancellationTokenSource();
         _timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
         _ = PollAsync(_cts.Token);
@@ -688,14 +688,19 @@
         _selectedDiceIndexes.RemoveWhere(index => !validIndexes.Contains(index));
     }
 
-    private async Task RefreshEventsAsync()
+    private async Task RefreshEventsAsync(bool replayHistory = false)
     {
         try
         {
-            var cursor = await ApiClient.GetEventsAsync(GameId, Session.LastEventSequence);
+            var cursor = await ApiClient.GetEventsAsync(GameId, replayHistory ? 0 : Session.LastEventSequence);
             if (cursor is null)
             {
                 return;
+            }
+
+            if (replayHistory)
+            {
+                _eventFeed.Clear();
             }
 
             foreach (var envelope in cursor.Events)
@@ -704,6 +709,11 @@
                 {
                     _eventFeed.Add(EventFeedItem.From(envelope, PlayerName));
                 }
+            }
+
+            if (_eventFeed.Count > 100)
+            {
+                _eventFeed.RemoveRange(0, _eventFeed.Count - 100);
             }
 
             Session.LastEventSequence = cursor.CurrentEventSequence;
