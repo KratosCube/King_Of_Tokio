@@ -275,30 +275,6 @@ button {
     margin-top: 1rem;
 }
 
-.lower-game-grid > .panel:nth-child(2) {
-    background:
-        linear-gradient(145deg, rgba(28, 37, 64, 0.58), rgba(8, 13, 29, 0.58)),
-        rgba(17, 24, 39, 0.58);
-    border-style: dashed;
-    box-shadow: none;
-    opacity: 0.82;
-}
-
-.lower-game-grid > .panel:nth-child(2) h2::after {
-    color: var(--muted);
-    content: " · optional tools";
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-}
-
-.lower-game-grid > .panel:nth-child(2):hover,
-.lower-game-grid > .panel:nth-child(2):focus-within {
-    border-style: solid;
-    box-shadow: var(--heavy-shadow);
-    opacity: 1;
-}
-
 .game-grid {
     display: grid;
     gap: 1rem;
@@ -565,7 +541,7 @@ button {
         radial-gradient(circle at 15% 25%, rgba(250, 204, 21, 0.28), transparent 28%),
         radial-gradient(circle at 85% 10%, rgba(236, 72, 153, 0.18), transparent 26%),
         linear-gradient(120deg, rgba(249, 115, 22, 0.24), rgba(56, 189, 248, 0.08) 42%, rgba(168, 85, 247, 0.18));
-    overflow: hidden;
+    overflow: clip;
 }
 
 .lobby-hero::before,
@@ -584,25 +560,15 @@ button {
 }
 
 @media (min-width: 901px) {
-    body {
-        height: 100vh;
-        overflow: hidden;
-    }
-
-    .app-shell {
-        height: 100vh;
-        overflow: hidden;
-    }
-
     .top-bar {
         min-height: 4.35rem;
         padding: 0.7rem 1.25rem;
     }
 
-    .page-shell {
+    .page-shell:has(.game-hero) {
         height: calc(100vh - 4.35rem);
         max-width: none;
-        overflow: hidden;
+        overflow: clip;
         padding: 0.65rem;
     }
 
@@ -639,7 +605,7 @@ button {
 
     .lower-game-grid {
         flex: 0 0 clamp(165px, 25vh, 235px);
-        grid-template-columns: minmax(300px, 0.95fr) minmax(230px, 0.65fr) minmax(360px, 1.15fr);
+        grid-template-columns: minmax(300px, 0.9fr) minmax(400px, 1.1fr);
         min-height: 0;
         overflow: hidden;
     }

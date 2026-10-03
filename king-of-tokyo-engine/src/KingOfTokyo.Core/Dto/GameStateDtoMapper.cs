@@ -92,7 +92,8 @@ public static class GameStateDtoMapper
             turn.PurchasePhaseFinished,
             turn.DicePool.Dice.Select(ToDto).ToArray(),
             ToDto(turn.Flags),
-            Math.Max(0, turn.DicePool.Dice.Count(die => die.CurrentFace == DieFace.Heart) - turn.HealingRayHeartsSpent - turn.HeartsUsedElsewhere));
+            Math.Max(0, turn.DicePool.Dice.Count(die => die.CurrentFace == DieFace.Heart) - turn.HealingRayHeartsSpent - turn.HeartsUsedElsewhere),
+            turn.AdvancedToNextPlayer);
     }
 
     private static DieDto ToDto(DieState die)

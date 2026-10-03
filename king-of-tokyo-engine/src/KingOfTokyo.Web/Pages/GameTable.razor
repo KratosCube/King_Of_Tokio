@@ -27,7 +27,14 @@
         @if (_game.CurrentTurn is not null)
         {
             <p class="muted">
-                Current turn: @PlayerName(_game.CurrentTurn.CurrentPlayerId) • Phase: @_game.CurrentTurn.Phase • Rolls: @_game.CurrentTurn.RollCountUsed/@_game.CurrentTurn.MaxRolls
+                @if (_game.CurrentTurn.AdvancedToNextPlayer)
+                {
+                    <span>Next turn: @PlayerName(_game.CurrentPlayerIndex) • Waiting to begin</span>
+                }
+                else
+                {
+                    <span>Current turn: @PlayerName(_game.CurrentTurn.CurrentPlayerId) • Phase: @_game.CurrentTurn.Phase • Rolls: @_game.CurrentTurn.RollCountUsed/@_game.CurrentTurn.MaxRolls</span>
+                }
             </p>
         }
 
@@ -89,6 +96,10 @@
                         else if (CanAnswerRapidHealingDecision)
                         {
                             <p class="muted">Incoming damage may eliminate your monster. You may use Rapid Healing or Wings before the damage is resolved.</p>
+                            @if (WingsProtectingThisDecision)
+                            {
+                                <p class="status-pill">Wings will cancel this damage.</p>
+                            }
                             <div class="actions">
                                 @if (CanUseRapidHealing)
                                 {
@@ -103,26 +114,27 @@
                         }
                         else if (CanAnswerOpportunistDecision)
                         {
+                            <p class="muted">Card: @PeekedCardName • Cost: ⚡ @PendingCardCost</p>
                             @if (IsOpportunistBattery)
                             {
                                 <label>Energy to deposit (matched by bank)</label>
-                                <InputNumber @bind-Value="_batteryDeposit" min="0" />
+                                <InputNumber @bind-Value="_batteryDeposit" min="0" max="@MaximumPendingCardDeposit" />
                             }
                             <div class="actions">
-                                <button class="btn btn-primary" @onclick="() => AnswerOpportunistAsync(true)" disabled="@_busy">Buy revealed card</button>
+                                <button class="btn btn-primary" @onclick="() => AnswerOpportunistAsync(true)" disabled="@(_busy || !CanBuyPendingCard)">Buy revealed card</button>
                                 <button class="btn btn-secondary" @onclick="() => AnswerOpportunistAsync(false)" disabled="@_busy">Decline</button>
                             </div>
                         }
                         else if (CanAnswerPeekDecision)
                         {
-                            <p>@PeekedCardName</p>
+                            <p>@PeekedCardName • Cost: ⚡ @PendingCardCost</p>
                             @if (IsPeekedBattery)
                             {
                                 <label>Energy to deposit (matched by bank)</label>
-                                <InputNumber @bind-Value="_batteryDeposit" min="0" />
+                                <InputNumber @bind-Value="_batteryDeposit" min="0" max="@MaximumPendingCardDeposit" />
                             }
                             <div class="actions">
-                                <button class="btn btn-primary" @onclick="() => AnswerPeekAsync(true)" disabled="@_busy">Buy top card</button>
+                                <button class="btn btn-primary" @onclick="() => AnswerPeekAsync(true)" disabled="@(_busy || !CanBuyPendingCard)">Buy top card</button>
                                 <button class="btn btn-secondary" @onclick="() => AnswerPeekAsync(false)" disabled="@_busy">Decline</button>
                             </div>
                         }
@@ -187,25 +199,30 @@
                             }
                             else
                             {
+                                var effectiveCost = EffectiveMarketCardCost(card.value);
                                 <div class="market-card-header">
                                     <h3>@card.value.Name</h3>
-                                    <span class="market-cost">⚡ @card.value.Cost</span>
+                                    <span class="market-cost">⚡ @effectiveCost</span>
                                 </div>
+                                @if (effectiveCost != card.value.Cost)
+                                {
+                                    <small class="muted">Base cost: ⚡ @card.value.Cost</small>
+                                }
                                 <small class="market-card-type">@card.value.CardType</small>
                                 <p>@card.value.Description</p>
                                 @if (card.value.CardId == "card-monster-batteries" && CanUseMarketActions)
                                 {
                                     <label>Energy to deposit (matched by bank)</label>
-                                    <InputNumber @bind-Value="_batteryDeposit" min="0" />
+                                    <InputNumber @bind-Value="_batteryDeposit" min="0" max="@(Math.Max(0, (LocalPlayer?.Energy ?? 0) - effectiveCost))" />
                                 }
-                                <button class="btn btn-primary" @onclick="() => BuyFaceUpCardAsync(card.index)" disabled="@(_busy || !CanUseMarketActions)">Buy</button>
+                                <button class="btn btn-primary" @onclick="() => BuyFaceUpCardAsync(card.index)" disabled="@(_busy || !CanUseMarketActions || LocalPlayer!.Energy < effectiveCost || (card.value.CardId == "card-monster-batteries" && (_batteryDeposit < 0 || _batteryDeposit > LocalPlayer.Energy - effectiveCost)))">Buy</button>
                             }
                         </article>
                     }
                 </div>
                 <div class="market-footer">
                     <p class="muted">Deck: @_game.Market.DrawPileCount • Discard: @_game.Market.DiscardPileCount</p>
-                    <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@(_busy || !CanUseMarketActions)">Refresh market</button>
+                    <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@(_busy || !CanUseMarketActions || LocalPlayer!.Energy < 2)">Refresh market (⚡ 2)</button>
                     @if (CanPeekTopDeck)
                     {
                         <button class="btn btn-secondary" @onclick="PeekTopDeckAsync" disabled="@_busy">Peek top card (Made in a Lab)</button>
@@ -355,7 +372,7 @@
                     else if (CanUseMarketActions)
                     {
                         <button class="btn btn-primary" @onclick="EndTurnAsync" disabled="@_busy">End turn</button>
-                        <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@_busy">Refresh market</button>
+                        <button class="btn btn-secondary" @onclick="RefreshMarketAsync" disabled="@(_busy || LocalPlayer!.Energy < 2)">Refresh market (⚡ 2)</button>
                     }
                     else if (CanEndTurn)
                     {
@@ -369,24 +386,6 @@
                     {
                         <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
                     }
-                </div>
-            </section>
-
-            <section class="panel">
-                <h2>Debug commands</h2>
-                <p class="muted">Current local player id: @(Session.PlayerId?.ToString() ?? "unknown")</p>
-                @if (!IsLocalActor && _game.CurrentTurn is not null)
-                {
-                    <p class="status-pill">Waiting for @PlayerName(_game.CurrentTurn.CurrentPlayerId)</p>
-                }
-                <div class="actions">
-                    <button class="btn btn-secondary" @onclick="InitializeAsync" disabled="@(_busy || !CanInitialize)">Initialize</button>
-                    <button class="btn btn-secondary" @onclick="BeginTurnAsync" disabled="@(_busy || !CanBeginTurn)">Begin turn</button>
-                    <button class="btn btn-primary" @onclick="RollDiceAsync" disabled="@(_busy || !CanRollDice)">Roll dice</button>
-                    <button class="btn btn-primary" @onclick="FinalizeDiceAsync" disabled="@(_busy || !CanFinalizeDice)">Finalize dice</button>
-                    <button class="btn btn-secondary" @onclick="EndTurnAsync" disabled="@(_busy || !CanEndTurn)">End turn</button>
-                    <button class="btn btn-secondary" @onclick="AdvancePlayerAsync" disabled="@(_busy || !CanAdvancePlayer)">Advance player</button>
-                    <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
                 </div>
             </section>
 
@@ -431,7 +430,9 @@
     private bool IsSetup => string.Equals(_game?.Status, "Setup", StringComparison.OrdinalIgnoreCase);
     private bool HasPendingDecision => _game?.PendingDecision is not null;
     private string? CurrentPhase => _game?.CurrentTurn?.Phase;
-    private int? CurrentActorId => _game?.CurrentTurn?.CurrentPlayerId ?? _game?.CurrentPlayerIndex;
+    private int? CurrentActorId => _game?.CurrentTurn is { Phase: "Finished", AdvancedToNextPlayer: true }
+        ? _game.CurrentPlayerIndex
+        : _game?.CurrentTurn?.CurrentPlayerId ?? _game?.CurrentPlayerIndex;
     private bool IsLocalActor => Session.PlayerId is not null && CurrentActorId == Session.PlayerId;
 
     private bool IsSelectDiceToRerollDecision =>
@@ -441,7 +442,8 @@
         _game.PendingDecision.PlayerId == _game.CurrentTurn.CurrentPlayerId;
 
     private bool CanInitialize => IsSetup && Session.PlayerId == 0;
-    private bool CanBeginTurn => IsRunning && !HasPendingDecision && IsLocalActor && (_game?.CurrentTurn is null || IsPhase("Finished"));
+    private bool CanBeginTurn => IsRunning && !HasPendingDecision && IsLocalActor &&
+        (_game?.CurrentTurn is null || _game.CurrentTurn is { Phase: "Finished", AdvancedToNextPlayer: true });
     private bool CanRollDice => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed == 0;
     private bool CanRerollStep => IsRunning && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed > 0 && _game.CurrentTurn.RollCountUsed < _game.CurrentTurn.MaxRolls && (!HasPendingDecision || IsSelectDiceToRerollDecision);
     private bool CanUseBackgroundDweller => IsRunning && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed > 0 &&
@@ -454,20 +456,40 @@
     private bool CanFinalizeDice => IsRunning && IsLocalActor && IsPhase("Rolling") && _game?.CurrentTurn?.RollCountUsed > 0 && _game.CurrentTurn.DiceResolved == false && (!HasPendingDecision || IsSelectDiceToRerollDecision);
     private bool CanUseMarketActions => CanEndTurn && LocalPlayer?.IsAlive == true;
     private bool CanEndTurn => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Purchase");
-    private bool CanAdvancePlayer => IsRunning && !HasPendingDecision && IsLocalActor && IsPhase("Finished");
+    private bool CanAdvancePlayer => IsRunning && !HasPendingDecision &&
+        _game?.CurrentTurn is { Phase: "Finished", AdvancedToNextPlayer: false } turn && Session.PlayerId == turn.CurrentPlayerId;
     private bool CanAnswerLeaveTokyoDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "LeaveTokyo", StringComparison.OrdinalIgnoreCase);
     private bool CanAnswerRapidHealingDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "RapidHealingBeforeDamage", StringComparison.OrdinalIgnoreCase);
+    private bool WingsProtectingThisDecision => _game?.PendingDecision?.Payload is System.Text.Json.JsonElement payload &&
+        payload.TryGetProperty("wingsActivated", out var activated) && activated.ValueKind == System.Text.Json.JsonValueKind.True;
+    private int PurchaseEnergyReservedForLocalPlayer =>
+        _game?.PendingDecision?.DecisionType == "RapidHealingBeforeDamage" &&
+        _game.PendingDecision.Payload is System.Text.Json.JsonElement payload &&
+        payload.TryGetProperty("purchaseBuyerId", out var buyerId) &&
+        buyerId.ValueKind == System.Text.Json.JsonValueKind.Number && buyerId.GetInt32() == Session.PlayerId &&
+        payload.TryGetProperty("purchaseCost", out var cost) && cost.ValueKind == System.Text.Json.JsonValueKind.Number
+            ? cost.GetInt32() : 0;
     private bool CanAnswerOpportunistDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "OpportunistPurchase", StringComparison.OrdinalIgnoreCase);
     private bool CanAnswerPeekDecision => _game?.PendingDecision is not null && Session.PlayerId == _game.PendingDecision.PlayerId && string.Equals(_game.PendingDecision.DecisionType, "PeekTopDeckCardPurchase", StringComparison.OrdinalIgnoreCase);
     private string PeekedCardName => _game?.PendingDecision?.Payload is System.Text.Json.JsonElement payload && payload.TryGetProperty("cardName", out var name) ? name.GetString() ?? "Top card" : "Top card";
+    private int PendingCardCost => _game?.PendingDecision?.Payload is System.Text.Json.JsonElement payload &&
+        (payload.TryGetProperty("effectiveCost", out var cost) || payload.TryGetProperty("cost", out cost)) &&
+        cost.ValueKind == System.Text.Json.JsonValueKind.Number ? cost.GetInt32() : int.MaxValue;
+    private int MaximumPendingCardDeposit => Math.Max(0, (LocalPlayer?.Energy ?? 0) - PendingCardCost);
+    private bool CanBuyPendingCard => LocalPlayer is { IsAlive: true } player && player.Energy >= PendingCardCost &&
+        (!(IsOpportunistBattery || IsPeekedBattery) || _batteryDeposit >= 0 && _batteryDeposit <= MaximumPendingCardDeposit);
     private bool IsPeekedBattery => IsOpportunistBattery;
     private PlayerDto? LocalPlayer => _game?.Players.FirstOrDefault(player => player.PlayerId == Session.PlayerId);
+    private int EffectiveMarketCardCost(CardDto card) => Math.Max(0, card.Cost -
+        (LocalPlayer?.KeepCards.Count(owned => owned.CardId == "card-alien-metabolism" ||
+            owned.CardId == "card-mimic" && owned.MimicTarget?.CardId == "card-alien-metabolism") ?? 0));
     private bool HasHealingRay => LocalPlayer?.KeepCards.Any(card => card.CardId == "card-healing-ray" || card.MimicTarget?.CardId == "card-healing-ray") == true;
     private int AvailableRayHeartsBeforeFinalizing => Math.Max(0,
         (_game?.CurrentTurn?.Dice.Count(die => die.CurrentFace == "Heart") ?? 0) -
         (LocalPlayer?.Status.PoisonTokens ?? 0) - (LocalPlayer?.Status.ShrinkTokens ?? 0));
     private bool CanUseRapidHealing => IsRunning && LocalPlayer is { IsAlive: true } player &&
-        player.Health < player.MaxHealth && player.Energy >= 2 && player.KeepCards.Any(card => card.CardId == "card-rapid-healing" || card.MimicTarget?.CardId == "card-rapid-healing");
+        player.Health < player.MaxHealth && player.Energy >= 2 + PurchaseEnergyReservedForLocalPlayer &&
+        player.KeepCards.Any(card => card.CardId == "card-rapid-healing" || card.MimicTarget?.CardId == "card-rapid-healing");
     private bool CanUseHealingRay => CanUseMarketActions && _game?.CurrentTurn?.UnusedHealingRayHearts > 0 &&
         HasHealingRay &&
         _game.Players.Any(player => player.PlayerId != Session.PlayerId && player.IsAlive && player.Health < player.MaxHealth);
@@ -482,10 +504,10 @@
         _game?.CurrentTurn is { RollCountUsed: > 0, DiceResolved: false } && (!HasPendingDecision || IsSelectDiceToRerollDecision) &&
         LocalPlayer.KeepCards.Any(card => card.CardId == "card-psychic-probe" && card.Counters == 0);
     private bool CanUseWings => IsRunning && _game?.CurrentTurn is not null && LocalPlayer is { IsAlive: true } player &&
-        (player.Health < player.MaxHealth || CanAnswerRapidHealingDecision) && player.Energy >= 2 && HasCardEffect("card-wings") &&
+        (player.Health < player.MaxHealth || CanAnswerRapidHealingDecision) &&
+        player.Energy >= 2 + PurchaseEnergyReservedForLocalPlayer && HasCardEffect("card-wings") &&
         (!HasPendingDecision || CanAnswerLeaveTokyoDecision || CanAnswerRapidHealingDecision) &&
-        !(CanAnswerRapidHealingDecision && _game.PendingDecision?.Payload is System.Text.Json.JsonElement payload &&
-            payload.TryGetProperty("wingsActivated", out var activated) && activated.ValueKind == System.Text.Json.JsonValueKind.True);
+        !(CanAnswerRapidHealingDecision && WingsProtectingThisDecision);
     private bool CanSetMimicTarget => IsRunning && !HasPendingDecision && IsLocalActor && LocalPlayer is { IsAlive: true } player &&
         player.KeepCards.FirstOrDefault(card => card.CardId == "card-mimic") is { } mimic &&
         ((mimic.MimicTarget is null && CanUseMarketActions) ||
@@ -517,8 +539,11 @@
             if (CanUseMarketActions) return "Buy cards or end turn";
             if (CanEndTurn) return "End your turn";
             if (CanAdvancePlayer) return "Advance to next player";
+            if (CanAnswerRapidHealingDecision) return "Respond to incoming damage";
+            if (CanAnswerLeaveTokyoDecision) return "Leave or stay in Tokyo";
+            if (CanAnswerOpportunistDecision || CanAnswerPeekDecision) return "Choose whether to buy";
             if (_game?.PendingDecision is not null) return $"Waiting for {PlayerName(_game.PendingDecision.PlayerId)}";
-            if (_game?.CurrentTurn is not null && !IsLocalActor) return $"Waiting for {PlayerName(_game.CurrentTurn.CurrentPlayerId)}";
+            if (_game?.CurrentTurn is not null && !IsLocalActor) return $"Waiting for {PlayerName(CurrentActorId ?? _game.CurrentTurn.CurrentPlayerId)}";
             return "Waiting";
         }
     }
@@ -537,6 +562,9 @@
             if (CanUseMarketActions) return "Buy cards from the market, refresh the market, or end your turn.";
             if (CanEndTurn) return "Your monster was eliminated; finish this turn.";
             if (CanAdvancePlayer) return "The current turn is finished. Move to the next monster.";
+            if (CanAnswerRapidHealingDecision) return "Use a card if you wish, then continue damage resolution.";
+            if (CanAnswerLeaveTokyoDecision) return "Choose whether your monster stays in Tokyo.";
+            if (CanAnswerOpportunistDecision || CanAnswerPeekDecision) return "Buy or decline the revealed card above.";
             if (_game?.PendingDecision is not null) return "Another decision must be answered before the game can continue.";
             if (_game?.CurrentTurn is not null && !IsLocalActor) return "This browser is not controlling the active monster.";
             return "Refresh the game if you expect a new state.";
@@ -553,7 +581,7 @@
         }
 
         await RefreshAsync();
-        await RefreshEventsAsync();
+        await RefreshEventsAsync(replayHistory: true);
         _cts = new CancellationTokenSource();
         _timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
         _ = PollAsync(_cts.Token);
@@ -637,6 +665,7 @@
                 {
                     await RefreshAsync();
                     await RefreshEventsAsync();
+                    StateHasChanged();
                 });
             }
         }
@@ -674,14 +703,19 @@
         _selectedDiceIndexes.RemoveWhere(index => !validIndexes.Contains(index));
     }
 
-    private async Task RefreshEventsAsync()
+    private async Task RefreshEventsAsync(bool replayHistory = false)
     {
         try
         {
-            var cursor = await ApiClient.GetEventsAsync(GameId, Session.LastEventSequence);
+            var cursor = await ApiClient.GetEventsAsync(GameId, replayHistory ? 0 : Session.LastEventSequence);
             if (cursor is null)
             {
                 return;
+            }
+
+            if (replayHistory)
+            {
+                _eventFeed.Clear();
             }
 
             foreach (var envelope in cursor.Events)
@@ -690,6 +724,11 @@
                 {
                     _eventFeed.Add(EventFeedItem.From(envelope, PlayerName));
                 }
+            }
+
+            if (_eventFeed.Count > 100)
+            {
+                _eventFeed.RemoveRange(0, _eventFeed.Count - 100);
             }
 
             Session.LastEventSequence = cursor.CurrentEventSequence;
@@ -818,7 +857,9 @@
                 "DiceRolledEvent" => new(sequence, "Dice rolled", $"{Name(playerName, playerId)} rolled {FormatFaces(json)} on roll {ReadInt(json, "rollNumber") ?? 1}."),
                 "DiceFinalizedEvent" => new(sequence, "Dice resolved", $"{Name(playerName, playerId)} resolved dice: {FormatDiceSummary(json)}."),
                 "DamageDealtEvent" => new(sequence, "Damage dealt", $"{Name(playerName, sourcePlayerId)} dealt {amount ?? 0} damage to {Name(playerName, targetPlayerId)}{FormatSuffix(ReadString(json, "damageKind"))}."),
-                "DamageCanceledEvent" => new(sequence, "Damage canceled", $"Damage against {Name(playerName, targetPlayerId ?? playerId)} was canceled{FormatSuffix(reason)}."),
+                "DamageCanceledEvent" when amount == 0 => new(sequence, "Wings activated", $"{Name(playerName, playerId)} is ready to cancel incoming damage."),
+                "DamageCanceledEvent" => new(sequence, "Damage canceled", $"{Name(playerName, playerId)} canceled {amount ?? 0} damage{FormatSuffix(reason)}."),
+                "DamagePreventedEvent" => new(sequence, "Damage prevented", $"{Name(playerName, targetPlayerId)} prevented {amount ?? 0} damage from {Name(playerName, sourcePlayerId)}{FormatSuffix(reason)}."),
                 "PlayerHealedEvent" => new(sequence, "Healing", $"{Name(playerName, playerId)} healed {amount ?? 0} HP{FormatSuffix(reason)}."),
                 "TokyoEnteredEvent" => new(sequence, "Tokyo entered", $"{Name(playerName, playerId)} entered {FormatTokyoSlot(slot)}."),
                 "TokyoLeftEvent" => new(sequence, "Tokyo left", $"{Name(playerName, playerId)} left {FormatTokyoSlot(slot)}."),

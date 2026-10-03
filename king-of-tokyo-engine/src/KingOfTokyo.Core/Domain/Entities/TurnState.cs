@@ -22,6 +22,7 @@ public sealed class TurnState
     public DicePoolState DicePool { get; }
     public bool DiceResolved { get; private set; }
     public bool PurchasePhaseFinished { get; private set; }
+    public bool AdvancedToNextPlayer { get; private set; }
     public int HealingRayHeartsSpent { get; private set; }
     public int HeartsUsedElsewhere { get; private set; }
     public int HeartsReservedForHealingRayAfterRapidHealing { get; private set; }
@@ -98,6 +99,16 @@ public sealed class TurnState
     public void MarkPurchasePhaseFinished()
     {
         PurchasePhaseFinished = true;
+    }
+
+    public void MarkAdvancedToNextPlayer()
+    {
+        if (Phase != TurnPhase.Finished || AdvancedToNextPlayer)
+        {
+            throw new InvalidOperationException("This turn cannot be advanced again.");
+        }
+
+        AdvancedToNextPlayer = true;
     }
 
     public void StartRapidHealingWindow(

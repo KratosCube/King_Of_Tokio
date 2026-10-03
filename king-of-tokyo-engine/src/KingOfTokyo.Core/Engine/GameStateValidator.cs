@@ -32,6 +32,11 @@ public sealed class GameStateValidator
             throw new InvalidOperationException("Cannot begin a new turn while another turn is still active.");
         }
 
+        if (gameState.CurrentTurn is { Phase: TurnPhase.Finished, AdvancedToNextPlayer: false })
+        {
+            throw new InvalidOperationException("Advance to the next player before beginning another turn.");
+        }
+
         var currentPlayer = gameState.GetCurrentPlayer();
 
         if (!currentPlayer.IsAlive)
@@ -284,9 +289,9 @@ public sealed class GameStateValidator
             throw new InvalidOperationException("Cannot advance to next player while another decision is pending.");
         }
 
-        if (gameState.CurrentTurn.Phase != TurnPhase.Finished)
+        if (gameState.CurrentTurn.Phase != TurnPhase.Finished || gameState.CurrentTurn.AdvancedToNextPlayer)
         {
-            throw new InvalidOperationException("Can only advance after the current turn is finished.");
+            throw new InvalidOperationException("A finished turn can only be advanced once.");
         }
 
         if (command.ActorPlayerId.HasValue && command.ActorPlayerId.Value != gameState.CurrentTurn.CurrentPlayerId)

@@ -24,3 +24,58 @@ jobs:
 
       - name: Test
         run: dotnet test king-of-tokyo-engine/KingOfTokyo.Engine.slnx --logger "console;verbosity=normal"
+
+  ui-smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build API and web UI
+        run: dotnet build king-of-tokyo-engine/KingOfTokyo.Engine.slnx
+
+      - name: Install browser test dependencies
+        run: |
+          npm install --prefix king-of-tokyo-engine/tests/ui-smoke --no-audit --no-fund
+          king-of-tokyo-engine/tests/ui-smoke/node_modules/.bin/playwright install chromium --with-deps
+
+      - name: Test live UI in Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet run --no-build --project king-of-tokyo-engine/src/KingOfTokyo.Api/KingOfTokyo.Api.csproj --urls http://localhost:5000 > "$RUNNER_TEMP/kot-api.log" 2>&1 &
+          api_pid=$!
+          dotnet run --no-build --project king-of-tokyo-engine/src/KingOfTokyo.Web/KingOfTokyo.Web.csproj --urls http://localhost:5173 > "$RUNNER_TEMP/kot-web.log" 2>&1 &
+          web_pid=$!
+          trap 'kill "$api_pid" "$web_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..90}; do
+            if curl --silent --output /dev/null http://localhost:5000/ && curl --silent --output /dev/null http://localhost:5173/; then
+              break
+            fi
+            sleep 1
+          done
+          if ! node king-of-tokyo-engine/tests/ui-smoke/smoke.mjs; then
+            cat "$RUNNER_TEMP/kot-api.log" "$RUNNER_TEMP/kot-web.log"
+            exit 1
+          fi
+
+      - name: Save UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-smoke-screenshots
+          path: king-of-tokyo-engine/tests/ui-smoke/artifacts/*.png
+          if-no-files-found: ignore

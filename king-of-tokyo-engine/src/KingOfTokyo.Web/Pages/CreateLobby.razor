@@ -15,13 +15,13 @@
     <EditForm Model="_model" OnValidSubmit="CreateAsync" class="form-grid">
         <div class="grid-2">
             <div class="field">
-                <label>Lobby name</label>
-                <InputText @bind-Value="_model.Name" />
+                <label for="lobby-name">Lobby name</label>
+                <InputText id="lobby-name" @bind-Value="_model.Name" />
             </div>
 
             <div class="field">
-                <label>Your display name</label>
-                <InputText @bind-Value="_model.HostDisplayName" />
+                <label for="host-name">Your display name</label>
+                <InputText id="host-name" @bind-Value="_model.HostDisplayName" />
             </div>
         </div>
 
@@ -44,12 +44,12 @@
 
         <div class="grid-2">
             <div class="field">
-                <label>Max players</label>
-                <InputNumber @bind-Value="_model.MaxPlayers" />
+                <label for="max-players">Max players</label>
+                <InputNumber id="max-players" min="2" max="6" @bind-Value="_model.MaxPlayers" />
             </div>
             <div class="field">
-                <label>Visibility</label>
-                <InputSelect @bind-Value="_model.IsPublic">
+                <label for="visibility">Visibility</label>
+                <InputSelect id="visibility" @bind-Value="_model.IsPublic">
                     <option value="true">Public</option>
                     <option value="false">Private</option>
                 </InputSelect>
@@ -58,12 +58,12 @@
 
         <div class="grid-2">
             <div class="field">
-                <label>Initial health</label>
-                <InputNumber @bind-Value="_model.InitialHealth" />
+                <label for="initial-health">Initial health</label>
+                <InputNumber id="initial-health" min="1" max="50" @bind-Value="_model.InitialHealth" />
             </div>
             <div class="field">
-                <label>Target VP/XP</label>
-                <InputNumber @bind-Value="_model.TargetVictoryPoints" />
+                <label for="target-vp">Target VP/XP</label>
+                <InputNumber id="target-vp" min="1" max="100" @bind-Value="_model.TargetVictoryPoints" />
             </div>
         </div>
 
