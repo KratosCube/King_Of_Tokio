@@ -23,6 +23,7 @@ public sealed class TurnState
     public int HealingRayHeartsSpent { get; private set; }
     public int HeartsUsedElsewhere { get; private set; }
     public int HeartsReservedForHealingRayAfterRapidHealing { get; private set; }
+    public bool EndTurnAfterRapidHealing { get; private set; }
     public TurnFlags Flags { get; }
 
     public bool HasPendingTokyoLeaveDecisions => _pendingTokyoLeaveDecisions.Count > 0;
@@ -93,7 +94,7 @@ public sealed class TurnState
         PurchasePhaseFinished = true;
     }
 
-    public void StartRapidHealingWindow(IEnumerable<int> defenderIds, int heartsReservedForHealingRay)
+    public void StartRapidHealingWindow(IEnumerable<int> defenderIds, int heartsReservedForHealingRay, bool endTurn = false)
     {
         ArgumentNullException.ThrowIfNull(defenderIds);
         if (HasPendingRapidHealingDefenders || heartsReservedForHealingRay < 0)
@@ -112,6 +113,7 @@ public sealed class TurnState
         }
 
         HeartsReservedForHealingRayAfterRapidHealing = heartsReservedForHealingRay;
+        EndTurnAfterRapidHealing = endTurn;
     }
 
     public void ContinueAfterRapidHealing()

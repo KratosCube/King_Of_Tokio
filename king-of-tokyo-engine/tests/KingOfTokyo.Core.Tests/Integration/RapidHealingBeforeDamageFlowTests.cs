@@ -139,6 +139,33 @@ public sealed class RapidHealingBeforeDamageFlowTests
         Assert.Equal(DecisionType.RapidHealingBeforeDamage, game.PendingDecision!.DecisionType);
     }
 
+    [Fact]
+    public void CurrentPlayer_CanHealBeforeLethalPoisonAtEndOfTurn()
+    {
+        var player = CreateWoundedHealer(0, health: 1);
+        player.Status.AddPoisonTokens(1);
+        var other = new PlayerState(1, "Other");
+        var game = new GameState(new[] { player, other }, new GameOptions(2));
+        var engine = CreateEngine(DieFace.One, DieFace.Two, DieFace.Three,
+            DieFace.Energy, DieFace.Energy, DieFace.Energy);
+        StartAndRoll(engine, game);
+        Assert.True(engine.Execute(game, new FinalizeDiceCommand(0)).Success);
+
+        var window = engine.Execute(game, new EndTurnCommand(0));
+        Assert.True(window.Success, window.Error);
+        Assert.Equal(DecisionType.RapidHealingBeforeDamage, window.PendingDecision!.DecisionType);
+        Assert.Equal(1, player.Health);
+
+        Assert.True(engine.Execute(game, new ActivateRapidHealingCommand(0)).Success);
+        var resolved = engine.Execute(game, new ContinueAfterRapidHealingCommand(0));
+        Assert.True(resolved.Success, resolved.Error);
+        Assert.Equal(1, player.Health);
+        Assert.True(player.IsAlive);
+        Assert.Equal(TurnPhase.Finished, game.CurrentTurn!.Phase);
+        Assert.Contains(resolved.NewEvents, gameEvent => gameEvent is DamageDealtEvent damage &&
+            damage.TargetPlayerId == player.PlayerId && damage.Amount == 1);
+    }
+
     private static PlayerState CreateWoundedHealer(int playerId, int health)
     {
         var player = new PlayerState(playerId, $"Defender {playerId}");

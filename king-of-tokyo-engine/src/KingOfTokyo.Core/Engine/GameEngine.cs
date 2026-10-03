@@ -202,7 +202,8 @@ public sealed class GameEngine : IGameEngine
     private CommandResult ExecuteContinueAfterRapidHealing(GameState gameState, ContinueAfterRapidHealingCommand command)
     {
         var turn = gameState.CurrentTurn;
-        if (gameState.Status != GameStatus.Running || turn is null || turn.Phase != TurnPhase.Rolling ||
+        if (gameState.Status != GameStatus.Running || turn is null ||
+            turn.Phase != (turn.EndTurnAfterRapidHealing ? TurnPhase.Purchase : TurnPhase.Rolling) ||
             !turn.HasPendingRapidHealingDefenders ||
             gameState.PendingDecision?.DecisionType != DecisionType.RapidHealingBeforeDamage ||
             command.ActorPlayerId != turn.NextRapidHealingDefenderId ||
@@ -220,6 +221,15 @@ public sealed class GameEngine : IGameEngine
         }
 
         gameState.ClearPendingDecision();
+        if (turn.EndTurnAfterRapidHealing)
+        {
+            var endTurnCommand = new EndTurnCommand(turn.CurrentPlayerId);
+            _validator.EnsureCanEndTurn(gameState, endTurnCommand);
+            var endTurnResult = _turnLifecycleService.EndTurn(gameState);
+            PublishEvents(endTurnResult.Events);
+            return CommandResult.Successful(gameState, endTurnResult.Events, endTurnResult.PendingDecision);
+        }
+
         var finalizeCommand = new FinalizeDiceCommand(turn.CurrentPlayerId, turn.HeartsReservedForHealingRayAfterRapidHealing);
         _validator.EnsureCanFinalizeDice(gameState, finalizeCommand);
         var stepResult = _finalizeDiceService.Execute(gameState, finalizeCommand.HeartsReservedForHealingRay);
@@ -487,6 +497,17 @@ public sealed class GameEngine : IGameEngine
     private CommandResult ExecuteEndTurn(GameState gameState, EndTurnCommand command)
     {
         _validator.EnsureCanEndTurn(gameState, command);
+        var currentPlayer = gameState.GetCurrentPlayer();
+        if (currentPlayer.Status.PoisonTokens >= currentPlayer.Health &&
+            _keepCardRulesService.CanUseRapidHealing(currentPlayer))
+        {
+            var turn = gameState.CurrentTurn!;
+            turn.StartRapidHealingWindow(new[] { currentPlayer.PlayerId }, 0, endTurn: true);
+            var decision = CreateRapidHealingDecision(currentPlayer.PlayerId);
+            gameState.SetPendingDecision(decision);
+            return CommandResult.Successful(gameState, pendingDecision: decision);
+        }
+
         var stepResult = _turnLifecycleService.EndTurn(gameState);
         PublishEvents(stepResult.Events);
         return CommandResult.Successful(gameState, stepResult.Events, stepResult.PendingDecision);
