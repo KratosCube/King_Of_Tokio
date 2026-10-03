@@ -113,6 +113,32 @@ public sealed class RapidHealingBeforeDamageFlowTests
             damage.TargetPlayerId == defender.PlayerId && damage.Amount == 2);
     }
 
+    [Fact]
+    public void Attacker_CannotAlterTheRollWhileDefenderIsDeciding()
+    {
+        var attacker = new PlayerState(0, "Attacker");
+        attacker.GainEnergy(3);
+        attacker.AddKeepCard(new MarketCardState(KnownCardIds.Telepath, "Telepath", "Extra roll.", 5, MarketCardType.Keep));
+        attacker.AddKeepCard(new MarketCardState(KnownCardIds.Stretchy, "Stretchy", "Change a die.", 4, MarketCardType.Keep));
+        attacker.AddKeepCard(new MarketCardState(KnownCardIds.HerdCuller, "Herd Culler", "Change a die.", 3, MarketCardType.Keep));
+        var defender = CreateWoundedHealer(1, health: 1);
+        defender.SetTokyoSlot(TokyoSlot.City);
+        var game = new GameState(new[] { attacker, defender }, new GameOptions(2));
+        game.Tokyo.SetCityOccupant(defender.PlayerId);
+        var engine = CreateEngine(DieFace.Attack, DieFace.One, DieFace.Two,
+            DieFace.Heart, DieFace.Three, DieFace.Energy);
+        StartAndRoll(engine, game);
+        Assert.True(engine.Execute(game, new FinalizeDiceCommand(0)).Success);
+
+        var facesBefore = game.CurrentTurn!.DicePool.Dice.Select(die => die.CurrentFace).ToArray();
+        Assert.False(engine.Execute(game, new ActivateTelepathCommand(0)).Success);
+        Assert.False(engine.Execute(game, new ActivateStretchyCommand(0, DieFace.Three, 0)).Success);
+        Assert.False(engine.Execute(game, new ActivateHerdCullerCommand(0, 0)).Success);
+        Assert.Equal(facesBefore, game.CurrentTurn.DicePool.Dice.Select(die => die.CurrentFace));
+        Assert.Equal(3, attacker.Energy);
+        Assert.Equal(DecisionType.RapidHealingBeforeDamage, game.PendingDecision!.DecisionType);
+    }
+
     private static PlayerState CreateWoundedHealer(int playerId, int health)
     {
         var player = new PlayerState(playerId, $"Defender {playerId}");

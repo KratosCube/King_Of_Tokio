@@ -454,6 +454,11 @@ public sealed class GameStateValidator
             throw new InvalidOperationException("Telepath can only be used after at least one roll.");
         }
 
+        if (gameState.PendingDecision is not null && gameState.PendingDecision.DecisionType != DecisionType.SelectDiceToReroll)
+        {
+            throw new InvalidOperationException("Telepath cannot change dice while another decision is pending.");
+        }
+
         var currentPlayer = gameState.GetCurrentPlayer();
 
         if (command.ActorPlayerId.HasValue && command.ActorPlayerId.Value != currentPlayer.PlayerId)
@@ -696,6 +701,11 @@ public sealed class GameStateValidator
         if (gameState.CurrentTurn.RollCountUsed <= 0)
         {
             throw new InvalidOperationException($"{cardName} can only be used after at least one roll.");
+        }
+
+        if (gameState.PendingDecision is not null && gameState.PendingDecision.DecisionType != DecisionType.SelectDiceToReroll)
+        {
+            throw new InvalidOperationException($"{cardName} cannot change dice while another decision is pending.");
         }
 
         var currentPlayer = gameState.GetCurrentPlayer();
