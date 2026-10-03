@@ -105,7 +105,8 @@ public sealed record TurnDto(
     bool PurchasePhaseFinished,
     IReadOnlyList<DieDto> Dice,
     TurnFlagsDto Flags,
-    int UnusedHealingRayHearts = 0);
+    int UnusedHealingRayHearts = 0,
+    bool AdvancedToNextPlayer = false);
 
 public sealed record DieDto(int Index, string CurrentFace, bool IsLocked);
 

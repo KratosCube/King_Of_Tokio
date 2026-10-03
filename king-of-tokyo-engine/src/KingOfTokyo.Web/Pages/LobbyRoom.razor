@@ -30,18 +30,25 @@
                     Target VP/XP: @_lobby.TargetVictoryPoints<br />
                     Visibility: @(_lobby.IsPublic ? "Public" : "Private")
                 </p>
+                <div class="field">
+                    <label for="lobby-link">Invite link</label>
+                    <input id="lobby-link" value="@LobbyUrl" readonly aria-label="Invite link" />
+                    <small class="muted">Copy this link and open it in another browser profile or private window.</small>
+                </div>
             </section>
 
+            @if ((_lobby.Status is "WaitingForPlayers" or "ReadyToStart") && _currentSeat is null)
+            {
             <section class="panel">
                 <h2>Join this lobby</h2>
-                <p class="muted">Use this form from another browser/incognito window. For local solo testing, use the test monster button below.</p>
+                <p class="muted">Each player needs a separate browser profile or private window.</p>
                 <div class="field">
-                    <label>Your display name</label>
-                    <InputText @bind-Value="_joinName" />
+                    <label for="join-name">Your display name</label>
+                    <InputText id="join-name" @bind-Value="_joinName" />
                 </div>
                 <div class="field">
-                    <label>Your monster</label>
-                    <InputSelect @bind-Value="_joinMonsterId" @onchange="OnJoinMonsterChanged">
+                    <label for="join-monster">Your monster</label>
+                    <InputSelect id="join-monster" @bind-Value="_joinMonsterId" @onchange="OnJoinMonsterChanged">
                         @foreach (var monster in MonsterCatalog.Monsters)
                         {
                             <option value="@monster.MonsterId">@monster.Emoji @monster.MonsterName</option>
@@ -49,10 +56,18 @@
                     </InputSelect>
                 </div>
                 <div class="actions">
-                    <button class="btn btn-secondary" @onclick="JoinAsync" disabled="@(_busy || (Session.HasLobbyIdentity && Session.LobbyId == LobbyId))">Join</button>
+                    <button class="btn btn-secondary" @onclick="JoinAsync" disabled="@_busy">Join</button>
                     <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_busy">Refresh</button>
                 </div>
             </section>
+            }
+            else
+            {
+                <section class="panel">
+                    <h2>@(_lobby.GameId is null ? "Waiting for players" : "Game ready")</h2>
+                    <p class="muted">@(_lobby.GameId is null ? "When everyone is ready, the host can start the game." : "Open the game from your own browser window.")</p>
+                </section>
+            }
         </div>
 
         <section class="panel">
@@ -106,6 +121,7 @@
     private string _joinName = "Guest";
     private string _joinMonsterId = MonsterCatalog.Default.MonsterId;
     private MonsterOption _joinMonster = MonsterCatalog.Default;
+    private string LobbyUrl => Navigation.ToAbsoluteUri($"/lobbies/{LobbyId}").ToString();
     private bool _canToggleReady => _lobby is not null && Session.PlayerToken is not null && _currentSeat is not null && _lobby.Status is "WaitingForPlayers" or "ReadyToStart";
     private bool _canStart => _lobby?.Status == "ReadyToStart" && _currentSeat?.IsHost == true && Session.PlayerToken is not null;
 
@@ -143,6 +159,7 @@
         try
         {
             _lobby = await ApiClient.GetLobbyAsync(LobbyId);
+            _error = null;
             _currentSeat = Session.LobbyId == LobbyId ? _lobby?.Seats.FirstOrDefault(seat => seat.PlayerId == Session.PlayerId) : null;
 
             if (_lobby?.GameId is not null && Session.GameId != _lobby.GameId.Value)

@@ -189,7 +189,7 @@ public sealed class GameEngine : IGameEngine
         {
             var turn = gameState.CurrentTurn!;
             turn.StartRapidHealingWindow(defenders, command.HeartsReservedForHealingRay);
-            var decision = CreateRapidHealingDecision(turn.NextRapidHealingDefenderId);
+            var decision = CreateRapidHealingDecision(turn);
             gameState.SetPendingDecision(decision);
             return CommandResult.Successful(gameState, pendingDecision: decision);
         }
@@ -216,7 +216,7 @@ public sealed class GameEngine : IGameEngine
         turn.ContinueAfterRapidHealing();
         if (turn.HasPendingRapidHealingDefenders)
         {
-            var nextDecision = CreateRapidHealingDecision(turn.NextRapidHealingDefenderId);
+            var nextDecision = CreateRapidHealingDecision(turn);
             gameState.SetPendingDecision(nextDecision);
             return CommandResult.Successful(gameState, pendingDecision: nextDecision);
         }
@@ -289,11 +289,13 @@ public sealed class GameEngine : IGameEngine
     private bool CanPreventLethalDamage(PlayerState player) =>
         _keepCardRulesService.CanUseRapidHealing(player) || _keepCardRulesService.CanUseWings(player);
 
-    private static PendingDecision CreateRapidHealingDecision(int defenderId) => new()
+    private static PendingDecision CreateRapidHealingDecision(TurnState turn) => new()
     {
         DecisionType = DecisionType.RapidHealingBeforeDamage,
-        PlayerId = defenderId,
-        Payload = new LethalDamageDecisionData()
+        PlayerId = turn.NextRapidHealingDefenderId,
+        Payload = new LethalDamageDecisionData(
+            PurchaseBuyerId: turn.PurchaseBuyerIdAfterRapidHealing,
+            PurchaseCost: turn.PurchaseCostAfterRapidHealing)
     };
 
     private CommandResult? StartPurchaseRapidHealingWindow(
@@ -340,7 +342,7 @@ public sealed class GameEngine : IGameEngine
             suspendedPurchaseDecision: gameState.PendingDecision,
             purchaseBuyerId: buyer.PlayerId,
             purchaseCost: _keepCardRulesService.GetEffectivePurchaseCost(buyer, card));
-        var decision = CreateRapidHealingDecision(turn.NextRapidHealingDefenderId);
+        var decision = CreateRapidHealingDecision(turn);
         gameState.SetPendingDecision(decision);
         return CommandResult.Successful(gameState, pendingDecision: decision);
     }
@@ -594,7 +596,7 @@ public sealed class GameEngine : IGameEngine
         {
             var turn = gameState.CurrentTurn!;
             turn.StartRapidHealingWindow(new[] { currentPlayer.PlayerId }, 0, endTurn: true);
-            var decision = CreateRapidHealingDecision(currentPlayer.PlayerId);
+            var decision = CreateRapidHealingDecision(turn);
             gameState.SetPendingDecision(decision);
             return CommandResult.Successful(gameState, pendingDecision: decision);
         }
@@ -608,6 +610,7 @@ public sealed class GameEngine : IGameEngine
     {
         _validator.EnsureCanAdvanceToNextPlayer(gameState, command);
         _turnLifecycleService.AdvanceToNextPlayer(gameState);
+        gameState.CurrentTurn!.MarkAdvancedToNextPlayer();
         return CommandResult.Successful(gameState);
     }
 

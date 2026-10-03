@@ -2,7 +2,6 @@
     let isDraggingDice = false;
     let dragStartedOnDiceRow = false;
     let dragStartButton = null;
-    let draggedAcrossDice = false;
     let suppressNextNativeClick = false;
     let isSyntheticDieClick = false;
 
@@ -52,14 +51,12 @@
             isDraggingDice = false;
             dragStartedOnDiceRow = false;
             dragStartButton = null;
-            draggedAcrossDice = false;
             return;
         }
 
         isDraggingDice = true;
         dragStartedOnDiceRow = true;
         dragStartButton = button;
-        draggedAcrossDice = false;
     });
 
     document.addEventListener('pointerover', (event) => {
@@ -72,7 +69,6 @@
             return;
         }
 
-        draggedAcrossDice = true;
         clickIfNotSelected(dragStartButton);
         clickIfNotSelected(button);
         suppressNextNativeClick = true;
@@ -82,14 +78,15 @@
         isDraggingDice = false;
         dragStartedOnDiceRow = false;
         dragStartButton = null;
-        draggedAcrossDice = false;
+        // A drag can end outside a die, so the browser may never dispatch a click.
+        // Clear suppression after this pointer gesture instead of eating a later click.
+        setTimeout(() => { suppressNextNativeClick = false; }, 0);
     });
 
     document.addEventListener('pointercancel', () => {
         isDraggingDice = false;
         dragStartedOnDiceRow = false;
         dragStartButton = null;
-        draggedAcrossDice = false;
         suppressNextNativeClick = false;
         isSyntheticDieClick = false;
     });

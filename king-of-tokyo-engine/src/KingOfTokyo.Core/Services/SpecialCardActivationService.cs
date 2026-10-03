@@ -137,7 +137,9 @@ public sealed class SpecialCardActivationService
             currentTurn.ProtectWithWings(player.PlayerId);
             gameState.SetPendingDecision(gameState.PendingDecision! with
             {
-                Payload = new LethalDamageDecisionData(WingsActivated: true)
+                Payload = gameState.PendingDecision.Payload is LethalDamageDecisionData data
+                    ? data with { WingsActivated = true }
+                    : new LethalDamageDecisionData(WingsActivated: true)
             });
         }
         currentTurn.ClearDamageTakenThisTurn(player.PlayerId);
